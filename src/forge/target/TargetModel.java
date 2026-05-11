@@ -1,5 +1,14 @@
 package forge.target;
 
+import forge.execution.OrderSide;
+
 public interface TargetModel {
-    // Target model interface for exit calculation.
+    String getName();
+
+    TargetResult calculateTarget(
+            OrderSide side,
+            double entryPrice,
+            double stopPrice,
+            double tickSize
+    );
 }
