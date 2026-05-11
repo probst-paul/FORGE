@@ -1,5 +1,8 @@
 package forge.data;
 
+import forge.model.FuturesContract;
+import forge.model.Instrument;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,9 +15,24 @@ public class InstrumentDataCatalog {
 
     public InstrumentDataCatalog() {
         Map<String, AvailableInstrumentData> data = new LinkedHashMap<>();
-        data.put("ES", new AvailableInstrumentData("ES", LocalDate.of(2024, 1, 2), LocalDate.of(2024, 3, 29)));
-        data.put("NQ", new AvailableInstrumentData("NQ", LocalDate.of(2024, 1, 2), LocalDate.of(2024, 3, 29)));
-        data.put("CL", new AvailableInstrumentData("CL", LocalDate.of(2024, 2, 1), LocalDate.of(2024, 3, 15)));
+        addInstrumentData(
+                data,
+                createFuturesInstrument("ES", "E-mini S&P 500", 0.25, 12.50, LocalDate.of(2024, 3, 15)),
+                LocalDate.of(2024, 1, 2),
+                LocalDate.of(2024, 3, 29)
+        );
+        addInstrumentData(
+                data,
+                createFuturesInstrument("NQ", "E-mini Nasdaq-100", 0.25, 5.00, LocalDate.of(2024, 3, 15)),
+                LocalDate.of(2024, 1, 2),
+                LocalDate.of(2024, 3, 29)
+        );
+        addInstrumentData(
+                data,
+                createFuturesInstrument("CL", "Crude Oil", 0.01, 10.00, LocalDate.of(2024, 3, 20)),
+                LocalDate.of(2024, 2, 1),
+                LocalDate.of(2024, 3, 15)
+        );
         this.availableData = Collections.unmodifiableMap(data);
     }
 
@@ -63,19 +81,54 @@ public class InstrumentDataCatalog {
         return instrumentData;
     }
 
+    private static Instrument createFuturesInstrument(
+            String symbol,
+            String displayName,
+            double tickSize,
+            double tickDollarAmount,
+            LocalDate expirationDate
+    ) {
+        return new FuturesContract(symbol, displayName, tickSize, tickDollarAmount, expirationDate);
+    }
+
+    private static void addInstrumentData(
+            Map<String, AvailableInstrumentData> data,
+            Instrument instrument,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        data.put(instrument.getSymbolCode(), new AvailableInstrumentData(instrument, startDate, endDate));
+    }
+
     public static class AvailableInstrumentData {
-        private final String symbol;
+        private final Instrument instrument;
         private final LocalDate startDate;
         private final LocalDate endDate;
 
-        public AvailableInstrumentData(String symbol, LocalDate startDate, LocalDate endDate) {
-            this.symbol = symbol;
+        public AvailableInstrumentData(Instrument instrument, LocalDate startDate, LocalDate endDate) {
+            this.instrument = instrument;
             this.startDate = startDate;
             this.endDate = endDate;
         }
 
+        public Instrument getInstrument() {
+            return instrument;
+        }
+
         public String getSymbol() {
-            return symbol;
+            return instrument.getSymbolCode();
+        }
+
+        public double getFuturesTickSize() {
+            return asFuturesContract().getTickSize();
+        }
+
+        public double getFuturesTickDollarAmount() {
+            return asFuturesContract().getTickDollarAmount();
+        }
+
+        public LocalDate getFuturesExpirationDate() {
+            return asFuturesContract().getExpirationDate();
         }
 
         public LocalDate getStartDate() {
@@ -88,7 +141,14 @@ public class InstrumentDataCatalog {
 
         @Override
         public String toString() {
-            return symbol + " (" + startDate + " to " + endDate + ")";
+            return instrument.getSymbolCode() + " (" + startDate + " to " + endDate + ")";
+        }
+
+        private FuturesContract asFuturesContract() {
+            if (instrument instanceof FuturesContract) {
+                return (FuturesContract) instrument;
+            }
+            throw new IllegalStateException("Instrument is not a futures contract: " + instrument.getSymbolCode());
         }
     }
 
