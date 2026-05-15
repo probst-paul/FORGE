@@ -8,8 +8,10 @@ import forge.data.InstrumentDataCatalog;
 import forge.strategy.FacadeStrategy;
 import forge.strategy.StrategyCatalog;
 import forge.strategy.TradingStrategy;
+import forge.target.FacadeTarget;
 import forge.target.TargetModel;
 import forge.target.TargetModelCatalog;
+import forge.trigger.FacadeTrigger;
 import forge.trigger.TradeTrigger;
 import forge.trigger.TriggerCatalog;
 
@@ -31,24 +33,24 @@ public class FacadeForgeApplication {
         this(
                 new InstrumentDataCatalog(),
                 new FacadeStrategy(),
-                new TriggerCatalog(),
-                new TargetModelCatalog()
+                new FacadeTrigger(),
+                new FacadeTarget()
         );
     }
 
     public FacadeForgeApplication(
             InstrumentDataCatalog instrumentDataCatalog,
             FacadeStrategy facadeStrategy,
-            TriggerCatalog triggerCatalog,
-            TargetModelCatalog targetModelCatalog
+            FacadeTrigger facadeTrigger,
+            FacadeTarget facadeTarget
     ) {
         this(
                 new FacadeBacktestConfiguration(),
                 new InstrumentSelectionService(instrumentDataCatalog),
                 new StrategySelectionService(facadeStrategy),
                 new RiskSettingsSelectionService(),
-                new TriggerSelectionService(triggerCatalog),
-                new TargetModelSelectionService(targetModelCatalog)
+                new TriggerSelectionService(facadeTrigger),
+                new TargetModelSelectionService(facadeTarget)
         );
     }
 
@@ -61,8 +63,8 @@ public class FacadeForgeApplication {
         this(
                 instrumentDataCatalog,
                 new FacadeStrategy(strategyCatalog),
-                triggerCatalog,
-                targetModelCatalog
+                new FacadeTrigger(triggerCatalog),
+                new FacadeTarget(targetModelCatalog)
         );
     }
 

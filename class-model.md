@@ -46,13 +46,13 @@ classDiagram
     }
 
     class TriggerSelectionService {
-        -TriggerCatalog triggerCatalog
+        -FacadeTrigger facadeTrigger
         +Class selectTrigger(UserInput input, UserOutput output)
         +String getDisplayName(Class trigger)
     }
 
     class TargetModelSelectionService {
-        -TargetModelCatalog targetModelCatalog
+        -FacadeTarget facadeTarget
         +Class selectTargetModel(UserInput input, UserOutput output)
         +TargetSettings readTargetModelSettings(UserInput input, Class targetModel)
         +String getDisplayName(Class targetModel)
@@ -181,9 +181,26 @@ classDiagram
         +String getDisplayName(Class triggerClass)
     }
 
+    class FacadeTrigger {
+        -TriggerCatalog triggerCatalog
+        +List~Class~ findAvailableTriggers()
+        +String getDisplayName(Class trigger)
+        +TradeTriggerOptions createTriggerOptions(Class trigger)
+        +TradeTrigger createTrigger(Class trigger)
+    }
+
     class TargetModelCatalog {
         +List~Class~ findAvailableTargetModels()
         +String getDisplayName(Class targetModelClass)
+    }
+
+    class FacadeTarget {
+        -TargetModelCatalog targetModelCatalog
+        +List~Class~ findAvailableTargetModels()
+        +String getDisplayName(Class targetModel)
+        +TargetSettings createFixedRiskRewardSettings(Class targetModel, double rewardRiskRatio)
+        +TargetSettings createFixedTargetSettings(Class targetModel, int profitTargetTicks)
+        +TargetModel createTargetModel(Class targetModel)
     }
 
     class BacktestRequest {
@@ -227,8 +244,14 @@ classDiagram
     FacadeStrategy --> StrategyCatalog
     FacadeStrategy --> StrategyOptions : creates
     FacadeStrategy --> TradingStrategy : creates
-    TriggerSelectionService --> TriggerCatalog
-    TargetModelSelectionService --> TargetModelCatalog
+    TriggerSelectionService --> FacadeTrigger
+    FacadeTrigger --> TriggerCatalog
+    FacadeTrigger --> TradeTriggerOptions : creates
+    FacadeTrigger --> TradeTrigger : creates
+    TargetModelSelectionService --> FacadeTarget
+    FacadeTarget --> TargetModelCatalog
+    FacadeTarget --> TargetSettings : creates
+    FacadeTarget --> TargetModel : creates
     FacadeBacktestConfiguration --> BacktestRequest : creates
     FacadeBacktestConfiguration --> StrategyOptions : creates
     FacadeBacktestConfiguration --> TradeTriggerOptions : creates
@@ -251,6 +274,8 @@ classDiagram
 - **Facade pattern:** `FacadeForgeApplication` gives `Main` one simple entry point for the application workflow while hiding the catalog lookups, validation order, and `BacktestRequest` assembly.
 - **Configuration facade:** `FacadeBacktestConfiguration` owns construction of `BacktestRequest`, `StrategyOptions`, `TradeTriggerOptions`, and default `OrderSettings`, keeping configuration assembly inside `config/`.
 - **Strategy facade:** `FacadeStrategy` gives callers one entry point for strategy discovery, display names, option creation, and strategy instantiation.
+- **Trigger facade:** `FacadeTrigger` gives callers one entry point for trigger discovery, display names, option creation, and trigger instantiation.
+- **Target facade:** `FacadeTarget` gives callers one entry point for target model discovery, display names, target settings creation, and target model instantiation.
 - **Input abstraction:** `UserInput` separates input parsing from the facade, so the application workflow no longer depends directly on `Scanner`.
 - **Output abstraction:** `UserOutput` separates console printing from the facade and selection services.
 - **Service decomposition:** `InstrumentSelectionService`, `StrategySelectionService`, `RiskSettingsSelectionService`, `TriggerSelectionService`, and `TargetModelSelectionService` own the individual setup workflows so the facade can focus on coordinating the overall backtest setup.
