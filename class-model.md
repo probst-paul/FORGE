@@ -30,7 +30,7 @@ classDiagram
     }
 
     class InstrumentSelectionService {
-        -InstrumentDataCatalog instrumentDataCatalog
+        -FacadeData facadeData
         +List~String~ selectInstruments(UserInput input, UserOutput output)
         +LocalDate[] selectDateRange(UserInput input, UserOutput output, List~String~ instruments)
     }
@@ -160,6 +160,13 @@ classDiagram
         +double getFuturesTickSize(String symbol)
     }
 
+    class FacadeData {
+        -InstrumentDataCatalog instrumentDataCatalog
+        +List~AvailableInstrumentData~ getAvailableInstruments()
+        +AvailableDateRange getSharedDateRange(List~String~ symbols)
+        +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
+    }
+
     InstrumentDataCatalog --> Instrument : stores as abstract type / upcasting
     InstrumentDataCatalog ..> FuturesContract : downcasting when futures details are needed
 
@@ -225,6 +232,38 @@ classDiagram
         -String triggerName
     }
 
+    class BacktestEngine {
+    }
+
+    class MarketContext {
+        -String instrumentSymbol
+        -LocalDateTime timestamp
+        -double lastPrice
+        -boolean hasOpenPosition
+    }
+
+    class FacadeEngine {
+        -BacktestEngine backtestEngine
+        +BacktestEngine getBacktestEngine()
+        +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, double lastPrice, boolean hasOpenPosition)
+    }
+
+    class BacktestResult {
+    }
+
+    class PerformanceMetrics {
+    }
+
+    class InstrumentPerformanceReport {
+    }
+
+    class FacadeReporting {
+        +BacktestResult createBacktestResult()
+        +PerformanceMetrics createPerformanceMetrics()
+        +InstrumentPerformanceReport createInstrumentPerformanceReport()
+        +String summarize(BacktestResult result)
+    }
+
     Main --> FacadeForgeApplication : uses facade
     Main --> ConsoleUserInput : adapts console input
     Main --> ConsoleUserOutput : adapts console output
@@ -239,7 +278,8 @@ classDiagram
     FacadeForgeApplication --> TriggerSelectionService
     FacadeForgeApplication --> TargetModelSelectionService
     FacadeForgeApplication --> BacktestRequest : creates
-    InstrumentSelectionService --> InstrumentDataCatalog
+    InstrumentSelectionService --> FacadeData
+    FacadeData --> InstrumentDataCatalog
     StrategySelectionService --> FacadeStrategy
     FacadeStrategy --> StrategyCatalog
     FacadeStrategy --> StrategyOptions : creates
@@ -256,6 +296,11 @@ classDiagram
     FacadeBacktestConfiguration --> StrategyOptions : creates
     FacadeBacktestConfiguration --> TradeTriggerOptions : creates
     FacadeBacktestConfiguration --> OrderSettings : creates defaults
+    FacadeEngine --> BacktestEngine
+    FacadeEngine --> MarketContext : creates
+    FacadeReporting --> BacktestResult : creates/summarizes
+    FacadeReporting --> PerformanceMetrics : creates
+    FacadeReporting --> InstrumentPerformanceReport : creates
 
     BacktestRequest --> TradingStrategy
     BacktestRequest --> TradeTrigger
@@ -276,6 +321,9 @@ classDiagram
 - **Strategy facade:** `FacadeStrategy` gives callers one entry point for strategy discovery, display names, option creation, and strategy instantiation.
 - **Trigger facade:** `FacadeTrigger` gives callers one entry point for trigger discovery, display names, option creation, and trigger instantiation.
 - **Target facade:** `FacadeTarget` gives callers one entry point for target model discovery, display names, target settings creation, and target model instantiation.
+- **Data facade:** `FacadeData` gives callers one entry point for available instrument data, shared date ranges, and date range validation.
+- **Engine facade:** `FacadeEngine` gives callers one entry point for engine access and market context creation while the engine package grows.
+- **Reporting facade:** `FacadeReporting` gives callers one entry point for report/result object creation and result summarization while reporting grows.
 - **Input abstraction:** `UserInput` separates input parsing from the facade, so the application workflow no longer depends directly on `Scanner`.
 - **Output abstraction:** `UserOutput` separates console printing from the facade and selection services.
 - **Service decomposition:** `InstrumentSelectionService`, `StrategySelectionService`, `RiskSettingsSelectionService`, `TriggerSelectionService`, and `TargetModelSelectionService` own the individual setup workflows so the facade can focus on coordinating the overall backtest setup.

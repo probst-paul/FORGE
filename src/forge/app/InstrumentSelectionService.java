@@ -1,6 +1,6 @@
 package forge.app;
 
-import forge.data.InstrumentDataCatalog;
+import forge.data.FacadeData;
 import forge.data.InstrumentDataCatalog.AvailableDateRange;
 import forge.data.InstrumentDataCatalog.AvailableInstrumentData;
 
@@ -10,14 +10,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class InstrumentSelectionService {
-    private final InstrumentDataCatalog instrumentDataCatalog;
+    private final FacadeData facadeData;
 
-    public InstrumentSelectionService(InstrumentDataCatalog instrumentDataCatalog) {
-        this.instrumentDataCatalog = instrumentDataCatalog;
+    public InstrumentSelectionService(FacadeData facadeData) {
+        this.facadeData = facadeData;
     }
 
     public List<String> selectInstruments(UserInput input, UserOutput output) {
-        List<AvailableInstrumentData> instruments = instrumentDataCatalog.getAvailableInstruments();
+        List<AvailableInstrumentData> instruments = facadeData.getAvailableInstruments();
         if (instruments.isEmpty()) {
             throw new IllegalStateException("No instrument data is available");
         }
@@ -46,7 +46,7 @@ public class InstrumentSelectionService {
     }
 
     public LocalDate[] selectDateRange(UserInput input, UserOutput output, List<String> instruments) {
-        AvailableDateRange availableDateRange = instrumentDataCatalog.getSharedDateRange(instruments);
+        AvailableDateRange availableDateRange = facadeData.getSharedDateRange(instruments);
         output.printLine("Available date range for selected instruments: " + availableDateRange);
 
         LocalDate startDate = input.readDateOrDefault(
@@ -57,7 +57,7 @@ public class InstrumentSelectionService {
                 "End date (YYYY-MM-DD, blank for latest available)",
                 availableDateRange.getEndDate()
         );
-        instrumentDataCatalog.validateDateRange(instruments, startDate, endDate);
+        facadeData.validateDateRange(instruments, startDate, endDate);
         return new LocalDate[]{startDate, endDate};
     }
 }

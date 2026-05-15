@@ -4,6 +4,7 @@ import forge.config.BacktestRequest;
 import forge.config.FacadeBacktestConfiguration;
 import forge.config.RiskSettings;
 import forge.config.TargetSettings;
+import forge.data.FacadeData;
 import forge.data.InstrumentDataCatalog;
 import forge.strategy.FacadeStrategy;
 import forge.strategy.StrategyCatalog;
@@ -31,7 +32,7 @@ public class FacadeForgeApplication {
 
     public FacadeForgeApplication() {
         this(
-                new InstrumentDataCatalog(),
+                new FacadeData(),
                 new FacadeStrategy(),
                 new FacadeTrigger(),
                 new FacadeTarget()
@@ -39,14 +40,14 @@ public class FacadeForgeApplication {
     }
 
     public FacadeForgeApplication(
-            InstrumentDataCatalog instrumentDataCatalog,
+            FacadeData facadeData,
             FacadeStrategy facadeStrategy,
             FacadeTrigger facadeTrigger,
             FacadeTarget facadeTarget
     ) {
         this(
                 new FacadeBacktestConfiguration(),
-                new InstrumentSelectionService(instrumentDataCatalog),
+                new InstrumentSelectionService(facadeData),
                 new StrategySelectionService(facadeStrategy),
                 new RiskSettingsSelectionService(),
                 new TriggerSelectionService(facadeTrigger),
@@ -61,7 +62,7 @@ public class FacadeForgeApplication {
             TargetModelCatalog targetModelCatalog
     ) {
         this(
-                instrumentDataCatalog,
+                new FacadeData(instrumentDataCatalog),
                 new FacadeStrategy(strategyCatalog),
                 new FacadeTrigger(triggerCatalog),
                 new FacadeTarget(targetModelCatalog)
