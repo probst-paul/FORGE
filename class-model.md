@@ -8,6 +8,72 @@ config:
 classDiagram
     direction LR
 
+    class Main {
+        +main(String[] args)
+    }
+
+    class FacadeForgeApplication {
+        -InstrumentSelectionService instrumentSelectionService
+        -StrategySelectionService strategySelectionService
+        -RiskSettingsSelectionService riskSettingsSelectionService
+        -TriggerSelectionService triggerSelectionService
+        -TargetModelSelectionService targetModelSelectionService
+        +void runBacktestSetup(UserInput input, UserOutput output)
+        +BacktestRequest configureBacktest(UserInput input, UserOutput output)
+    }
+
+    class InstrumentSelectionService {
+        -InstrumentDataCatalog instrumentDataCatalog
+        +List~String~ selectInstruments(UserInput input, UserOutput output)
+        +LocalDate[] selectDateRange(UserInput input, UserOutput output, List~String~ instruments)
+    }
+
+    class StrategySelectionService {
+        -StrategyCatalog strategyCatalog
+        +Class selectStrategy(UserInput input, UserOutput output)
+        +String getDisplayName(Class strategy)
+    }
+
+    class RiskSettingsSelectionService {
+        +RiskSettings readRiskSettings(UserInput input)
+    }
+
+    class TriggerSelectionService {
+        -TriggerCatalog triggerCatalog
+        +Class selectTrigger(UserInput input, UserOutput output)
+        +String getDisplayName(Class trigger)
+    }
+
+    class TargetModelSelectionService {
+        -TargetModelCatalog targetModelCatalog
+        +Class selectTargetModel(UserInput input, UserOutput output)
+        +TargetSettings readTargetModelSettings(UserInput input, Class targetModel)
+        +String getDisplayName(Class targetModel)
+    }
+
+    class UserInput {
+        <<interface>>
+        +String readString(String label)
+        +int readInt(String label)
+        +double readDouble(String label)
+        +LocalDate readDateOrDefault(String label, LocalDate defaultDate)
+    }
+
+    class ConsoleUserInput {
+        -Scanner scanner
+        +String readString(String label)
+    }
+
+    class UserOutput {
+        <<interface>>
+        +void printLine(String text)
+        +void printBlankLine()
+    }
+
+    class ConsoleUserOutput {
+        +void printLine(String text)
+    }
+
     class Instrument {
         <<abstract>>
         -String symbolCode
@@ -90,12 +156,45 @@ classDiagram
     InstrumentDataCatalog --> Instrument : stores as abstract type / upcasting
     InstrumentDataCatalog ..> FuturesContract : downcasting when futures details are needed
 
+    class StrategyCatalog {
+        +List~Class~ findAvailableStrategies()
+        +String getDisplayName(Class strategyClass)
+    }
+
+    class TriggerCatalog {
+        +List~Class~ findAvailableTriggers()
+        +String getDisplayName(Class triggerClass)
+    }
+
+    class TargetModelCatalog {
+        +List~Class~ findAvailableTargetModels()
+        +String getDisplayName(Class targetModelClass)
+    }
+
     class BacktestRequest {
         -TradingStrategy strategy
         -TradeTrigger tradeTrigger
         -TargetModel targetModel
         -List~Instrument~ instruments
     }
+
+    Main --> FacadeForgeApplication : uses facade
+    Main --> ConsoleUserInput : adapts console input
+    Main --> ConsoleUserOutput : adapts console output
+    ConsoleUserInput ..|> UserInput
+    ConsoleUserOutput ..|> UserOutput
+    FacadeForgeApplication --> UserInput
+    FacadeForgeApplication --> UserOutput
+    FacadeForgeApplication --> InstrumentSelectionService
+    FacadeForgeApplication --> StrategySelectionService
+    FacadeForgeApplication --> RiskSettingsSelectionService
+    FacadeForgeApplication --> TriggerSelectionService
+    FacadeForgeApplication --> TargetModelSelectionService
+    FacadeForgeApplication --> BacktestRequest : creates
+    InstrumentSelectionService --> InstrumentDataCatalog
+    StrategySelectionService --> StrategyCatalog
+    TriggerSelectionService --> TriggerCatalog
+    TargetModelSelectionService --> TargetModelCatalog
 
     BacktestRequest --> TradingStrategy
     BacktestRequest --> TradeTrigger
@@ -111,3 +210,7 @@ classDiagram
 - **Polymorphism:** `BacktestRequest` and the backtesting engine can work with interface references such as `TradingStrategy`, `TradeTrigger`, and `TargetModel` without depending on specific implementations.
 - **Upcasting:** `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesContract` when futures-specific details such as tick size or tick dollar amount are needed.
+- **Facade pattern:** `FacadeForgeApplication` gives `Main` one simple entry point for the application workflow while hiding the catalog lookups, validation order, and `BacktestRequest` assembly.
+- **Input abstraction:** `UserInput` separates input parsing from the facade, so the application workflow no longer depends directly on `Scanner`.
+- **Output abstraction:** `UserOutput` separates console printing from the facade and selection services.
+- **Service decomposition:** `InstrumentSelectionService`, `StrategySelectionService`, `RiskSettingsSelectionService`, `TriggerSelectionService`, and `TargetModelSelectionService` own the individual setup workflows so the facade can focus on coordinating the overall backtest setup.
