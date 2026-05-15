@@ -1,18 +1,18 @@
 package forge.app;
 
 import forge.config.BacktestRequest;
-import forge.config.FacadeBacktestConfiguration;
+import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
 import forge.config.TargetSettings;
-import forge.data.FacadeData;
+import forge.data.FacadeForgeData;
 import forge.data.InstrumentDataCatalog;
-import forge.strategy.FacadeStrategy;
+import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.StrategyCatalog;
 import forge.strategy.TradingStrategy;
-import forge.target.FacadeTarget;
+import forge.target.FacadeForgeTarget;
 import forge.target.TargetModel;
 import forge.target.TargetModelCatalog;
-import forge.trigger.FacadeTrigger;
+import forge.trigger.FacadeForgeTrigger;
 import forge.trigger.TradeTrigger;
 import forge.trigger.TriggerCatalog;
 
@@ -20,33 +20,39 @@ import java.time.LocalDate;
 import java.util.List;
 
 public class FacadeForgeApplication {
+    private static final FacadeForgeApplication THE_INSTANCE = new FacadeForgeApplication();
+
     private static final String TITLE_SEPARATOR = "========================================================";
     private static final String SECTION_SEPARATOR = "-------------------------";
 
-    private final FacadeBacktestConfiguration backtestConfigurationFacade;
+    private final FacadeForgeConfig forgeConfigFacade;
     private final InstrumentSelectionService instrumentSelectionService;
     private final StrategySelectionService strategySelectionService;
     private final RiskSettingsSelectionService riskSettingsSelectionService;
     private final TriggerSelectionService triggerSelectionService;
     private final TargetModelSelectionService targetModelSelectionService;
 
+    public static FacadeForgeApplication getTheInstance() {
+        return THE_INSTANCE;
+    }
+
     public FacadeForgeApplication() {
         this(
-                new FacadeData(),
-                new FacadeStrategy(),
-                new FacadeTrigger(),
-                new FacadeTarget()
+                FacadeForgeData.getTheInstance(),
+                FacadeForgeStrategy.getTheInstance(),
+                FacadeForgeTrigger.getTheInstance(),
+                FacadeForgeTarget.getTheInstance()
         );
     }
 
     public FacadeForgeApplication(
-            FacadeData facadeData,
-            FacadeStrategy facadeStrategy,
-            FacadeTrigger facadeTrigger,
-            FacadeTarget facadeTarget
+            FacadeForgeData facadeData,
+            FacadeForgeStrategy facadeStrategy,
+            FacadeForgeTrigger facadeTrigger,
+            FacadeForgeTarget facadeTarget
     ) {
         this(
-                new FacadeBacktestConfiguration(),
+                FacadeForgeConfig.getTheInstance(),
                 new InstrumentSelectionService(facadeData),
                 new StrategySelectionService(facadeStrategy),
                 new RiskSettingsSelectionService(),
@@ -62,22 +68,22 @@ public class FacadeForgeApplication {
             TargetModelCatalog targetModelCatalog
     ) {
         this(
-                new FacadeData(instrumentDataCatalog),
-                new FacadeStrategy(strategyCatalog),
-                new FacadeTrigger(triggerCatalog),
-                new FacadeTarget(targetModelCatalog)
+                new FacadeForgeData(instrumentDataCatalog),
+                new FacadeForgeStrategy(strategyCatalog),
+                new FacadeForgeTrigger(triggerCatalog),
+                new FacadeForgeTarget(targetModelCatalog)
         );
     }
 
     public FacadeForgeApplication(
-            FacadeBacktestConfiguration backtestConfigurationFacade,
+            FacadeForgeConfig forgeConfigFacade,
             InstrumentSelectionService instrumentSelectionService,
             StrategySelectionService strategySelectionService,
             RiskSettingsSelectionService riskSettingsSelectionService,
             TriggerSelectionService triggerSelectionService,
             TargetModelSelectionService targetModelSelectionService
     ) {
-        this.backtestConfigurationFacade = backtestConfigurationFacade;
+        this.forgeConfigFacade = forgeConfigFacade;
         this.instrumentSelectionService = instrumentSelectionService;
         this.strategySelectionService = strategySelectionService;
         this.riskSettingsSelectionService = riskSettingsSelectionService;
@@ -116,7 +122,7 @@ public class FacadeForgeApplication {
         printSection(output, "Target Model Options");
         TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(input, selectedTargetModel);
 
-        return backtestConfigurationFacade.createBacktestRequest(
+        return forgeConfigFacade.createBacktestRequest(
                 strategySelectionService.getDisplayName(selectedStrategy),
                 instruments,
                 dateRange[0],

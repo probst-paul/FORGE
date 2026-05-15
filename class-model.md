@@ -8,13 +8,13 @@ classDiagram
 
     class Main
     class FacadeForgeApplication
-    class FacadeBacktestConfiguration
-    class FacadeData
-    class FacadeStrategy
-    class FacadeTrigger
-    class FacadeTarget
-    class FacadeEngine
-    class FacadeReporting
+    class FacadeForgeConfig
+    class FacadeForgeData
+    class FacadeForgeStrategy
+    class FacadeForgeTrigger
+    class FacadeForgeTarget
+    class FacadeForgeEngine
+    class FacadeForgeReporting
     class InstrumentSelectionService
     class StrategySelectionService
     class TriggerSelectionService
@@ -27,15 +27,15 @@ classDiagram
     FacadeForgeApplication --> RiskSettingsSelectionService : risk settings
     FacadeForgeApplication --> TriggerSelectionService : trigger
     FacadeForgeApplication --> TargetModelSelectionService : target settings
-    FacadeForgeApplication --> FacadeBacktestConfiguration : final request
+    FacadeForgeApplication --> FacadeForgeConfig : final request
 
-    InstrumentSelectionService --> FacadeData
-    StrategySelectionService --> FacadeStrategy
-    TriggerSelectionService --> FacadeTrigger
-    TargetModelSelectionService --> FacadeTarget
+    InstrumentSelectionService --> FacadeForgeData
+    StrategySelectionService --> FacadeForgeStrategy
+    TriggerSelectionService --> FacadeForgeTrigger
+    TargetModelSelectionService --> FacadeForgeTarget
 
-    FacadeForgeApplication ..> FacadeEngine : later run request
-    FacadeForgeApplication ..> FacadeReporting : later summarize result
+    FacadeForgeApplication ..> FacadeForgeEngine : later run request
+    FacadeForgeApplication ..> FacadeForgeReporting : later summarize result
 ```
 
 ## Backtest Setup Interaction
@@ -47,15 +47,15 @@ sequenceDiagram
     participant Input as UserInput
     participant Output as UserOutput
     participant Instruments as InstrumentSelectionService
-    participant Data as FacadeData
+    participant Data as FacadeForgeData
     participant Strategies as StrategySelectionService
-    participant Strategy as FacadeStrategy
+    participant Strategy as FacadeForgeStrategy
     participant Risk as RiskSettingsSelectionService
     participant Triggers as TriggerSelectionService
-    participant Trigger as FacadeTrigger
+    participant Trigger as FacadeForgeTrigger
     participant Targets as TargetModelSelectionService
-    participant Target as FacadeTarget
-    participant Config as FacadeBacktestConfiguration
+    participant Target as FacadeForgeTarget
+    participant Config as FacadeForgeConfig
 
     Main->>App: runBacktestSetup(input, output)
     App->>Output: print title
@@ -117,6 +117,7 @@ classDiagram
     }
 
     class FacadeForgeApplication {
+        +FacadeForgeApplication getTheInstance()
         +void runBacktestSetup(UserInput input, UserOutput output)
         +BacktestRequest configureBacktest(UserInput input, UserOutput output)
     }
@@ -189,7 +190,8 @@ classDiagram
 classDiagram
     direction LR
 
-    class FacadeBacktestConfiguration {
+    class FacadeForgeConfig {
+        +FacadeForgeConfig getTheInstance()
         +BacktestRequest createBacktestRequest(...)
         +OrderSettings defaultOrderSettings()
     }
@@ -233,10 +235,10 @@ classDiagram
         -double stopOffsetTicks
     }
 
-    FacadeBacktestConfiguration --> BacktestRequest : creates
-    FacadeBacktestConfiguration --> StrategyOptions : creates
-    FacadeBacktestConfiguration --> TradeTriggerOptions : creates
-    FacadeBacktestConfiguration --> OrderSettings : creates default
+    FacadeForgeConfig --> BacktestRequest : creates
+    FacadeForgeConfig --> StrategyOptions : creates
+    FacadeForgeConfig --> TradeTriggerOptions : creates
+    FacadeForgeConfig --> OrderSettings : creates default
     BacktestRequest --> StrategyOptions
     BacktestRequest --> TradeTriggerOptions
     BacktestRequest --> RiskSettings
@@ -250,7 +252,8 @@ classDiagram
 classDiagram
     direction LR
 
-    class FacadeData {
+    class FacadeForgeData {
+        +FacadeForgeData getTheInstance()
         +List~AvailableInstrumentData~ getAvailableInstruments()
         +AvailableDateRange getSharedDateRange(List~String~ symbols)
         +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
@@ -284,7 +287,7 @@ classDiagram
     class PriceLevelVolume
     class DateRange
 
-    FacadeData --> InstrumentDataCatalog
+    FacadeForgeData --> InstrumentDataCatalog
     InstrumentDataCatalog --> Instrument : stores
     InstrumentDataCatalog ..> FuturesContract : futures details
     Instrument <|-- FuturesContract
@@ -296,7 +299,8 @@ classDiagram
 classDiagram
     direction LR
 
-    class FacadeStrategy {
+    class FacadeForgeStrategy {
+        +FacadeForgeStrategy getTheInstance()
         +List~Class~ findAvailableStrategies()
         +String getDisplayName(Class strategy)
         +StrategyOptions createStrategyOptions(Class strategy)
@@ -321,8 +325,8 @@ classDiagram
         -int quantity
     }
 
-    FacadeStrategy --> StrategyCatalog
-    FacadeStrategy --> TradingStrategy : creates
+    FacadeForgeStrategy --> StrategyCatalog
+    FacadeForgeStrategy --> TradingStrategy : creates
     TradingStrategy <|.. RangeBreakoutStrategy
 ```
 
@@ -332,7 +336,8 @@ classDiagram
 classDiagram
     direction LR
 
-    class FacadeTrigger {
+    class FacadeForgeTrigger {
+        +FacadeForgeTrigger getTheInstance()
         +List~Class~ findAvailableTriggers()
         +String getDisplayName(Class trigger)
         +TradeTriggerOptions createTriggerOptions(Class trigger)
@@ -354,8 +359,8 @@ classDiagram
     class TriggerResult
     class TriggerDirection
 
-    FacadeTrigger --> TriggerCatalog
-    FacadeTrigger --> TradeTrigger : creates
+    FacadeForgeTrigger --> TriggerCatalog
+    FacadeForgeTrigger --> TradeTrigger : creates
     TradeTrigger <|.. OrderFlowExhaustionTrigger
     TradeTrigger --> TriggerResult
     TriggerResult --> TriggerDirection
@@ -367,7 +372,8 @@ classDiagram
 classDiagram
     direction LR
 
-    class FacadeTarget {
+    class FacadeForgeTarget {
+        +FacadeForgeTarget getTheInstance()
         +List~Class~ findAvailableTargetModels()
         +String getDisplayName(Class targetModel)
         +TargetSettings createFixedRiskRewardSettings(Class targetModel, double rewardRiskRatio)
@@ -399,9 +405,9 @@ classDiagram
         -double stopPrice
     }
 
-    FacadeTarget --> TargetModelCatalog
-    FacadeTarget --> TargetModel : creates
-    FacadeTarget --> TargetSettings : creates
+    FacadeForgeTarget --> TargetModelCatalog
+    FacadeForgeTarget --> TargetModel : creates
+    FacadeForgeTarget --> TargetSettings : creates
     TargetModel <|.. FixedRiskRewardTarget
     TargetModel <|.. FixedTarget
     TargetModel --> TargetResult
@@ -413,7 +419,8 @@ classDiagram
 classDiagram
     direction LR
 
-    class FacadeEngine {
+    class FacadeForgeEngine {
+        +FacadeForgeEngine getTheInstance()
         +BacktestEngine getBacktestEngine()
         +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, double lastPrice, boolean hasOpenPosition)
     }
@@ -427,8 +434,8 @@ classDiagram
         -boolean hasOpenPosition
     }
 
-    FacadeEngine --> BacktestEngine
-    FacadeEngine --> MarketContext : creates
+    FacadeForgeEngine --> BacktestEngine
+    FacadeForgeEngine --> MarketContext : creates
 ```
 
 ## execution Package
@@ -461,7 +468,8 @@ classDiagram
 classDiagram
     direction LR
 
-    class FacadeReporting {
+    class FacadeForgeReporting {
+        +FacadeForgeReporting getTheInstance()
         +BacktestResult createBacktestResult()
         +PerformanceMetrics createPerformanceMetrics()
         +InstrumentPerformanceReport createInstrumentPerformanceReport()
@@ -472,9 +480,9 @@ classDiagram
     class PerformanceMetrics
     class InstrumentPerformanceReport
 
-    FacadeReporting --> BacktestResult : creates/summarizes
-    FacadeReporting --> PerformanceMetrics : creates
-    FacadeReporting --> InstrumentPerformanceReport : creates
+    FacadeForgeReporting --> BacktestResult : creates/summarizes
+    FacadeForgeReporting --> PerformanceMetrics : creates
+    FacadeForgeReporting --> InstrumentPerformanceReport : creates
 ```
 
 ## analytics and backtest Packages
@@ -502,6 +510,6 @@ classDiagram
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, and `TargetModel` without depending on specific implementations.
 - **Upcasting:** `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesContract` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeBacktestConfiguration`, `FacadeData`, `FacadeStrategy`, `FacadeTrigger`, `FacadeTarget`, `FacadeEngine`, and `FacadeReporting` hide package internals behind simpler entry points.
+- **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeTarget`, `FacadeForgeEngine`, and `FacadeForgeReporting` hide package internals behind simpler singleton entry points obtained with `getTheInstance()`.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow.
 - **Service decomposition:** The app selection services own individual setup steps so the app facade can focus on coordinating the overall backtest setup.

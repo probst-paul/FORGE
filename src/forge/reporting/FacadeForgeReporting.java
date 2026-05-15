@@ -1,6 +1,12 @@
 package forge.reporting;
 
-public class FacadeReporting {
+public class FacadeForgeReporting {
+    private static final FacadeForgeReporting THE_INSTANCE = new FacadeForgeReporting();
+
+    public static FacadeForgeReporting getTheInstance() {
+        return THE_INSTANCE;
+    }
+
     public BacktestResult createBacktestResult() {
         return new BacktestResult();
     }

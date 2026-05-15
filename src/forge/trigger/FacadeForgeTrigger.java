@@ -5,14 +5,20 @@ import forge.config.TradeTriggerOptions;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-public class FacadeTrigger {
+public class FacadeForgeTrigger {
+    private static final FacadeForgeTrigger THE_INSTANCE = new FacadeForgeTrigger();
+
     private final TriggerCatalog triggerCatalog;
 
-    public FacadeTrigger() {
+    public static FacadeForgeTrigger getTheInstance() {
+        return THE_INSTANCE;
+    }
+
+    public FacadeForgeTrigger() {
         this(new TriggerCatalog());
     }
 
-    public FacadeTrigger(TriggerCatalog triggerCatalog) {
+    public FacadeForgeTrigger(TriggerCatalog triggerCatalog) {
         this.triggerCatalog = triggerCatalog;
     }
 

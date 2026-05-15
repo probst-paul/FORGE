@@ -1,15 +1,15 @@
 package forge.app;
 
 import forge.config.TargetSettings;
-import forge.target.FacadeTarget;
+import forge.target.FacadeForgeTarget;
 import forge.target.TargetModel;
 
 import java.util.List;
 
 public class TargetModelSelectionService {
-    private final FacadeTarget facadeTarget;
+    private final FacadeForgeTarget facadeTarget;
 
-    public TargetModelSelectionService(FacadeTarget facadeTarget) {
+    public TargetModelSelectionService(FacadeForgeTarget facadeTarget) {
         this.facadeTarget = facadeTarget;
     }
 

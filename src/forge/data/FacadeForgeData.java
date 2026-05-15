@@ -6,14 +6,20 @@ import forge.data.InstrumentDataCatalog.AvailableInstrumentData;
 import java.time.LocalDate;
 import java.util.List;
 
-public class FacadeData {
+public class FacadeForgeData {
+    private static final FacadeForgeData THE_INSTANCE = new FacadeForgeData();
+
     private final InstrumentDataCatalog instrumentDataCatalog;
 
-    public FacadeData() {
+    public static FacadeForgeData getTheInstance() {
+        return THE_INSTANCE;
+    }
+
+    public FacadeForgeData() {
         this(new InstrumentDataCatalog());
     }
 
-    public FacadeData(InstrumentDataCatalog instrumentDataCatalog) {
+    public FacadeForgeData(InstrumentDataCatalog instrumentDataCatalog) {
         this.instrumentDataCatalog = instrumentDataCatalog;
     }
 

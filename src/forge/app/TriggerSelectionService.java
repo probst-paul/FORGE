@@ -1,14 +1,14 @@
 package forge.app;
 
 import forge.trigger.TradeTrigger;
-import forge.trigger.FacadeTrigger;
+import forge.trigger.FacadeForgeTrigger;
 
 import java.util.List;
 
 public class TriggerSelectionService {
-    private final FacadeTrigger facadeTrigger;
+    private final FacadeForgeTrigger facadeTrigger;
 
-    public TriggerSelectionService(FacadeTrigger facadeTrigger) {
+    public TriggerSelectionService(FacadeForgeTrigger facadeTrigger) {
         this.facadeTrigger = facadeTrigger;
     }
 

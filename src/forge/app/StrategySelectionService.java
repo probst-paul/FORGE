@@ -1,14 +1,14 @@
 package forge.app;
 
-import forge.strategy.FacadeStrategy;
+import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.TradingStrategy;
 
 import java.util.List;
 
 public class StrategySelectionService {
-    private final FacadeStrategy facadeStrategy;
+    private final FacadeForgeStrategy facadeStrategy;
 
-    public StrategySelectionService(FacadeStrategy facadeStrategy) {
+    public StrategySelectionService(FacadeForgeStrategy facadeStrategy) {
         this.facadeStrategy = facadeStrategy;
     }
 

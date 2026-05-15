@@ -5,14 +5,20 @@ import forge.config.StrategyOptions;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-public class FacadeStrategy {
+public class FacadeForgeStrategy {
+    private static final FacadeForgeStrategy THE_INSTANCE = new FacadeForgeStrategy();
+
     private final StrategyCatalog strategyCatalog;
 
-    public FacadeStrategy() {
+    public static FacadeForgeStrategy getTheInstance() {
+        return THE_INSTANCE;
+    }
+
+    public FacadeForgeStrategy() {
         this(new StrategyCatalog());
     }
 
-    public FacadeStrategy(StrategyCatalog strategyCatalog) {
+    public FacadeForgeStrategy(StrategyCatalog strategyCatalog) {
         this.strategyCatalog = strategyCatalog;
     }
 

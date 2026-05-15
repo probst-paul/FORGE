@@ -2,14 +2,20 @@ package forge.engine;
 
 import java.time.LocalDateTime;
 
-public class FacadeEngine {
+public class FacadeForgeEngine {
+    private static final FacadeForgeEngine THE_INSTANCE = new FacadeForgeEngine();
+
     private final BacktestEngine backtestEngine;
 
-    public FacadeEngine() {
+    public static FacadeForgeEngine getTheInstance() {
+        return THE_INSTANCE;
+    }
+
+    public FacadeForgeEngine() {
         this(new BacktestEngine());
     }
 
-    public FacadeEngine(BacktestEngine backtestEngine) {
+    public FacadeForgeEngine(BacktestEngine backtestEngine) {
         this.backtestEngine = backtestEngine;
     }
 

@@ -5,14 +5,20 @@ import forge.config.TargetSettings;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-public class FacadeTarget {
+public class FacadeForgeTarget {
+    private static final FacadeForgeTarget THE_INSTANCE = new FacadeForgeTarget();
+
     private final TargetModelCatalog targetModelCatalog;
 
-    public FacadeTarget() {
+    public static FacadeForgeTarget getTheInstance() {
+        return THE_INSTANCE;
+    }
+
+    public FacadeForgeTarget() {
         this(new TargetModelCatalog());
     }
 
-    public FacadeTarget(TargetModelCatalog targetModelCatalog) {
+    public FacadeForgeTarget(TargetModelCatalog targetModelCatalog) {
         this.targetModelCatalog = targetModelCatalog;
     }
 

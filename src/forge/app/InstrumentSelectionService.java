@@ -1,6 +1,6 @@
 package forge.app;
 
-import forge.data.FacadeData;
+import forge.data.FacadeForgeData;
 import forge.data.InstrumentDataCatalog.AvailableDateRange;
 import forge.data.InstrumentDataCatalog.AvailableInstrumentData;
 
@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class InstrumentSelectionService {
-    private final FacadeData facadeData;
+    private final FacadeForgeData facadeData;
 
-    public InstrumentSelectionService(FacadeData facadeData) {
+    public InstrumentSelectionService(FacadeForgeData facadeData) {
         this.facadeData = facadeData;
     }
 
