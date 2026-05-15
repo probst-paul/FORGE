@@ -13,6 +13,7 @@ classDiagram
     }
 
     class FacadeForgeApplication {
+        -FacadeBacktestConfiguration backtestConfigurationFacade
         -InstrumentSelectionService instrumentSelectionService
         -StrategySelectionService strategySelectionService
         -RiskSettingsSelectionService riskSettingsSelectionService
@@ -20,6 +21,12 @@ classDiagram
         -TargetModelSelectionService targetModelSelectionService
         +void runBacktestSetup(UserInput input, UserOutput output)
         +BacktestRequest configureBacktest(UserInput input, UserOutput output)
+    }
+
+    class FacadeBacktestConfiguration {
+        +BacktestRequest createBacktestRequest(String strategyName, List~String~ instruments, LocalDate startDate, LocalDate endDate, String triggerName, RiskSettings riskSettings, TargetSettings targetSettings)
+        +BacktestRequest createBacktestRequest(StrategyOptions strategyOptions, List~String~ instruments, LocalDate startDate, LocalDate endDate, TradeTriggerOptions tradeTriggerOptions, RiskSettings riskSettings, TargetSettings targetSettings, OrderSettings orderSettings)
+        +OrderSettings defaultOrderSettings()
     }
 
     class InstrumentSelectionService {
@@ -178,6 +185,21 @@ classDiagram
         -List~Instrument~ instruments
     }
 
+    class OrderSettings {
+        -OrderType entryOrderType
+        -int quantity
+        -double limitOffsetTicks
+        -double stopOffsetTicks
+    }
+
+    class StrategyOptions {
+        -String strategyName
+    }
+
+    class TradeTriggerOptions {
+        -String triggerName
+    }
+
     Main --> FacadeForgeApplication : uses facade
     Main --> ConsoleUserInput : adapts console input
     Main --> ConsoleUserOutput : adapts console output
@@ -185,6 +207,7 @@ classDiagram
     ConsoleUserOutput ..|> UserOutput
     FacadeForgeApplication --> UserInput
     FacadeForgeApplication --> UserOutput
+    FacadeForgeApplication --> FacadeBacktestConfiguration
     FacadeForgeApplication --> InstrumentSelectionService
     FacadeForgeApplication --> StrategySelectionService
     FacadeForgeApplication --> RiskSettingsSelectionService
@@ -195,6 +218,10 @@ classDiagram
     StrategySelectionService --> StrategyCatalog
     TriggerSelectionService --> TriggerCatalog
     TargetModelSelectionService --> TargetModelCatalog
+    FacadeBacktestConfiguration --> BacktestRequest : creates
+    FacadeBacktestConfiguration --> StrategyOptions : creates
+    FacadeBacktestConfiguration --> TradeTriggerOptions : creates
+    FacadeBacktestConfiguration --> OrderSettings : creates defaults
 
     BacktestRequest --> TradingStrategy
     BacktestRequest --> TradeTrigger
@@ -211,6 +238,7 @@ classDiagram
 - **Upcasting:** `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesContract` when futures-specific details such as tick size or tick dollar amount are needed.
 - **Facade pattern:** `FacadeForgeApplication` gives `Main` one simple entry point for the application workflow while hiding the catalog lookups, validation order, and `BacktestRequest` assembly.
+- **Configuration facade:** `FacadeBacktestConfiguration` owns construction of `BacktestRequest`, `StrategyOptions`, `TradeTriggerOptions`, and default `OrderSettings`, keeping configuration assembly inside `config/`.
 - **Input abstraction:** `UserInput` separates input parsing from the facade, so the application workflow no longer depends directly on `Scanner`.
 - **Output abstraction:** `UserOutput` separates console printing from the facade and selection services.
 - **Service decomposition:** `InstrumentSelectionService`, `StrategySelectionService`, `RiskSettingsSelectionService`, `TriggerSelectionService`, and `TargetModelSelectionService` own the individual setup workflows so the facade can focus on coordinating the overall backtest setup.

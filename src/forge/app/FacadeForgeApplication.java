@@ -1,13 +1,10 @@
 package forge.app;
 
 import forge.config.BacktestRequest;
-import forge.config.OrderSettings;
+import forge.config.FacadeBacktestConfiguration;
 import forge.config.RiskSettings;
-import forge.config.StrategyOptions;
 import forge.config.TargetSettings;
-import forge.config.TradeTriggerOptions;
 import forge.data.InstrumentDataCatalog;
-import forge.execution.OrderType;
 import forge.strategy.StrategyCatalog;
 import forge.strategy.TradingStrategy;
 import forge.target.TargetModel;
@@ -21,8 +18,8 @@ import java.util.List;
 public class FacadeForgeApplication {
     private static final String TITLE_SEPARATOR = "========================================================";
     private static final String SECTION_SEPARATOR = "-------------------------";
-    private static final OrderSettings DEFAULT_ORDER_SETTINGS = new OrderSettings(OrderType.MARKET, 1, 0, 0);
 
+    private final FacadeBacktestConfiguration backtestConfigurationFacade;
     private final InstrumentSelectionService instrumentSelectionService;
     private final StrategySelectionService strategySelectionService;
     private final RiskSettingsSelectionService riskSettingsSelectionService;
@@ -45,6 +42,7 @@ public class FacadeForgeApplication {
             TargetModelCatalog targetModelCatalog
     ) {
         this(
+                new FacadeBacktestConfiguration(),
                 new InstrumentSelectionService(instrumentDataCatalog),
                 new StrategySelectionService(strategyCatalog),
                 new RiskSettingsSelectionService(),
@@ -54,12 +52,14 @@ public class FacadeForgeApplication {
     }
 
     public FacadeForgeApplication(
+            FacadeBacktestConfiguration backtestConfigurationFacade,
             InstrumentSelectionService instrumentSelectionService,
             StrategySelectionService strategySelectionService,
             RiskSettingsSelectionService riskSettingsSelectionService,
             TriggerSelectionService triggerSelectionService,
             TargetModelSelectionService targetModelSelectionService
     ) {
+        this.backtestConfigurationFacade = backtestConfigurationFacade;
         this.instrumentSelectionService = instrumentSelectionService;
         this.strategySelectionService = strategySelectionService;
         this.riskSettingsSelectionService = riskSettingsSelectionService;
@@ -98,15 +98,14 @@ public class FacadeForgeApplication {
         printSection(output, "Target Model Options");
         TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(input, selectedTargetModel);
 
-        return new BacktestRequest(
-                new StrategyOptions(strategySelectionService.getDisplayName(selectedStrategy)),
+        return backtestConfigurationFacade.createBacktestRequest(
+                strategySelectionService.getDisplayName(selectedStrategy),
                 instruments,
                 dateRange[0],
                 dateRange[1],
-                new TradeTriggerOptions(triggerSelectionService.getDisplayName(selectedTrigger)),
+                triggerSelectionService.getDisplayName(selectedTrigger),
                 riskSettings,
-                targetSettings,
-                DEFAULT_ORDER_SETTINGS
+                targetSettings
         );
     }
 
