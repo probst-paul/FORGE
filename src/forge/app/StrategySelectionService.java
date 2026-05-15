@@ -1,26 +1,26 @@
 package forge.app;
 
-import forge.strategy.StrategyCatalog;
+import forge.strategy.FacadeStrategy;
 import forge.strategy.TradingStrategy;
 
 import java.util.List;
 
 public class StrategySelectionService {
-    private final StrategyCatalog strategyCatalog;
+    private final FacadeStrategy facadeStrategy;
 
-    public StrategySelectionService(StrategyCatalog strategyCatalog) {
-        this.strategyCatalog = strategyCatalog;
+    public StrategySelectionService(FacadeStrategy facadeStrategy) {
+        this.facadeStrategy = facadeStrategy;
     }
 
     public Class<? extends TradingStrategy> selectStrategy(UserInput input, UserOutput output) {
-        List<Class<? extends TradingStrategy>> strategies = strategyCatalog.findAvailableStrategies();
+        List<Class<? extends TradingStrategy>> strategies = facadeStrategy.findAvailableStrategies();
         if (strategies.isEmpty()) {
             throw new IllegalStateException("No trading strategies are available");
         }
 
         output.printLine("Available strategies:");
         for (int i = 0; i < strategies.size(); i++) {
-            output.printLine((i + 1) + ". " + strategyCatalog.getDisplayName(strategies.get(i)));
+            output.printLine((i + 1) + ". " + facadeStrategy.getDisplayName(strategies.get(i)));
         }
 
         int selectedIndex = input.readInt("Select strategy") - 1;
@@ -31,6 +31,6 @@ public class StrategySelectionService {
     }
 
     public String getDisplayName(Class<? extends TradingStrategy> strategy) {
-        return strategyCatalog.getDisplayName(strategy);
+        return facadeStrategy.getDisplayName(strategy);
     }
 }

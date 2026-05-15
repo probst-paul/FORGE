@@ -5,6 +5,7 @@ import forge.config.FacadeBacktestConfiguration;
 import forge.config.RiskSettings;
 import forge.config.TargetSettings;
 import forge.data.InstrumentDataCatalog;
+import forge.strategy.FacadeStrategy;
 import forge.strategy.StrategyCatalog;
 import forge.strategy.TradingStrategy;
 import forge.target.TargetModel;
@@ -29,9 +30,25 @@ public class FacadeForgeApplication {
     public FacadeForgeApplication() {
         this(
                 new InstrumentDataCatalog(),
-                new StrategyCatalog(),
+                new FacadeStrategy(),
                 new TriggerCatalog(),
                 new TargetModelCatalog()
+        );
+    }
+
+    public FacadeForgeApplication(
+            InstrumentDataCatalog instrumentDataCatalog,
+            FacadeStrategy facadeStrategy,
+            TriggerCatalog triggerCatalog,
+            TargetModelCatalog targetModelCatalog
+    ) {
+        this(
+                new FacadeBacktestConfiguration(),
+                new InstrumentSelectionService(instrumentDataCatalog),
+                new StrategySelectionService(facadeStrategy),
+                new RiskSettingsSelectionService(),
+                new TriggerSelectionService(triggerCatalog),
+                new TargetModelSelectionService(targetModelCatalog)
         );
     }
 
@@ -42,12 +59,10 @@ public class FacadeForgeApplication {
             TargetModelCatalog targetModelCatalog
     ) {
         this(
-                new FacadeBacktestConfiguration(),
-                new InstrumentSelectionService(instrumentDataCatalog),
-                new StrategySelectionService(strategyCatalog),
-                new RiskSettingsSelectionService(),
-                new TriggerSelectionService(triggerCatalog),
-                new TargetModelSelectionService(targetModelCatalog)
+                instrumentDataCatalog,
+                new FacadeStrategy(strategyCatalog),
+                triggerCatalog,
+                targetModelCatalog
         );
     }
 

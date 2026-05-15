@@ -36,7 +36,7 @@ classDiagram
     }
 
     class StrategySelectionService {
-        -StrategyCatalog strategyCatalog
+        -FacadeStrategy facadeStrategy
         +Class selectStrategy(UserInput input, UserOutput output)
         +String getDisplayName(Class strategy)
     }
@@ -168,6 +168,14 @@ classDiagram
         +String getDisplayName(Class strategyClass)
     }
 
+    class FacadeStrategy {
+        -StrategyCatalog strategyCatalog
+        +List~Class~ findAvailableStrategies()
+        +String getDisplayName(Class strategy)
+        +StrategyOptions createStrategyOptions(Class strategy)
+        +TradingStrategy createStrategy(Class strategy)
+    }
+
     class TriggerCatalog {
         +List~Class~ findAvailableTriggers()
         +String getDisplayName(Class triggerClass)
@@ -215,7 +223,10 @@ classDiagram
     FacadeForgeApplication --> TargetModelSelectionService
     FacadeForgeApplication --> BacktestRequest : creates
     InstrumentSelectionService --> InstrumentDataCatalog
-    StrategySelectionService --> StrategyCatalog
+    StrategySelectionService --> FacadeStrategy
+    FacadeStrategy --> StrategyCatalog
+    FacadeStrategy --> StrategyOptions : creates
+    FacadeStrategy --> TradingStrategy : creates
     TriggerSelectionService --> TriggerCatalog
     TargetModelSelectionService --> TargetModelCatalog
     FacadeBacktestConfiguration --> BacktestRequest : creates
@@ -239,6 +250,7 @@ classDiagram
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesContract` when futures-specific details such as tick size or tick dollar amount are needed.
 - **Facade pattern:** `FacadeForgeApplication` gives `Main` one simple entry point for the application workflow while hiding the catalog lookups, validation order, and `BacktestRequest` assembly.
 - **Configuration facade:** `FacadeBacktestConfiguration` owns construction of `BacktestRequest`, `StrategyOptions`, `TradeTriggerOptions`, and default `OrderSettings`, keeping configuration assembly inside `config/`.
+- **Strategy facade:** `FacadeStrategy` gives callers one entry point for strategy discovery, display names, option creation, and strategy instantiation.
 - **Input abstraction:** `UserInput` separates input parsing from the facade, so the application workflow no longer depends directly on `Scanner`.
 - **Output abstraction:** `UserOutput` separates console printing from the facade and selection services.
 - **Service decomposition:** `InstrumentSelectionService`, `StrategySelectionService`, `RiskSettingsSelectionService`, `TriggerSelectionService`, and `TargetModelSelectionService` own the individual setup workflows so the facade can focus on coordinating the overall backtest setup.
