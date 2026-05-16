@@ -49,6 +49,23 @@ public class ContractNameResolver {
         return matcher.group(3);
     }
 
+    public FuturesContractCode resolveContractCode(String contractSymbol) {
+        Matcher matcher = matchContract(contractSymbol);
+        return new FuturesContractCode(
+                matcher.group(1),
+                matcher.group(2),
+                resolveFullYear(matcher.group(3))
+        );
+    }
+
+    private int resolveFullYear(String yearDigits) {
+        int year = Integer.parseInt(yearDigits);
+        if (yearDigits.length() == 1) {
+            return 2020 + year;
+        }
+        return 2000 + year;
+    }
+
     private Matcher matchContract(String contractSymbol) {
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");

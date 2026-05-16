@@ -26,7 +26,8 @@ class InstrumentDataCatalogTest {
                     new ContractDataSummary("CLX25", LocalDate.of(2025, 9, 1), LocalDate.of(2025, 10, 20))
             ),
             new ContractNameResolver(),
-            new StaticFuturesInstrumentSpecProvider()
+            new StaticFuturesInstrumentSpecProvider(),
+            new ContractRolloverCalendar()
     );
 
     @Nested
@@ -41,7 +42,27 @@ class InstrumentDataCatalogTest {
             assertEquals(0.25, instruments.get(0).getFuturesTickSize());
             assertEquals(12.50, instruments.get(0).getFuturesTickDollarAmount());
             assertEquals(LocalDate.of(2025, 8, 1), instruments.get(0).getStartDate());
-            assertEquals(LocalDate.of(2025, 12, 15), instruments.get(0).getEndDate());
+            assertEquals(LocalDate.of(2025, 12, 14), instruments.get(0).getEndDate());
+        }
+
+        @Test
+        void omitsContractTablesOutsideTheirActiveRolloverWindow() {
+            InstrumentDataCatalog clippedCatalog = new InstrumentDataCatalog(
+                    () -> List.of(
+                            new ContractDataSummary("ESH25", LocalDate.of(2025, 3, 17), LocalDate.of(2025, 3, 18)),
+                            new ContractDataSummary("ESM25", LocalDate.of(2025, 3, 17), LocalDate.of(2025, 6, 15))
+                    ),
+                    new ContractNameResolver(),
+                    new StaticFuturesInstrumentSpecProvider(),
+                    new ContractRolloverCalendar()
+            );
+
+            List<AvailableInstrumentData> instruments = clippedCatalog.getAvailableInstruments();
+
+            assertEquals(1, instruments.size());
+            assertEquals("ES", instruments.get(0).getSymbol());
+            assertEquals(LocalDate.of(2025, 3, 17), instruments.get(0).getStartDate());
+            assertEquals(LocalDate.of(2025, 6, 15), instruments.get(0).getEndDate());
         }
     }
 
@@ -51,8 +72,8 @@ class InstrumentDataCatalogTest {
         void returnsOverlapForSelectedSymbols() {
             AvailableDateRange range = catalog.getSharedDateRange(List.of("ES", "CL"));
 
-            assertEquals(LocalDate.of(2025, 9, 1), range.getStartDate());
-            assertEquals(LocalDate.of(2025, 10, 20), range.getEndDate());
+            assertEquals(LocalDate.of(2025, 9, 19), range.getStartDate());
+            assertEquals(LocalDate.of(2025, 10, 16), range.getEndDate());
         }
 
         @Test

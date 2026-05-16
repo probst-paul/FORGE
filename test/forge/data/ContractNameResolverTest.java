@@ -37,6 +37,15 @@ class ContractNameResolverTest {
         }
 
         @Test
+        void resolvesContractCodeWithFullYear() {
+            FuturesContractCode contractCode = resolver.resolveContractCode("ESZ5");
+
+            assertEquals("ES", contractCode.getInstrumentSymbol());
+            assertEquals("Z", contractCode.getMonthCode());
+            assertEquals(2025, contractCode.getYear());
+        }
+
+        @Test
         void rejectsFilesThatDoNotLookLikeFuturesContracts() {
             assertThrows(IllegalArgumentException.class, () -> resolver.resolveFromScidPath("/data/BAD_FILE.scid"));
         }

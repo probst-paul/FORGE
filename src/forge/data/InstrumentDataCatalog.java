@@ -18,6 +18,7 @@ public class InstrumentDataCatalog {
     private final Supplier<List<ContractDataSummary>> contractDataSource;
     private final ContractNameResolver contractNameResolver;
     private final FuturesInstrumentSpecProvider futuresInstrumentSpecProvider;
+    private final ContractRolloverCalendar contractRolloverCalendar;
 
     public InstrumentDataCatalog() {
         this(new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment()));
@@ -27,14 +28,16 @@ public class InstrumentDataCatalog {
         this(
                 tradeRepository::listImportedContractData,
                 new ContractNameResolver(),
-                new StaticFuturesInstrumentSpecProvider()
+                new StaticFuturesInstrumentSpecProvider(),
+                new ContractRolloverCalendar()
         );
     }
 
     InstrumentDataCatalog(
             Supplier<List<ContractDataSummary>> contractDataSource,
             ContractNameResolver contractNameResolver,
-            FuturesInstrumentSpecProvider futuresInstrumentSpecProvider
+            FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
+            ContractRolloverCalendar contractRolloverCalendar
     ) {
         if (contractDataSource == null) {
             throw new IllegalArgumentException("contractDataSource is required");
@@ -45,9 +48,13 @@ public class InstrumentDataCatalog {
         if (futuresInstrumentSpecProvider == null) {
             throw new IllegalArgumentException("futuresInstrumentSpecProvider is required");
         }
+        if (contractRolloverCalendar == null) {
+            throw new IllegalArgumentException("contractRolloverCalendar is required");
+        }
         this.contractDataSource = contractDataSource;
         this.contractNameResolver = contractNameResolver;
         this.futuresInstrumentSpecProvider = futuresInstrumentSpecProvider;
+        this.contractRolloverCalendar = contractRolloverCalendar;
     }
 
     public List<AvailableInstrumentData> getAvailableInstruments() {
@@ -101,8 +108,12 @@ public class InstrumentDataCatalog {
             if (!futuresInstrumentSpecProvider.supports(instrumentSymbol)) {
                 continue;
             }
+            ContractDataSummary activeSummary = clipToActiveWindow(summary);
+            if (activeSummary == null) {
+                continue;
+            }
             InstrumentDateBounds bounds = boundsByInstrument.computeIfAbsent(instrumentSymbol, key -> new InstrumentDateBounds());
-            bounds.include(summary.getStartDate(), summary.getEndDate());
+            bounds.include(activeSummary.getStartDate(), activeSummary.getEndDate());
         }
 
         Map<String, AvailableInstrumentData> availableData = new LinkedHashMap<>();
@@ -117,6 +128,29 @@ public class InstrumentDataCatalog {
             );
         }
         return availableData;
+    }
+
+    private ContractDataSummary clipToActiveWindow(ContractDataSummary summary) {
+        return contractRolloverCalendar.findActiveWindow(summary.getContractSymbol())
+                .map(activeWindow -> clipToActiveWindow(summary, activeWindow))
+                .orElse(summary);
+    }
+
+    private ContractDataSummary clipToActiveWindow(ContractDataSummary summary, ContractRolloverWindow activeWindow) {
+        LocalDate clippedStartDate = max(summary.getStartDate(), activeWindow.getActiveStartDate());
+        LocalDate clippedEndDate = min(summary.getEndDate(), activeWindow.getActiveEndDate());
+        if (clippedEndDate.isBefore(clippedStartDate)) {
+            return null;
+        }
+        return new ContractDataSummary(summary.getContractSymbol(), clippedStartDate, clippedEndDate);
+    }
+
+    private LocalDate max(LocalDate first, LocalDate second) {
+        return first.isAfter(second) ? first : second;
+    }
+
+    private LocalDate min(LocalDate first, LocalDate second) {
+        return first.isBefore(second) ? first : second;
     }
 
     private AvailableInstrumentData getInstrumentData(Map<String, AvailableInstrumentData> availableData, String symbol) {
