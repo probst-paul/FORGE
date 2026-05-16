@@ -117,7 +117,7 @@ java -jar target/forge-1.0-SNAPSHOT.jar
 
 FORGE uses PostgreSQL for imported market data storage. The import flow currently creates or reuses a database, creates a table for the contract derived from the SCID file name, reads Sierra Chart intraday records, and inserts each record as a trade row.
 
-Supported futures roots for import are currently `ES`, `NQ`, `YM`, `RTY`, and `CL`. Importing an unsupported root fails before the database table is created or modified.
+Supported futures roots for import are currently `ES`, `NQ`, `YM`, `RTY`, and `CL`. Importing an unsupported root fails before the database table is created or modified. FORGE also validates contract month codes before database work begins: equity index imports currently allow only quarterly contracts (`H`, `M`, `U`, and `Z`), while `CL` allows the standard monthly futures cycle. If a file name points to a contract month that should not exist, the import stops and reports that the SCID file may be corrupted or incorrectly named.
 
 Install and start PostgreSQL on macOS with Homebrew:
 

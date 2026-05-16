@@ -2,6 +2,7 @@ package forge.app;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 public class ConsoleUserInput implements UserInput {
@@ -14,7 +15,12 @@ public class ConsoleUserInput implements UserInput {
     @Override
     public String readString(String label) {
         System.out.print(label + ": ");
-        String value = scanner.nextLine();
+        String value;
+        try {
+            value = scanner.nextLine();
+        } catch (IllegalStateException | NoSuchElementException exception) {
+            throw new UserQuitException();
+        }
         requireNotQuit(value);
         return value;
     }

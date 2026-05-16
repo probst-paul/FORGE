@@ -3,6 +3,7 @@ package forge.data.importing;
 import forge.app.ImportProgress;
 import forge.app.ImportProgressListener;
 import forge.data.contract.ContractNameResolver;
+import forge.data.contract.FuturesContractCode;
 import forge.data.postgres.PostgresTradeRepository;
 import forge.data.rollover.ContractRolloverCalendar;
 import forge.data.rollover.ContractRolloverWindow;
@@ -72,7 +73,7 @@ public class ScidDataImportService {
 
     public DataImportPlan planImport(String scidFilePath) {
         String contractSymbol = contractNameResolver.resolveFromScidPath(scidFilePath);
-        validateSupportedInstrument(contractSymbol);
+        validateSupportedContract(contractSymbol);
         String tableName = contractSymbol;
         tradeRepository.ensureDatabaseExists();
         return tradeRepository.planImport(contractSymbol, tableName);
@@ -84,7 +85,7 @@ public class ScidDataImportService {
             ImportProgressListener progressListener
     ) {
         String contractSymbol = contractNameResolver.resolveFromScidPath(scidFilePath);
-        FuturesInstrumentSpec instrumentSpec = validateSupportedInstrument(contractSymbol);
+        FuturesInstrumentSpec instrumentSpec = validateSupportedContract(contractSymbol);
         String tableName = contractSymbol;
         Path path = Path.of(scidFilePath);
         String sourceFileName = path.getFileName().toString();
@@ -103,6 +104,7 @@ public class ScidDataImportService {
                 lastModifiedMillis(path),
                 rebuildExistingContract
         );
+        validateCheckpointWithinFile(checkpoint, totalRecords);
         tradeRepository.ensureContractRecordUniqueIndex(tableName);
         AtomicInteger importedRows = new AtomicInteger();
         AtomicLong nullSideRowsImported = new AtomicLong();
@@ -202,8 +204,28 @@ public class ScidDataImportService {
         }
     }
 
-    private FuturesInstrumentSpec validateSupportedInstrument(String contractSymbol) {
-        String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(contractSymbol);
-        return futuresInstrumentSpecProvider.getBySymbol(instrumentSymbol);
+    private void validateCheckpointWithinFile(ImportCheckpoint checkpoint, long totalRecords) {
+        if (checkpoint.getNextRecordIndex() > totalRecords + 1) {
+            throw new IllegalStateException(
+                    "Import checkpoint for " + checkpoint.getTableName() +
+                            " points past the end of the selected SCID file. " +
+                            "The file may have changed or the previous import metadata is invalid. " +
+                            "Wipe and rebuild the contract table with a known-good SCID file."
+            );
+        }
+    }
+
+    private FuturesInstrumentSpec validateSupportedContract(String contractSymbol) {
+        FuturesContractCode contractCode = contractNameResolver.resolveContractCode(contractSymbol);
+        FuturesInstrumentSpec instrumentSpec = futuresInstrumentSpecProvider.getBySymbol(contractCode.getInstrumentSymbol());
+        if (!instrumentSpec.supportsMonthCode(contractCode.getMonthCode())) {
+            throw new IllegalArgumentException(
+                    "Unsupported contract month " + contractCode.getMonthCode() +
+                            " for " + contractCode.getInstrumentSymbol() +
+                            ". Supported months are " + String.join(", ", instrumentSpec.getSupportedMonthCodes()) +
+                            ". The SCID file may be corrupted or named for a contract that does not exist; use a known-good data file."
+            );
+        }
+        return instrumentSpec;
     }
 }

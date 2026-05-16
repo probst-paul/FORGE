@@ -121,9 +121,17 @@ public class CliApplicationController {
     private void runCliAction(String actionName, UserOutput output, Runnable action) {
         try {
             action.run();
+        } catch (UserQuitException exception) {
+            throw exception;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             output.printBlankLine();
+            output.finishStatusLine();
             output.printLine("Could not " + actionName + ": " + exception.getMessage());
+            output.printLine("Returning to Select Action.");
+        } catch (RuntimeException exception) {
+            output.printBlankLine();
+            output.finishStatusLine();
+            output.printLine("Unexpected error while trying to " + actionName + ": " + exception.getMessage());
             output.printLine("Returning to Select Action.");
         }
     }

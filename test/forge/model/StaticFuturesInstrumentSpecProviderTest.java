@@ -6,6 +6,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,6 +24,16 @@ class StaticFuturesInstrumentSpecProviderTest {
             assertEquals(5.00, provider.getBySymbol("YM").getTickDollarAmount());
             assertEquals(0.10, provider.getBySymbol("RTY").getTickSize());
             assertEquals(0.01, provider.getBySymbol("CL").getTickSize());
+        }
+
+        @Test
+        void reportsSupportedContractMonths() {
+            assertTrue(provider.getBySymbol("ES").supportsMonthCode("H"));
+            assertTrue(provider.getBySymbol("ES").supportsMonthCode("M"));
+            assertTrue(provider.getBySymbol("ES").supportsMonthCode("U"));
+            assertTrue(provider.getBySymbol("ES").supportsMonthCode("Z"));
+            assertFalse(provider.getBySymbol("ES").supportsMonthCode("K"));
+            assertTrue(provider.getBySymbol("CL").supportsMonthCode("K"));
         }
 
         @Test
