@@ -1,5 +1,7 @@
-package forge.app;
+package forge.cli;
 
+import forge.app.UserInput;
+import forge.app.UserOutput;
 import forge.data.FacadeForgeData;
 import forge.data.InstrumentDataCatalog.AvailableDateRange;
 import forge.data.InstrumentDataCatalog.AvailableInstrumentData;

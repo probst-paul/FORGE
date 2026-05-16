@@ -7,6 +7,9 @@ classDiagram
     direction LR
 
     class Main
+    class FacadeForgeCli
+    class ForgeCliAccess
+    class CliApplicationController
     class FacadeForgeApplication
     class FacadeForgeConfig
     class FacadeForgeData
@@ -25,14 +28,17 @@ classDiagram
     class TargetModelSelectionService
     class RiskSettingsSelectionService
 
-    Main --> FacadeForgeApplication
+    Main --> FacadeForgeCli
+    FacadeForgeCli --> ForgeCliAccess
+    ForgeCliAccess --> CliApplicationController
+    CliApplicationController --> FacadeForgeApplication : request objects
     FacadeForgeApplication --> ForgeApplicationAccess
-    ForgeApplicationAccess --> InstrumentSelectionService : instruments + dates
-    ForgeApplicationAccess --> StrategySelectionService : strategy
-    ForgeApplicationAccess --> RiskSettingsSelectionService : risk settings
-    ForgeApplicationAccess --> TriggerSelectionService : trigger
-    ForgeApplicationAccess --> TargetModelSelectionService : target settings
-    ForgeApplicationAccess --> FacadeForgeConfig : final request
+    CliApplicationController --> InstrumentSelectionService : instruments + dates
+    CliApplicationController --> StrategySelectionService : strategy
+    CliApplicationController --> RiskSettingsSelectionService : risk settings
+    CliApplicationController --> TriggerSelectionService : trigger
+    CliApplicationController --> TargetModelSelectionService : target settings
+    CliApplicationController --> FacadeForgeConfig : build request
 
     InstrumentSelectionService --> FacadeForgeData
     StrategySelectionService --> FacadeForgeStrategy
@@ -51,6 +57,8 @@ classDiagram
 ```mermaid
 sequenceDiagram
     participant Main
+    participant CliFacade as FacadeForgeCli
+    participant Cli as CliApplicationController
     participant App as FacadeForgeApplication
     participant Input as UserInput
     participant Output as UserOutput
@@ -65,53 +73,65 @@ sequenceDiagram
     participant Target as FacadeForgeTarget
     participant Config as FacadeForgeConfig
 
-    Main->>App: forgeApplicationAccess().runBacktestSetup(input, output)
-    App->>Output: print title
+    Main->>CliFacade: forgeCliAccess().run()
+    CliFacade->>Cli: run(input, output)
+    Cli->>Output: print title
+    Cli->>Output: print Run Backtest / Import Data choices
+    Cli->>Input: readInt(action)
 
-    App->>Instruments: selectInstruments(input, output)
-    Instruments->>Data: forgeDataAccess().getAvailableInstruments()
-    Instruments->>Output: print instrument choices
-    Instruments->>Input: readString(selection)
-    Instruments-->>App: selected symbols
+    alt Run Backtest
+        Cli->>Instruments: selectInstruments(input, output)
+        Instruments->>Data: forgeDataAccess().getAvailableInstruments()
+        Instruments->>Output: print instrument choices
+        Instruments->>Input: readString(selection)
+        Instruments-->>Cli: selected symbols
 
-    App->>Instruments: selectDateRange(input, output, symbols)
-    Instruments->>Data: forgeDataAccess().getSharedDateRange(symbols)
-    Instruments->>Input: readDateOrDefault(start)
-    Instruments->>Input: readDateOrDefault(end)
-    Instruments->>Data: forgeDataAccess().validateDateRange(symbols, start, end)
-    Instruments-->>App: selected date range
+        Cli->>Instruments: selectDateRange(input, output, symbols)
+        Instruments->>Data: forgeDataAccess().getSharedDateRange(symbols)
+        Instruments->>Input: readDateOrDefault(start)
+        Instruments->>Input: readDateOrDefault(end)
+        Instruments->>Data: forgeDataAccess().validateDateRange(symbols, start, end)
+        Instruments-->>Cli: selected date range
 
-    App->>Strategies: selectStrategy(input, output)
-    Strategies->>Strategy: forgeStrategyAccess().findAvailableStrategies()
-    Strategies->>Strategy: forgeStrategyAccess().getDisplayName(strategy)
-    Strategies->>Input: readInt(selection)
-    Strategies-->>App: selected strategy class
+        Cli->>Strategies: selectStrategy(input, output)
+        Strategies->>Strategy: forgeStrategyAccess().findAvailableStrategies()
+        Strategies->>Strategy: forgeStrategyAccess().getDisplayName(strategy)
+        Strategies->>Input: readInt(selection)
+        Strategies-->>Cli: selected strategy class
 
-    App->>Risk: readRiskSettings(input)
-    Risk->>Input: readDouble(risk per trade)
-    Risk->>Input: readDouble(max daily loss)
-    Risk-->>App: RiskSettings
+        Cli->>Risk: readRiskSettings(input)
+        Risk->>Input: readDouble(risk per trade)
+        Risk->>Input: readDouble(max daily loss)
+        Risk-->>Cli: RiskSettings
 
-    App->>Triggers: selectTrigger(input, output)
-    Triggers->>Trigger: forgeTriggerAccess().findAvailableTriggers()
-    Triggers->>Trigger: forgeTriggerAccess().getDisplayName(trigger)
-    Triggers->>Input: readInt(selection)
-    Triggers-->>App: selected trigger class
+        Cli->>Triggers: selectTrigger(input, output)
+        Triggers->>Trigger: forgeTriggerAccess().findAvailableTriggers()
+        Triggers->>Trigger: forgeTriggerAccess().getDisplayName(trigger)
+        Triggers->>Input: readInt(selection)
+        Triggers-->>Cli: selected trigger class
 
-    App->>Targets: selectTargetModel(input, output)
-    Targets->>Target: forgeTargetAccess().findAvailableTargetModels()
-    Targets->>Target: forgeTargetAccess().getDisplayName(target)
-    Targets->>Input: readInt(selection)
-    Targets-->>App: selected target class
+        Cli->>Targets: selectTargetModel(input, output)
+        Targets->>Target: forgeTargetAccess().findAvailableTargetModels()
+        Targets->>Target: forgeTargetAccess().getDisplayName(target)
+        Targets->>Input: readInt(selection)
+        Targets-->>Cli: selected target class
 
-    App->>Targets: readTargetModelSettings(input, selected target)
-    Targets->>Input: read target-specific value
-    Targets->>Target: forgeTargetAccess().create target settings
-    Targets-->>App: TargetSettings
+        Cli->>Targets: readTargetModelSettings(input, selected target)
+        Targets->>Input: read target-specific value
+        Targets->>Target: forgeTargetAccess().create target settings
+        Targets-->>Cli: TargetSettings
 
-    App->>Config: forgeConfigAccess().createBacktestRequest(...)
-    Config-->>App: BacktestRequest
-    App->>Output: print accepted request
+        Cli->>Config: forgeConfigAccess().createBacktestRequest(...)
+        Config-->>Cli: BacktestRequest
+        Cli->>App: forgeApplicationAccess().runBacktest(request)
+        App-->>Cli: accepted request
+        Cli->>Output: print accepted request
+    else Import Data
+        Cli->>Input: readString(SCID data file path)
+        Cli->>App: forgeApplicationAccess().importData(request)
+        App-->>Cli: accepted import request
+        Cli->>Output: print accepted import request
+    end
 ```
 
 ## app Package
@@ -130,8 +150,67 @@ classDiagram
     }
 
     class ForgeApplicationAccess {
-        +void runBacktestSetup(UserInput input, UserOutput output)
-        +BacktestRequest configureBacktest(UserInput input, UserOutput output)
+        +BacktestRequest runBacktest(BacktestRequest request)
+        +DataImportRequest importData(DataImportRequest request)
+    }
+
+    class DataImportRequest {
+        -String scidFilePath
+        +String getScidFilePath()
+    }
+
+    class UserInput {
+        <<interface>>
+        +String readString(String label)
+        +int readInt(String label)
+        +double readDouble(String label)
+        +LocalDate readDateOrDefault(String label, LocalDate defaultDate)
+    }
+
+    class ConsoleUserInput {
+        -Scanner scanner
+        +String readString(String label)
+    }
+
+    class UserOutput {
+        <<interface>>
+        +void printLine(String text)
+        +void printBlankLine()
+    }
+
+    class ConsoleUserOutput {
+        +void printLine(String text)
+    }
+
+    Main --> ConsoleUserInput
+    Main --> ConsoleUserOutput
+    Main --> FacadeForgeCli
+    ConsoleUserInput ..|> UserInput
+    ConsoleUserOutput ..|> UserOutput
+    FacadeForgeApplication --> ForgeApplicationAccess
+    ForgeApplicationAccess --> BacktestRequest
+    ForgeApplicationAccess --> DataImportRequest
+```
+
+## cli Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeCli {
+        +FacadeForgeCli getTheInstance()
+        +ForgeCliAccess forgeCliAccess()
+    }
+
+    class ForgeCliAccess {
+        +void run()
+        +void run(UserInput input, UserOutput output)
+    }
+
+    class CliApplicationController {
+        +void run()
+        +void run(UserInput input, UserOutput output)
     }
 
     class InstrumentSelectionService {
@@ -159,42 +238,15 @@ classDiagram
         +String getDisplayName(Class targetModel)
     }
 
-    class UserInput {
-        <<interface>>
-        +String readString(String label)
-        +int readInt(String label)
-        +double readDouble(String label)
-        +LocalDate readDateOrDefault(String label, LocalDate defaultDate)
-    }
-
-    class ConsoleUserInput {
-        -Scanner scanner
-        +String readString(String label)
-    }
-
-    class UserOutput {
-        <<interface>>
-        +void printLine(String text)
-        +void printBlankLine()
-    }
-
-    class ConsoleUserOutput {
-        +void printLine(String text)
-    }
-
-    Main --> FacadeForgeApplication
-    Main --> ConsoleUserInput
-    Main --> ConsoleUserOutput
-    ConsoleUserInput ..|> UserInput
-    ConsoleUserOutput ..|> UserOutput
-    FacadeForgeApplication --> ForgeApplicationAccess
-    ForgeApplicationAccess --> UserInput
-    ForgeApplicationAccess --> UserOutput
-    ForgeApplicationAccess --> InstrumentSelectionService
-    ForgeApplicationAccess --> StrategySelectionService
-    ForgeApplicationAccess --> RiskSettingsSelectionService
-    ForgeApplicationAccess --> TriggerSelectionService
-    ForgeApplicationAccess --> TargetModelSelectionService
+    FacadeForgeCli --> ForgeCliAccess
+    ForgeCliAccess --> CliApplicationController
+    CliApplicationController --> FacadeForgeApplication
+    CliApplicationController --> FacadeForgeConfig
+    CliApplicationController --> InstrumentSelectionService
+    CliApplicationController --> StrategySelectionService
+    CliApplicationController --> RiskSettingsSelectionService
+    CliApplicationController --> TriggerSelectionService
+    CliApplicationController --> TargetModelSelectionService
 ```
 
 ## config Package

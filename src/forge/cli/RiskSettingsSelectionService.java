@@ -1,5 +1,6 @@
-package forge.app;
+package forge.cli;
 
+import forge.app.UserInput;
 import forge.config.RiskSettings;
 
 public class RiskSettingsSelectionService {

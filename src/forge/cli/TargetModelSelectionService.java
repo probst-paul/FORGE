@@ -1,5 +1,7 @@
-package forge.app;
+package forge.cli;
 
+import forge.app.UserInput;
+import forge.app.UserOutput;
 import forge.config.TargetSettings;
 import forge.target.FacadeForgeTarget;
 import forge.target.TargetModel;
