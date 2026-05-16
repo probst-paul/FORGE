@@ -20,19 +20,29 @@ public class ScidTradeReader {
     private static final int EXPECTED_RECORD_SIZE = 40;
     private static final int READ_BUFFER_RECORD_COUNT = 4096;
     private static final Instant SCID_EPOCH = LocalDateTime.of(1899, 12, 30, 0, 0).toInstant(ZoneOffset.UTC);
+    private static final double PRICE_TICK_TOLERANCE = 0.01;
 
-    public List<TradeRow> readTrades(Path scidFilePath) {
+    public List<TradeRow> readTrades(Path scidFilePath, double tickSize) {
         List<TradeRow> trades = new ArrayList<>();
-        readTrades(scidFilePath, 1, READ_BUFFER_RECORD_COUNT, trades::addAll);
+        readTrades(scidFilePath, 1, READ_BUFFER_RECORD_COUNT, tickSize, trades::addAll);
         return trades;
     }
 
-    public void readTrades(Path scidFilePath, long startRecordIndex, int batchSize, Consumer<List<TradeRow>> tradeBatchConsumer) {
+    public void readTrades(
+            Path scidFilePath,
+            long startRecordIndex,
+            int batchSize,
+            double tickSize,
+            Consumer<List<TradeRow>> tradeBatchConsumer
+    ) {
         if (startRecordIndex < 1) {
             throw new IllegalArgumentException("startRecordIndex must be greater than zero");
         }
         if (batchSize <= 0) {
             throw new IllegalArgumentException("batchSize must be greater than zero");
+        }
+        if (tickSize <= 0 || !Double.isFinite(tickSize)) {
+            throw new IllegalArgumentException("tickSize must be finite and greater than zero");
         }
         if (tradeBatchConsumer == null) {
             throw new IllegalArgumentException("tradeBatchConsumer is required");
@@ -53,7 +63,7 @@ public class ScidTradeReader {
                 recordsBuffer.flip();
                 while (recordsBuffer.remaining() >= header.getRecordSize()) {
                     int recordStart = recordsBuffer.position();
-                    trades.add(readTrade(recordsBuffer, currentRecordIndex));
+                    trades.add(readTrade(recordsBuffer, currentRecordIndex, tickSize));
                     currentRecordIndex++;
                     if (trades.size() == batchSize) {
                         tradeBatchConsumer.accept(new ArrayList<>(trades));
@@ -109,7 +119,7 @@ public class ScidTradeReader {
         }
     }
 
-    private TradeRow readTrade(ByteBuffer recordBuffer, long recordIndex) {
+    private TradeRow readTrade(ByteBuffer recordBuffer, long recordIndex, double tickSize) {
         long scidDateTimeMicros = recordBuffer.getLong();
         recordBuffer.getFloat(); // Open is not imported yet.
         float askPrice = recordBuffer.getFloat();
@@ -122,9 +132,9 @@ public class ScidTradeReader {
 
         return new TradeRow(
                 convertDateTime(scidDateTimeMicros),
-                price,
-                nullablePrice(bidPrice),
-                nullablePrice(askPrice),
+                convertPriceToTicks(price, tickSize, "price"),
+                nullablePriceTicks(bidPrice, tickSize, "bidPrice"),
+                nullablePriceTicks(askPrice, tickSize, "askPrice"),
                 totalVolume,
                 resolveSide(numTrades, bidVolume, askVolume),
                 numTrades,
@@ -138,11 +148,23 @@ public class ScidTradeReader {
         return SCID_EPOCH.plusSeconds(seconds).plusNanos(microAdjustment * 1_000L);
     }
 
-    private Float nullablePrice(float price) {
+    private Long nullablePriceTicks(float price, double tickSize, String fieldName) {
         if (price == 0.0f) {
             return null;
         }
-        return price;
+        return convertPriceToTicks(price, tickSize, fieldName);
+    }
+
+    private long convertPriceToTicks(float price, double tickSize, String fieldName) {
+        if (!Float.isFinite(price)) {
+            throw new IllegalArgumentException("SCID " + fieldName + " must be finite");
+        }
+        double rawTicks = price / tickSize;
+        long roundedTicks = Math.round(rawTicks);
+        if (Math.abs(rawTicks - roundedTicks) > PRICE_TICK_TOLERANCE) {
+            throw new IllegalArgumentException("SCID " + fieldName + " is not aligned to tick size " + tickSize + ": " + price);
+        }
+        return roundedTicks;
     }
 
     private Integer resolveSide(long numTrades, long bidVolume, long askVolume) {

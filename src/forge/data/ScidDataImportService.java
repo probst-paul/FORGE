@@ -2,6 +2,7 @@ package forge.data;
 
 import forge.app.ImportProgress;
 import forge.app.ImportProgressListener;
+import forge.model.FuturesInstrumentSpec;
 import forge.model.FuturesInstrumentSpecProvider;
 import forge.model.StaticFuturesInstrumentSpecProvider;
 
@@ -60,7 +61,7 @@ public class ScidDataImportService {
             ImportProgressListener progressListener
     ) {
         String contractSymbol = contractNameResolver.resolveFromScidPath(scidFilePath);
-        validateSupportedInstrument(contractSymbol);
+        FuturesInstrumentSpec instrumentSpec = validateSupportedInstrument(contractSymbol);
         String tableName = contractSymbol;
         Path path = Path.of(scidFilePath);
         String sourceFileName = path.getFileName().toString();
@@ -88,6 +89,7 @@ public class ScidDataImportService {
                 path,
                 checkpoint.getNextRecordIndex(),
                 IMPORT_BATCH_SIZE,
+                instrumentSpec.getTickSize(),
                 trades -> {
                     long nextRecordIndex = trades.get(trades.size() - 1).getScidRecordIndex() + 1;
                     importedRows.addAndGet(tradeRepository.insertTradesAndAdvanceCheckpoint(
@@ -133,8 +135,8 @@ public class ScidDataImportService {
         }
     }
 
-    private void validateSupportedInstrument(String contractSymbol) {
+    private FuturesInstrumentSpec validateSupportedInstrument(String contractSymbol) {
         String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(contractSymbol);
-        futuresInstrumentSpecProvider.getBySymbol(instrumentSymbol);
+        return futuresInstrumentSpecProvider.getBySymbol(instrumentSymbol);
     }
 }

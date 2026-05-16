@@ -48,9 +48,9 @@ public class PostgresTradeRepository {
             statement.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS " + quoteIdentifier(tableName) + " (" +
                             quoteIdentifier("tradeDateTime") + " TIMESTAMPTZ NOT NULL, " +
-                            "price FLOAT4 NOT NULL, " +
-                            quoteIdentifier("bidPrice") + " FLOAT4, " +
-                            quoteIdentifier("askPrice") + " FLOAT4, " +
+                            quoteIdentifier("priceTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("bidPriceTicks") + " BIGINT, " +
+                            quoteIdentifier("askPriceTicks") + " BIGINT, " +
                             "quantity BIGINT NOT NULL, " +
                             "side INT, " +
                             quoteIdentifier("numTrades") + " BIGINT NOT NULL, " +
@@ -68,11 +68,31 @@ public class PostgresTradeRepository {
             );
             statement.executeUpdate(
                     "ALTER TABLE " + quoteIdentifier(tableName) +
-                            " ADD COLUMN IF NOT EXISTS " + quoteIdentifier("bidPrice") + " FLOAT4"
+                            " ADD COLUMN IF NOT EXISTS " + quoteIdentifier("priceTicks") + " BIGINT NOT NULL DEFAULT 0"
             );
             statement.executeUpdate(
                     "ALTER TABLE " + quoteIdentifier(tableName) +
-                            " ADD COLUMN IF NOT EXISTS " + quoteIdentifier("askPrice") + " FLOAT4"
+                            " ALTER COLUMN " + quoteIdentifier("priceTicks") + " DROP DEFAULT"
+            );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(tableName) +
+                            " ADD COLUMN IF NOT EXISTS " + quoteIdentifier("bidPriceTicks") + " BIGINT"
+            );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(tableName) +
+                            " ADD COLUMN IF NOT EXISTS " + quoteIdentifier("askPriceTicks") + " BIGINT"
+            );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(tableName) +
+                            " DROP COLUMN IF EXISTS price"
+            );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(tableName) +
+                            " DROP COLUMN IF EXISTS " + quoteIdentifier("bidPrice")
+            );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(tableName) +
+                            " DROP COLUMN IF EXISTS " + quoteIdentifier("askPrice")
             );
             statement.executeUpdate(
                     "ALTER TABLE " + quoteIdentifier(tableName) +
@@ -251,9 +271,9 @@ public class PostgresTradeRepository {
 
         String sql = "INSERT INTO " + quoteIdentifier(tableName) + " (" +
                 quoteIdentifier("tradeDateTime") + ", " +
-                "price, " +
-                quoteIdentifier("bidPrice") + ", " +
-                quoteIdentifier("askPrice") + ", " +
+                quoteIdentifier("priceTicks") + ", " +
+                quoteIdentifier("bidPriceTicks") + ", " +
+                quoteIdentifier("askPriceTicks") + ", " +
                 "quantity, " +
                 "side, " +
                 quoteIdentifier("numTrades") + ", " +
@@ -273,9 +293,9 @@ public class PostgresTradeRepository {
             connection.setAutoCommit(false);
             for (TradeRow trade : trades) {
                 statement.setTimestamp(1, Timestamp.from(trade.getTradeDateTime()));
-                statement.setFloat(2, trade.getPrice());
-                setNullableFloat(statement, 3, trade.getBidPrice());
-                setNullableFloat(statement, 4, trade.getAskPrice());
+                statement.setLong(2, trade.getPriceTicks());
+                setNullableLong(statement, 3, trade.getBidPriceTicks());
+                setNullableLong(statement, 4, trade.getAskPriceTicks());
                 statement.setLong(5, trade.getQuantity());
                 setNullableInteger(statement, 6, trade.getSide());
                 statement.setLong(7, trade.getNumTrades());
@@ -422,7 +442,8 @@ public class PostgresTradeRepository {
     ) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "UPDATE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
-                        " SET " + quoteIdentifier("fileSizeBytes") + " = ?, " +
+                        " SET " + quoteIdentifier("sourceFileName") + " = ?, " +
+                        quoteIdentifier("fileSizeBytes") + " = ?, " +
                         quoteIdentifier("lastModifiedMillis") + " = ?, " +
                         quoteIdentifier("nextRecordIndex") + " = ?, " +
                         quoteIdentifier("rowsInserted") + " = ?, " +
@@ -432,14 +453,15 @@ public class PostgresTradeRepository {
                         " WHERE " + quoteIdentifier("tableName") + " = ?"
         )) {
             Instant now = Instant.now();
-            statement.setLong(1, fileSizeBytes);
-            statement.setLong(2, lastModifiedMillis);
-            statement.setLong(3, 1);
-            statement.setLong(4, 0);
-            statement.setString(5, "IN_PROGRESS");
-            statement.setTimestamp(6, Timestamp.from(now));
+            statement.setString(1, sourceFileName);
+            statement.setLong(2, fileSizeBytes);
+            statement.setLong(3, lastModifiedMillis);
+            statement.setLong(4, 1);
+            statement.setLong(5, 0);
+            statement.setString(6, "IN_PROGRESS");
             statement.setTimestamp(7, Timestamp.from(now));
-            statement.setString(8, tableName);
+            statement.setTimestamp(8, Timestamp.from(now));
+            statement.setString(9, tableName);
             statement.executeUpdate();
         }
     }
@@ -549,12 +571,12 @@ public class PostgresTradeRepository {
         return "\"" + identifier + "\"";
     }
 
-    private void setNullableFloat(PreparedStatement statement, int index, Float value) throws SQLException {
+    private void setNullableLong(PreparedStatement statement, int index, Long value) throws SQLException {
         if (value == null) {
-            statement.setNull(index, java.sql.Types.REAL);
+            statement.setNull(index, java.sql.Types.BIGINT);
             return;
         }
-        statement.setFloat(index, value);
+        statement.setLong(index, value);
     }
 
     private void setNullableInteger(PreparedStatement statement, int index, Integer value) throws SQLException {

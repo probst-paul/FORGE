@@ -36,7 +36,7 @@ class ScidTradeReaderTest {
                     record(1_123_456, 0.0f, 101.25f, 101.0f, 101.25f, 1, 2, 0, 2)
             ));
 
-            List<TradeRow> trades = reader.readTrades(scidFile);
+            List<TradeRow> trades = reader.readTrades(scidFile, 0.25);
 
             assertEquals(1, trades.size());
             TradeRow trade = trades.get(0);
@@ -44,9 +44,9 @@ class ScidTradeReaderTest {
                     LocalDateTime.of(1899, 12, 30, 0, 0, 1, 123_456_000).toInstant(ZoneOffset.UTC),
                     trade.getTradeDateTime()
             );
-            assertEquals(101.25f, trade.getPrice());
-            assertEquals(101.0f, trade.getBidPrice());
-            assertEquals(101.25f, trade.getAskPrice());
+            assertEquals(405L, trade.getPriceTicks());
+            assertEquals(404L, trade.getBidPriceTicks());
+            assertEquals(405L, trade.getAskPriceTicks());
             assertEquals(2, trade.getQuantity());
             assertEquals(1, trade.getNumTrades());
             assertEquals(TradeRow.BUY_AGGRESSOR, trade.getSide());
@@ -62,7 +62,7 @@ class ScidTradeReaderTest {
             ));
             List<List<TradeRow>> batches = new ArrayList<>();
 
-            reader.readTrades(scidFile, 1, 2, batches::add);
+            reader.readTrades(scidFile, 1, 2, 0.25, batches::add);
 
             assertEquals(2, batches.size());
             assertEquals(2, batches.get(0).size());
@@ -81,7 +81,7 @@ class ScidTradeReaderTest {
             ));
             List<TradeRow> trades = new ArrayList<>();
 
-            reader.readTrades(scidFile, 3, 10, trades::addAll);
+            reader.readTrades(scidFile, 3, 10, 0.10, trades::addAll);
 
             assertEquals(1, trades.size());
             assertEquals(3, trades.get(0).getScidRecordIndex());
@@ -95,7 +95,7 @@ class ScidTradeReaderTest {
                     record(1_000_000, 0.0f, 70.10f, 70.09f, 70.10f, 2, 5, 2, 3)
             ));
 
-            List<TradeRow> trades = reader.readTrades(scidFile);
+            List<TradeRow> trades = reader.readTrades(scidFile, 0.01);
 
             assertEquals(1, trades.size());
             assertEquals(null, trades.get(0).getSide());
@@ -114,7 +114,17 @@ class ScidTradeReaderTest {
 
             Files.write(scidFile, file.array());
 
-            assertThrows(IllegalArgumentException.class, () -> reader.readTrades(scidFile));
+            assertThrows(IllegalArgumentException.class, () -> reader.readTrades(scidFile, 0.25));
+        }
+
+        @Test
+        void rejectsPricesThatAreNotAlignedToTickSize() throws IOException {
+            Path scidFile = tempDirectory.resolve("ESU25_FUT_CME.scid");
+            Files.write(scidFile, scidFile(
+                    record(1_000_000, 0.0f, 101.13f, 101.0f, 101.13f, 1, 2, 0, 2)
+            ));
+
+            assertThrows(IllegalArgumentException.class, () -> reader.readTrades(scidFile, 0.25));
         }
     }
 

@@ -8,9 +8,9 @@ public class TradeRow {
     public static final int SELL_AGGRESSOR = -1;
 
     private final Instant tradeDateTime;
-    private final float price;
-    private final Float bidPrice;
-    private final Float askPrice;
+    private final long priceTicks;
+    private final Long bidPriceTicks;
+    private final Long askPriceTicks;
     private final long quantity;
     private final Integer side;
     private final long numTrades;
@@ -18,18 +18,18 @@ public class TradeRow {
 
     public TradeRow(
             Instant tradeDateTime,
-            float price,
-            Float bidPrice,
-            Float askPrice,
+            long priceTicks,
+            Long bidPriceTicks,
+            Long askPriceTicks,
             long quantity,
             Integer side,
             long numTrades,
             long scidRecordIndex
     ) {
         this.tradeDateTime = Objects.requireNonNull(tradeDateTime, "tradeDateTime is required");
-        this.price = requireFinite(price, "price must be finite");
-        this.bidPrice = bidPrice == null ? null : requireFinite(bidPrice, "bidPrice must be finite");
-        this.askPrice = askPrice == null ? null : requireFinite(askPrice, "askPrice must be finite");
+        this.priceTicks = priceTicks;
+        this.bidPriceTicks = bidPriceTicks;
+        this.askPriceTicks = askPriceTicks;
         if (quantity < 0) {
             throw new IllegalArgumentException("quantity cannot be negative");
         }
@@ -52,16 +52,16 @@ public class TradeRow {
         return tradeDateTime;
     }
 
-    public float getPrice() {
-        return price;
+    public long getPriceTicks() {
+        return priceTicks;
     }
 
-    public Float getBidPrice() {
-        return bidPrice;
+    public Long getBidPriceTicks() {
+        return bidPriceTicks;
     }
 
-    public Float getAskPrice() {
-        return askPrice;
+    public Long getAskPriceTicks() {
+        return askPriceTicks;
     }
 
     public long getQuantity() {
@@ -80,10 +80,4 @@ public class TradeRow {
         return scidRecordIndex;
     }
 
-    private static float requireFinite(float value, String message) {
-        if (!Float.isFinite(value)) {
-            throw new IllegalArgumentException(message);
-        }
-        return value;
-    }
 }
