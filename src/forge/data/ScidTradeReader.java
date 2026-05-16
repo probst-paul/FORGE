@@ -145,18 +145,14 @@ public class ScidTradeReader {
         return price;
     }
 
-    private int resolveSide(long numTrades, long bidVolume, long askVolume) {
+    private Integer resolveSide(long numTrades, long bidVolume, long askVolume) {
         if (askVolume > 0 && bidVolume == 0) {
             return TradeRow.BUY_AGGRESSOR;
         }
         if (bidVolume > 0 && askVolume == 0) {
             return TradeRow.SELL_AGGRESSOR;
         }
-        throw new IllegalArgumentException(
-                "Could not determine aggressor side for SCID record with numTrades=" + numTrades +
-                        ", bidVolume=" + bidVolume +
-                        ", askVolume=" + askVolume
-        );
+        return null;
     }
 
     private static class ScidHeader {

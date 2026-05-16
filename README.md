@@ -176,7 +176,7 @@ price FLOAT4 NOT NULL,
 "bidPrice" FLOAT4,
 "askPrice" FLOAT4,
 quantity BIGINT NOT NULL,
-side INT NOT NULL,
+side INT,
 "numTrades" BIGINT NOT NULL,
 "sourceFileName" TEXT NOT NULL,
 "scidRecordIndex" BIGINT NOT NULL
@@ -194,7 +194,7 @@ side            <- AskVolume > 0 means buy aggressor, BidVolume > 0 means sell a
 "numTrades"     <- NumTrades
 ```
 
-`TIMESTAMPTZ` and `FLOAT4` match the practical PostgreSQL equivalents for Sierra Chart's UTC timestamp and 4-byte float price fields. Sierra Chart's count and volume fields are unsigned 4-byte integers, so FORGE stores imported count/volume values as `BIGINT` to preserve their full range in PostgreSQL. `side` is FORGE-specific rather than a Sierra Chart field, with `1` for buy aggressor and `-1` for sell aggressor. Records without a clear aggressor side are rejected during import.
+`TIMESTAMPTZ` and `FLOAT4` match the practical PostgreSQL equivalents for Sierra Chart's UTC timestamp and 4-byte float price fields. Sierra Chart's count and volume fields are unsigned 4-byte integers, so FORGE stores imported count/volume values as `BIGINT` to preserve their full range in PostgreSQL. `side` is FORGE-specific rather than a Sierra Chart field, with `1` for buy aggressor, `-1` for sell aggressor, and `NULL` when the aggressor side cannot be identified. Backtest data reads should filter to strategy-usable trades with `side IS NOT NULL`.
 
 Each contract table is treated as the authoritative dataset for that contract. If a contract table already exists, the CLI prompts before wiping and rebuilding it from the selected SCID file. FORGE stores the source file name and SCID record index on each row, creates a unique index over the SCID record index inside the contract table, and inserts with `ON CONFLICT DO NOTHING`. It also maintains a `forge_contract_imports` table with the source file metadata and next record index to process. The checkpoint advances only after a batch insert succeeds.
 

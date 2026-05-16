@@ -52,7 +52,7 @@ public class PostgresTradeRepository {
                             quoteIdentifier("bidPrice") + " FLOAT4, " +
                             quoteIdentifier("askPrice") + " FLOAT4, " +
                             "quantity BIGINT NOT NULL, " +
-                            "side INT NOT NULL, " +
+                            "side INT, " +
                             quoteIdentifier("numTrades") + " BIGINT NOT NULL, " +
                             quoteIdentifier("sourceFileName") + " TEXT NOT NULL, " +
                             quoteIdentifier("scidRecordIndex") + " BIGINT NOT NULL" +
@@ -61,6 +61,10 @@ public class PostgresTradeRepository {
             statement.executeUpdate(
                     "ALTER TABLE " + quoteIdentifier(tableName) +
                             " ALTER COLUMN quantity TYPE BIGINT"
+            );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(tableName) +
+                            " ALTER COLUMN side DROP NOT NULL"
             );
             statement.executeUpdate(
                     "ALTER TABLE " + quoteIdentifier(tableName) +
@@ -273,7 +277,7 @@ public class PostgresTradeRepository {
                 setNullableFloat(statement, 3, trade.getBidPrice());
                 setNullableFloat(statement, 4, trade.getAskPrice());
                 statement.setLong(5, trade.getQuantity());
-                statement.setInt(6, trade.getSide());
+                setNullableInteger(statement, 6, trade.getSide());
                 statement.setLong(7, trade.getNumTrades());
                 statement.setString(8, sourceFileName);
                 statement.setLong(9, trade.getScidRecordIndex());
@@ -551,6 +555,14 @@ public class PostgresTradeRepository {
             return;
         }
         statement.setFloat(index, value);
+    }
+
+    private void setNullableInteger(PreparedStatement statement, int index, Integer value) throws SQLException {
+        if (value == null) {
+            statement.setNull(index, java.sql.Types.INTEGER);
+            return;
+        }
+        statement.setInt(index, value);
     }
 
 }

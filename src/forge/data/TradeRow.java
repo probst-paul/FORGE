@@ -12,7 +12,7 @@ public class TradeRow {
     private final Float bidPrice;
     private final Float askPrice;
     private final long quantity;
-    private final int side;
+    private final Integer side;
     private final long numTrades;
     private final long scidRecordIndex;
 
@@ -22,7 +22,7 @@ public class TradeRow {
             Float bidPrice,
             Float askPrice,
             long quantity,
-            int side,
+            Integer side,
             long numTrades,
             long scidRecordIndex
     ) {
@@ -39,7 +39,7 @@ public class TradeRow {
         if (scidRecordIndex < 1) {
             throw new IllegalArgumentException("scidRecordIndex must be greater than zero");
         }
-        if (side != BUY_AGGRESSOR && side != SELL_AGGRESSOR) {
+        if (side != null && side != BUY_AGGRESSOR && side != SELL_AGGRESSOR) {
             throw new IllegalArgumentException("side must be buy or sell");
         }
         this.quantity = quantity;
@@ -68,7 +68,7 @@ public class TradeRow {
         return quantity;
     }
 
-    public int getSide() {
+    public Integer getSide() {
         return side;
     }
 

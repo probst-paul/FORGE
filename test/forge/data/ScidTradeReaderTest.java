@@ -89,13 +89,16 @@ class ScidTradeReaderTest {
         }
 
         @Test
-        void rejectsRecordsWithAmbiguousAggressorSide() throws IOException {
+        void importsRecordsWithAmbiguousAggressorSideAsNullSide() throws IOException {
             Path scidFile = tempDirectory.resolve("CLU25_FUT_CME.scid");
             Files.write(scidFile, scidFile(
                     record(1_000_000, 0.0f, 70.10f, 70.09f, 70.10f, 2, 5, 2, 3)
             ));
 
-            assertThrows(IllegalArgumentException.class, () -> reader.readTrades(scidFile));
+            List<TradeRow> trades = reader.readTrades(scidFile);
+
+            assertEquals(1, trades.size());
+            assertEquals(null, trades.get(0).getSide());
         }
 
         @Test
