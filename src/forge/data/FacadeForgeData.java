@@ -65,8 +65,12 @@ public class FacadeForgeData {
             instrumentDataCatalog.validateDateRange(symbols, startDate, endDate);
         }
 
-        public DataImportResult importScidFile(String scidFilePath) {
-            return scidDataImportService.importScidFile(scidFilePath);
+        public DataImportPlan planScidImport(String scidFilePath) {
+            return scidDataImportService.planImport(scidFilePath);
+        }
+
+        public DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract) {
+            return scidDataImportService.importScidFile(scidFilePath, rebuildExistingContract);
         }
 
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {

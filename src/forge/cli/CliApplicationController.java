@@ -11,6 +11,7 @@ import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
 import forge.config.TargetSettings;
 import forge.app.DataImportRequest;
+import forge.data.DataImportPlan;
 import forge.data.FacadeForgeData;
 import forge.data.DataImportResult;
 import forge.data.PostgresDatabaseSettings;
@@ -155,8 +156,29 @@ public class CliApplicationController {
 
     private void runDataImport(UserInput input, UserOutput output) {
         printSection(output, "Import Data");
-        DataImportRequest request = new DataImportRequest(input.readString("SCID data file path"));
-        DataImportResult result = forgeApplication.forgeApplicationAccess().importData(request);
+        String scidFilePath = input.readString("SCID data file path");
+        DataImportRequest planRequest = new DataImportRequest(scidFilePath);
+        DataImportPlan plan = forgeApplication.forgeApplicationAccess().planDataImport(planRequest);
+        boolean rebuildExistingContract = false;
+
+        if (plan.hasExistingContractTable()) {
+            output.printBlankLine();
+            output.printLine("Existing data found for " + plan.getContractSymbol() + ":");
+            output.printLine("Rows: " + plan.getExistingRows());
+            if (plan.getCurrentSourceFileName() != null) {
+                output.printLine("Current source: " + plan.getCurrentSourceFileName());
+            }
+            String confirmation = input.readString("Wipe and rebuild " + plan.getContractSymbol() + " from this file? (yes/no)");
+            if (!"yes".equalsIgnoreCase(confirmation.trim())) {
+                output.printLine("Import canceled.");
+                return;
+            }
+            rebuildExistingContract = true;
+        }
+
+        DataImportResult result = forgeApplication.forgeApplicationAccess().importData(
+                new DataImportRequest(scidFilePath, rebuildExistingContract)
+        );
 
         output.printBlankLine();
         output.printLine("Data storage prepared:");

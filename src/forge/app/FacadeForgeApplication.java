@@ -1,6 +1,7 @@
 package forge.app;
 
 import forge.config.BacktestRequest;
+import forge.data.DataImportPlan;
 import forge.data.DataImportResult;
 import forge.data.FacadeForgeData;
 import forge.data.PostgresDatabaseSettings;
@@ -36,7 +37,15 @@ public class FacadeForgeApplication {
 
         public DataImportResult importData(DataImportRequest request) {
             Objects.requireNonNull(request, "request is required");
-            return forgeData.forgeDataAccess().importScidFile(request.getScidFilePath());
+            return forgeData.forgeDataAccess().importScidFile(
+                    request.getScidFilePath(),
+                    request.shouldRebuildExistingContract()
+            );
+        }
+
+        public DataImportPlan planDataImport(DataImportRequest request) {
+            Objects.requireNonNull(request, "request is required");
+            return forgeData.forgeDataAccess().planScidImport(request.getScidFilePath());
         }
 
         public DatabaseConnectionRequest configureDatabase(DatabaseConnectionRequest request) {
