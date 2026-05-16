@@ -4,7 +4,11 @@ import forge.data.catalog.ContractDataSummary;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.ImportCheckpoint;
 import forge.data.importing.TradeRow;
+import org.postgresql.PGConnection;
+import org.postgresql.copy.CopyManager;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -300,7 +304,7 @@ public class PostgresTradeRepository {
             return 0;
         }
 
-        String sql = "INSERT INTO " + quoteIdentifier(tableName) + " (" +
+        String copySql = "COPY " + quoteIdentifier(tableName) + " (" +
                 quoteIdentifier("tradeDateTime") + ", " +
                 quoteIdentifier("priceTicks") + ", " +
                 quoteIdentifier("bidPriceTicks") + ", " +
@@ -310,42 +314,36 @@ public class PostgresTradeRepository {
                 quoteIdentifier("numTrades") + ", " +
                 quoteIdentifier("sourceFileName") + ", " +
                 quoteIdentifier("scidRecordIndex") +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                "ON CONFLICT (" + quoteIdentifier("scidRecordIndex") + ") " +
-                "WHERE " + quoteIdentifier("scidRecordIndex") + " IS NOT NULL " +
-                "DO NOTHING";
+                ") FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')";
 
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
                 settings.getPassword()
         );
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+             StringReader copyData = new StringReader(toCopyText(sourceFileName, trades))) {
             connection.setAutoCommit(false);
-            for (TradeRow trade : trades) {
-                statement.setTimestamp(1, Timestamp.from(trade.getTradeDateTime()));
-                statement.setLong(2, trade.getPriceTicks());
-                setNullableLong(statement, 3, trade.getBidPriceTicks());
-                setNullableLong(statement, 4, trade.getAskPriceTicks());
-                statement.setLong(5, trade.getQuantity());
-                setNullableInteger(statement, 6, trade.getSide());
-                statement.setLong(7, trade.getNumTrades());
-                statement.setString(8, sourceFileName);
-                statement.setLong(9, trade.getScidRecordIndex());
-                statement.addBatch();
-            }
-
-            int importedRows = 0;
-            for (int rowCount : statement.executeBatch()) {
-                if (rowCount > 0) {
-                    importedRows += rowCount;
-                }
-            }
+            CopyManager copyManager = connection.unwrap(PGConnection.class).getCopyAPI();
+            int importedRows = Math.toIntExact(copyManager.copyIn(copySql, copyData));
             updateImportCheckpoint(connection, tableName, sourceFileName, nextRecordIndex, importedRows);
             connection.commit();
             return importedRows;
-        } catch (SQLException exception) {
+        } catch (SQLException | IOException exception) {
             throw new IllegalStateException("Could not insert trades into PostgreSQL table '" + tableName + "'", exception);
+        }
+    }
+
+    public void advanceImportCheckpoint(String tableName, String sourceFileName, long nextRecordIndex) {
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            connection.setAutoCommit(false);
+            updateImportCheckpoint(connection, tableName, sourceFileName, nextRecordIndex, 0);
+            connection.commit();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not advance PostgreSQL import checkpoint for '" + tableName + "'", exception);
         }
     }
 
@@ -644,20 +642,72 @@ public class PostgresTradeRepository {
         return "\"" + identifier + "\"";
     }
 
-    private void setNullableLong(PreparedStatement statement, int index, Long value) throws SQLException {
-        if (value == null) {
-            statement.setNull(index, java.sql.Types.BIGINT);
-            return;
+    private String toCopyText(String sourceFileName, List<TradeRow> trades) {
+        StringBuilder builder = new StringBuilder(trades.size() * 128);
+        for (TradeRow trade : trades) {
+            appendCopyText(builder, trade.getTradeDateTime().toString());
+            builder.append('\t');
+            builder.append(trade.getPriceTicks());
+            builder.append('\t');
+            appendNullableLong(builder, trade.getBidPriceTicks());
+            builder.append('\t');
+            appendNullableLong(builder, trade.getAskPriceTicks());
+            builder.append('\t');
+            builder.append(trade.getQuantity());
+            builder.append('\t');
+            appendNullableInteger(builder, trade.getSide());
+            builder.append('\t');
+            builder.append(trade.getNumTrades());
+            builder.append('\t');
+            appendCopyText(builder, sourceFileName);
+            builder.append('\t');
+            builder.append(trade.getScidRecordIndex());
+            builder.append('\n');
         }
-        statement.setLong(index, value);
+        return builder.toString();
     }
 
-    private void setNullableInteger(PreparedStatement statement, int index, Integer value) throws SQLException {
+    private void appendNullableLong(StringBuilder builder, Long value) {
         if (value == null) {
-            statement.setNull(index, java.sql.Types.INTEGER);
+            builder.append("\\N");
             return;
         }
-        statement.setInt(index, value);
+        builder.append(value);
+    }
+
+    private void appendNullableInteger(StringBuilder builder, Integer value) {
+        if (value == null) {
+            builder.append("\\N");
+            return;
+        }
+        builder.append(value);
+    }
+
+    private void appendCopyText(StringBuilder builder, String value) {
+        if (value == null) {
+            builder.append("\\N");
+            return;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            switch (character) {
+                case '\\':
+                    builder.append("\\\\");
+                    break;
+                case '\t':
+                    builder.append("\\t");
+                    break;
+                case '\n':
+                    builder.append("\\n");
+                    break;
+                case '\r':
+                    builder.append("\\r");
+                    break;
+                default:
+                    builder.append(character);
+                    break;
+            }
+        }
     }
 
 }

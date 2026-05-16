@@ -4,6 +4,8 @@ import forge.app.ImportProgress;
 import forge.app.ImportProgressListener;
 import forge.data.contract.ContractNameResolver;
 import forge.data.postgres.PostgresTradeRepository;
+import forge.data.rollover.ContractRolloverCalendar;
+import forge.data.rollover.ContractRolloverWindow;
 import forge.model.FuturesInstrumentSpec;
 import forge.model.FuturesInstrumentSpecProvider;
 import forge.model.StaticFuturesInstrumentSpecProvider;
@@ -11,25 +13,40 @@ import forge.model.StaticFuturesInstrumentSpecProvider;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 public class ScidDataImportService {
-    private static final int IMPORT_BATCH_SIZE = 10_000;
+    private static final int IMPORT_BATCH_SIZE = 100_000;
 
     private final ContractNameResolver contractNameResolver;
     private final FuturesInstrumentSpecProvider futuresInstrumentSpecProvider;
     private final ScidTradeReader scidTradeReader;
     private final PostgresTradeRepository tradeRepository;
+    private final ContractRolloverCalendar contractRolloverCalendar;
 
     public ScidDataImportService(ContractNameResolver contractNameResolver, PostgresTradeRepository tradeRepository) {
-        this(contractNameResolver, new StaticFuturesInstrumentSpecProvider(), new ScidTradeReader(), tradeRepository);
+        this(
+                contractNameResolver,
+                new StaticFuturesInstrumentSpecProvider(),
+                new ScidTradeReader(),
+                tradeRepository,
+                new ContractRolloverCalendar()
+        );
     }
 
     public ScidDataImportService(
             ContractNameResolver contractNameResolver,
             FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
             ScidTradeReader scidTradeReader,
-            PostgresTradeRepository tradeRepository
+            PostgresTradeRepository tradeRepository,
+            ContractRolloverCalendar contractRolloverCalendar
     ) {
         if (contractNameResolver == null) {
             throw new IllegalArgumentException("contractNameResolver is required");
@@ -43,10 +60,14 @@ public class ScidDataImportService {
         if (tradeRepository == null) {
             throw new IllegalArgumentException("tradeRepository is required");
         }
+        if (contractRolloverCalendar == null) {
+            throw new IllegalArgumentException("contractRolloverCalendar is required");
+        }
         this.contractNameResolver = contractNameResolver;
         this.futuresInstrumentSpecProvider = futuresInstrumentSpecProvider;
         this.scidTradeReader = scidTradeReader;
         this.tradeRepository = tradeRepository;
+        this.contractRolloverCalendar = contractRolloverCalendar;
     }
 
     public DataImportPlan planImport(String scidFilePath) {
@@ -69,6 +90,8 @@ public class ScidDataImportService {
         String sourceFileName = path.getFileName().toString();
         ImportProgressListener listener = progressListener == null ? ImportProgressListener.NO_OP : progressListener;
         long totalRecords = totalRecordCount(path);
+        Optional<ContractRolloverWindow> activeWindow = contractRolloverCalendar.findActiveWindow(contractSymbol);
+        long importStartNanos = System.nanoTime();
 
         tradeRepository.ensureDatabaseExists();
         tradeRepository.ensureContractTradesTableExists(tableName);
@@ -82,6 +105,8 @@ public class ScidDataImportService {
         );
         tradeRepository.ensureContractRecordUniqueIndex(tableName);
         AtomicInteger importedRows = new AtomicInteger();
+        AtomicLong nullSideRowsImported = new AtomicLong();
+        AtomicLong skippedOutsideFrontMonthRows = new AtomicLong();
         listener.onProgress(new ImportProgress(
                 contractSymbol,
                 checkpoint.getNextRecordIndex() - 1,
@@ -94,12 +119,19 @@ public class ScidDataImportService {
                 instrumentSpec.getTickSize(),
                 trades -> {
                     long nextRecordIndex = trades.get(trades.size() - 1).getScidRecordIndex() + 1;
-                    importedRows.addAndGet(tradeRepository.insertTradesAndAdvanceCheckpoint(
-                            tableName,
-                            sourceFileName,
-                            trades,
-                            nextRecordIndex
-                    ));
+                    List<TradeRow> frontMonthTrades = filterFrontMonthTrades(trades, activeWindow);
+                    skippedOutsideFrontMonthRows.addAndGet(trades.size() - frontMonthTrades.size());
+                    nullSideRowsImported.addAndGet(countNullSideRows(frontMonthTrades));
+                    if (frontMonthTrades.isEmpty()) {
+                        tradeRepository.advanceImportCheckpoint(tableName, sourceFileName, nextRecordIndex);
+                    } else {
+                        importedRows.addAndGet(tradeRepository.insertTradesAndAdvanceCheckpoint(
+                                tableName,
+                                sourceFileName,
+                                frontMonthTrades,
+                                nextRecordIndex
+                        ));
+                    }
                     listener.onProgress(new ImportProgress(
                             contractSymbol,
                             Math.min(nextRecordIndex - 1, totalRecords),
@@ -110,7 +142,40 @@ public class ScidDataImportService {
         tradeRepository.markImportComplete(tableName, sourceFileName);
         listener.onProgress(new ImportProgress(contractSymbol, totalRecords, totalRecords));
 
-        return new DataImportResult(tradeRepository.getDatabaseName(), tableName, contractSymbol, importedRows.get());
+        return new DataImportResult(
+                tradeRepository.getDatabaseName(),
+                tableName,
+                contractSymbol,
+                importedRows.get(),
+                nullSideRowsImported.get(),
+                skippedOutsideFrontMonthRows.get(),
+                Duration.ofNanos(System.nanoTime() - importStartNanos)
+        );
+    }
+
+    private List<TradeRow> filterFrontMonthTrades(
+            List<TradeRow> trades,
+            Optional<ContractRolloverWindow> activeWindow
+    ) {
+        if (activeWindow.isEmpty()) {
+            return trades;
+        }
+        ContractRolloverWindow window = activeWindow.get();
+        return trades.stream()
+                .filter(trade -> isWithinActiveWindow(trade, window))
+                .collect(Collectors.toList());
+    }
+
+    private boolean isWithinActiveWindow(TradeRow trade, ContractRolloverWindow activeWindow) {
+        LocalDate tradeDate = trade.getTradeDateTime().atZone(ZoneOffset.UTC).toLocalDate();
+        return !tradeDate.isBefore(activeWindow.getActiveStartDate())
+                && !tradeDate.isAfter(activeWindow.getActiveEndDate());
+    }
+
+    private long countNullSideRows(List<TradeRow> trades) {
+        return trades.stream()
+                .filter(trade -> trade.getSide() == null)
+                .count();
     }
 
     private long totalRecordCount(Path path) {

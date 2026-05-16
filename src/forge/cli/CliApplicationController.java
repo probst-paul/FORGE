@@ -23,6 +23,8 @@ import forge.target.TargetModel;
 import forge.trigger.FacadeForgeTrigger;
 import forge.trigger.TradeTrigger;
 
+import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Scanner;
@@ -169,9 +171,8 @@ public class CliApplicationController {
             if (plan.getCurrentSourceFileName() != null) {
                 output.printLine("Current source: " + plan.getCurrentSourceFileName());
             }
-            String confirmation = input.readString("Wipe and rebuild " + plan.getContractSymbol() + " from this file? (yes/no)");
-            if (!"yes".equalsIgnoreCase(confirmation.trim())) {
-                output.printLine("Import canceled.");
+            if (!confirmWipeAndRebuild(input, output, plan)) {
+                output.printLine(importCanceledReason(scidFilePath, plan));
                 return;
             }
             rebuildExistingContract = true;
@@ -187,6 +188,51 @@ public class CliApplicationController {
         output.printLine("Table: " + result.getTableName());
         output.printLine("Contract: " + result.getContractSymbol());
         output.printLine("Rows imported: " + result.getImportedRows());
+        output.printLine("Import time: " + formatDuration(result.getElapsedTime()));
+        output.printLine("Null-side rows imported: " + result.getNullSideRowsImported());
+        output.printLine("Rows skipped outside front-month window: " + result.getSkippedOutsideFrontMonthRows());
+        if (result.getNullSideRowsImported() > 0) {
+            output.printLine("Null-side rows are stored but should be excluded from strategy calculations.");
+        }
+    }
+
+    private boolean confirmWipeAndRebuild(UserInput input, UserOutput output, DataImportPlan plan) {
+        while (true) {
+            String confirmation = input.readString("Wipe and rebuild " + plan.getContractSymbol() + " from this file? (y/n)");
+            String normalizedConfirmation = confirmation.trim().toLowerCase();
+            if ("y".equals(normalizedConfirmation)) {
+                return true;
+            }
+            if ("n".equals(normalizedConfirmation)) {
+                return false;
+            }
+            output.printLine("Please type y to wipe/rebuild or n to keep the existing data.");
+        }
+    }
+
+    private String importCanceledReason(String scidFilePath, DataImportPlan plan) {
+        String requestedSourceFileName = Path.of(scidFilePath.trim().replace('\\', '/')).getFileName().toString();
+        if (requestedSourceFileName.equalsIgnoreCase(plan.getCurrentSourceFileName())) {
+            return "Import canceled: " + plan.getContractSymbol() +
+                    " already contains data from this SCID file. Answer y to wipe and rebuild it.";
+        }
+        return "Import canceled: existing " + plan.getContractSymbol() +
+                " data was kept. Answer y to wipe it and import the selected SCID file.";
+    }
+
+    private String formatDuration(Duration duration) {
+        long totalMillis = duration.toMillis();
+        long hours = totalMillis / 3_600_000;
+        long minutes = (totalMillis % 3_600_000) / 60_000;
+        long seconds = (totalMillis % 60_000) / 1_000;
+        long millis = totalMillis % 1_000;
+        if (hours > 0) {
+            return String.format("%dh %02dm %02d.%03ds", hours, minutes, seconds, millis);
+        }
+        if (minutes > 0) {
+            return String.format("%dm %02d.%03ds", minutes, seconds, millis);
+        }
+        return String.format("%d.%03ds", seconds, millis);
     }
 
     private void printImportProgress(UserOutput output, ImportProgress progress) {

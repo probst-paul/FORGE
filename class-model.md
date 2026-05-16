@@ -594,6 +594,9 @@ classDiagram
         -String tableName
         -String contractSymbol
         -int importedRows
+        -long nullSideRowsImported
+        -long skippedOutsideFrontMonthRows
+        -Duration elapsedTime
     }
 
     class ImportCheckpoint {
@@ -618,10 +621,14 @@ classDiagram
     }
 
     class ContractNameResolver
+    class ContractRolloverCalendar
+    class ContractRolloverWindow
     class FuturesInstrumentSpecProvider
     class ContractDataSummary
 
     ScidDataImportService --> ContractNameResolver : derive contract
+    ScidDataImportService --> ContractRolloverCalendar : active window
+    ScidDataImportService --> ContractRolloverWindow : filter rows
     ScidDataImportService --> FuturesInstrumentSpecProvider : tick size
     ScidDataImportService --> ScidTradeReader : reads batches
     ScidDataImportService --> PostgresTradeRepository : persists
