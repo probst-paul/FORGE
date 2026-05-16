@@ -9,6 +9,7 @@ public class FacadeForgeTrigger {
     private static final FacadeForgeTrigger THE_INSTANCE = new FacadeForgeTrigger();
 
     private final TriggerCatalog triggerCatalog;
+    private final ForgeTriggerAccess access = new ForgeTriggerAccess();
 
     public static FacadeForgeTrigger getTheInstance() {
         return THE_INSTANCE;
@@ -22,26 +23,32 @@ public class FacadeForgeTrigger {
         this.triggerCatalog = triggerCatalog;
     }
 
-    public List<Class<? extends TradeTrigger>> findAvailableTriggers() {
-        return triggerCatalog.findAvailableTriggers();
+    public ForgeTriggerAccess forgeTriggerAccess() {
+        return access;
     }
 
-    public String getDisplayName(Class<? extends TradeTrigger> trigger) {
-        return triggerCatalog.getDisplayName(trigger);
-    }
+    public class ForgeTriggerAccess {
+        public List<Class<? extends TradeTrigger>> findAvailableTriggers() {
+            return triggerCatalog.findAvailableTriggers();
+        }
 
-    public TradeTriggerOptions createTriggerOptions(Class<? extends TradeTrigger> trigger) {
-        return new TradeTriggerOptions(getDisplayName(trigger));
-    }
+        public String getDisplayName(Class<? extends TradeTrigger> trigger) {
+            return triggerCatalog.getDisplayName(trigger);
+        }
 
-    public TradeTrigger createTrigger(Class<? extends TradeTrigger> trigger) {
-        try {
-            return trigger.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException
-                 | IllegalAccessException
-                 | InvocationTargetException
-                 | NoSuchMethodException e) {
-            throw new IllegalStateException("Unable to create trigger " + trigger.getSimpleName(), e);
+        public TradeTriggerOptions createTriggerOptions(Class<? extends TradeTrigger> trigger) {
+            return new TradeTriggerOptions(getDisplayName(trigger));
+        }
+
+        public TradeTrigger createTrigger(Class<? extends TradeTrigger> trigger) {
+            try {
+                return trigger.getDeclaredConstructor().newInstance();
+            } catch (InstantiationException
+                     | IllegalAccessException
+                     | InvocationTargetException
+                     | NoSuchMethodException e) {
+                throw new IllegalStateException("Unable to create trigger " + trigger.getSimpleName(), e);
+            }
         }
     }
 }

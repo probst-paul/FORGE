@@ -15,6 +15,10 @@ classDiagram
     class FacadeForgeTarget
     class FacadeForgeEngine
     class FacadeForgeReporting
+    class FacadeForgeExecution
+    class FacadeForgeAnalytics
+    class FacadeForgeBacktest
+    class ForgeApplicationAccess
     class InstrumentSelectionService
     class StrategySelectionService
     class TriggerSelectionService
@@ -22,20 +26,24 @@ classDiagram
     class RiskSettingsSelectionService
 
     Main --> FacadeForgeApplication
-    FacadeForgeApplication --> InstrumentSelectionService : instruments + dates
-    FacadeForgeApplication --> StrategySelectionService : strategy
-    FacadeForgeApplication --> RiskSettingsSelectionService : risk settings
-    FacadeForgeApplication --> TriggerSelectionService : trigger
-    FacadeForgeApplication --> TargetModelSelectionService : target settings
-    FacadeForgeApplication --> FacadeForgeConfig : final request
+    FacadeForgeApplication --> ForgeApplicationAccess
+    ForgeApplicationAccess --> InstrumentSelectionService : instruments + dates
+    ForgeApplicationAccess --> StrategySelectionService : strategy
+    ForgeApplicationAccess --> RiskSettingsSelectionService : risk settings
+    ForgeApplicationAccess --> TriggerSelectionService : trigger
+    ForgeApplicationAccess --> TargetModelSelectionService : target settings
+    ForgeApplicationAccess --> FacadeForgeConfig : final request
 
     InstrumentSelectionService --> FacadeForgeData
     StrategySelectionService --> FacadeForgeStrategy
     TriggerSelectionService --> FacadeForgeTrigger
     TargetModelSelectionService --> FacadeForgeTarget
 
-    FacadeForgeApplication ..> FacadeForgeEngine : later run request
-    FacadeForgeApplication ..> FacadeForgeReporting : later summarize result
+    ForgeApplicationAccess ..> FacadeForgeEngine : later run request
+    ForgeApplicationAccess ..> FacadeForgeExecution : later execute orders
+    ForgeApplicationAccess ..> FacadeForgeReporting : later summarize result
+    ForgeApplicationAccess ..> FacadeForgeAnalytics : later derive features
+    ForgeApplicationAccess ..> FacadeForgeBacktest : later track positions
 ```
 
 ## Backtest Setup Interaction
@@ -57,25 +65,25 @@ sequenceDiagram
     participant Target as FacadeForgeTarget
     participant Config as FacadeForgeConfig
 
-    Main->>App: runBacktestSetup(input, output)
+    Main->>App: forgeApplicationAccess().runBacktestSetup(input, output)
     App->>Output: print title
 
     App->>Instruments: selectInstruments(input, output)
-    Instruments->>Data: getAvailableInstruments()
+    Instruments->>Data: forgeDataAccess().getAvailableInstruments()
     Instruments->>Output: print instrument choices
     Instruments->>Input: readString(selection)
     Instruments-->>App: selected symbols
 
     App->>Instruments: selectDateRange(input, output, symbols)
-    Instruments->>Data: getSharedDateRange(symbols)
+    Instruments->>Data: forgeDataAccess().getSharedDateRange(symbols)
     Instruments->>Input: readDateOrDefault(start)
     Instruments->>Input: readDateOrDefault(end)
-    Instruments->>Data: validateDateRange(symbols, start, end)
+    Instruments->>Data: forgeDataAccess().validateDateRange(symbols, start, end)
     Instruments-->>App: selected date range
 
     App->>Strategies: selectStrategy(input, output)
-    Strategies->>Strategy: findAvailableStrategies()
-    Strategies->>Strategy: getDisplayName(strategy)
+    Strategies->>Strategy: forgeStrategyAccess().findAvailableStrategies()
+    Strategies->>Strategy: forgeStrategyAccess().getDisplayName(strategy)
     Strategies->>Input: readInt(selection)
     Strategies-->>App: selected strategy class
 
@@ -85,23 +93,23 @@ sequenceDiagram
     Risk-->>App: RiskSettings
 
     App->>Triggers: selectTrigger(input, output)
-    Triggers->>Trigger: findAvailableTriggers()
-    Triggers->>Trigger: getDisplayName(trigger)
+    Triggers->>Trigger: forgeTriggerAccess().findAvailableTriggers()
+    Triggers->>Trigger: forgeTriggerAccess().getDisplayName(trigger)
     Triggers->>Input: readInt(selection)
     Triggers-->>App: selected trigger class
 
     App->>Targets: selectTargetModel(input, output)
-    Targets->>Target: findAvailableTargetModels()
-    Targets->>Target: getDisplayName(target)
+    Targets->>Target: forgeTargetAccess().findAvailableTargetModels()
+    Targets->>Target: forgeTargetAccess().getDisplayName(target)
     Targets->>Input: readInt(selection)
     Targets-->>App: selected target class
 
     App->>Targets: readTargetModelSettings(input, selected target)
     Targets->>Input: read target-specific value
-    Targets->>Target: create target settings
+    Targets->>Target: forgeTargetAccess().create target settings
     Targets-->>App: TargetSettings
 
-    App->>Config: createBacktestRequest(...)
+    App->>Config: forgeConfigAccess().createBacktestRequest(...)
     Config-->>App: BacktestRequest
     App->>Output: print accepted request
 ```
@@ -118,6 +126,10 @@ classDiagram
 
     class FacadeForgeApplication {
         +FacadeForgeApplication getTheInstance()
+        +ForgeApplicationAccess forgeApplicationAccess()
+    }
+
+    class ForgeApplicationAccess {
         +void runBacktestSetup(UserInput input, UserOutput output)
         +BacktestRequest configureBacktest(UserInput input, UserOutput output)
     }
@@ -175,13 +187,14 @@ classDiagram
     Main --> ConsoleUserOutput
     ConsoleUserInput ..|> UserInput
     ConsoleUserOutput ..|> UserOutput
-    FacadeForgeApplication --> UserInput
-    FacadeForgeApplication --> UserOutput
-    FacadeForgeApplication --> InstrumentSelectionService
-    FacadeForgeApplication --> StrategySelectionService
-    FacadeForgeApplication --> RiskSettingsSelectionService
-    FacadeForgeApplication --> TriggerSelectionService
-    FacadeForgeApplication --> TargetModelSelectionService
+    FacadeForgeApplication --> ForgeApplicationAccess
+    ForgeApplicationAccess --> UserInput
+    ForgeApplicationAccess --> UserOutput
+    ForgeApplicationAccess --> InstrumentSelectionService
+    ForgeApplicationAccess --> StrategySelectionService
+    ForgeApplicationAccess --> RiskSettingsSelectionService
+    ForgeApplicationAccess --> TriggerSelectionService
+    ForgeApplicationAccess --> TargetModelSelectionService
 ```
 
 ## config Package
@@ -192,6 +205,10 @@ classDiagram
 
     class FacadeForgeConfig {
         +FacadeForgeConfig getTheInstance()
+        +ForgeConfigAccess forgeConfigAccess()
+    }
+
+    class ForgeConfigAccess {
         +BacktestRequest createBacktestRequest(...)
         +OrderSettings defaultOrderSettings()
     }
@@ -235,10 +252,11 @@ classDiagram
         -double stopOffsetTicks
     }
 
-    FacadeForgeConfig --> BacktestRequest : creates
-    FacadeForgeConfig --> StrategyOptions : creates
-    FacadeForgeConfig --> TradeTriggerOptions : creates
-    FacadeForgeConfig --> OrderSettings : creates default
+    FacadeForgeConfig --> ForgeConfigAccess
+    ForgeConfigAccess --> BacktestRequest : creates
+    ForgeConfigAccess --> StrategyOptions : creates
+    ForgeConfigAccess --> TradeTriggerOptions : creates
+    ForgeConfigAccess --> OrderSettings : creates default
     BacktestRequest --> StrategyOptions
     BacktestRequest --> TradeTriggerOptions
     BacktestRequest --> RiskSettings
@@ -254,6 +272,10 @@ classDiagram
 
     class FacadeForgeData {
         +FacadeForgeData getTheInstance()
+        +ForgeDataAccess forgeDataAccess()
+    }
+
+    class ForgeDataAccess {
         +List~AvailableInstrumentData~ getAvailableInstruments()
         +AvailableDateRange getSharedDateRange(List~String~ symbols)
         +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
@@ -287,7 +309,8 @@ classDiagram
     class PriceLevelVolume
     class DateRange
 
-    FacadeForgeData --> InstrumentDataCatalog
+    FacadeForgeData --> ForgeDataAccess
+    ForgeDataAccess --> InstrumentDataCatalog
     InstrumentDataCatalog --> Instrument : stores
     InstrumentDataCatalog ..> FuturesContract : futures details
     Instrument <|-- FuturesContract
@@ -301,6 +324,10 @@ classDiagram
 
     class FacadeForgeStrategy {
         +FacadeForgeStrategy getTheInstance()
+        +ForgeStrategyAccess forgeStrategyAccess()
+    }
+
+    class ForgeStrategyAccess {
         +List~Class~ findAvailableStrategies()
         +String getDisplayName(Class strategy)
         +StrategyOptions createStrategyOptions(Class strategy)
@@ -325,8 +352,9 @@ classDiagram
         -int quantity
     }
 
-    FacadeForgeStrategy --> StrategyCatalog
-    FacadeForgeStrategy --> TradingStrategy : creates
+    FacadeForgeStrategy --> ForgeStrategyAccess
+    ForgeStrategyAccess --> StrategyCatalog
+    ForgeStrategyAccess --> TradingStrategy : creates
     TradingStrategy <|.. RangeBreakoutStrategy
 ```
 
@@ -338,6 +366,10 @@ classDiagram
 
     class FacadeForgeTrigger {
         +FacadeForgeTrigger getTheInstance()
+        +ForgeTriggerAccess forgeTriggerAccess()
+    }
+
+    class ForgeTriggerAccess {
         +List~Class~ findAvailableTriggers()
         +String getDisplayName(Class trigger)
         +TradeTriggerOptions createTriggerOptions(Class trigger)
@@ -359,8 +391,9 @@ classDiagram
     class TriggerResult
     class TriggerDirection
 
-    FacadeForgeTrigger --> TriggerCatalog
-    FacadeForgeTrigger --> TradeTrigger : creates
+    FacadeForgeTrigger --> ForgeTriggerAccess
+    ForgeTriggerAccess --> TriggerCatalog
+    ForgeTriggerAccess --> TradeTrigger : creates
     TradeTrigger <|.. OrderFlowExhaustionTrigger
     TradeTrigger --> TriggerResult
     TriggerResult --> TriggerDirection
@@ -374,6 +407,10 @@ classDiagram
 
     class FacadeForgeTarget {
         +FacadeForgeTarget getTheInstance()
+        +ForgeTargetAccess forgeTargetAccess()
+    }
+
+    class ForgeTargetAccess {
         +List~Class~ findAvailableTargetModels()
         +String getDisplayName(Class targetModel)
         +TargetSettings createFixedRiskRewardSettings(Class targetModel, double rewardRiskRatio)
@@ -405,9 +442,10 @@ classDiagram
         -double stopPrice
     }
 
-    FacadeForgeTarget --> TargetModelCatalog
-    FacadeForgeTarget --> TargetModel : creates
-    FacadeForgeTarget --> TargetSettings : creates
+    FacadeForgeTarget --> ForgeTargetAccess
+    ForgeTargetAccess --> TargetModelCatalog
+    ForgeTargetAccess --> TargetModel : creates
+    ForgeTargetAccess --> TargetSettings : creates
     TargetModel <|.. FixedRiskRewardTarget
     TargetModel <|.. FixedTarget
     TargetModel --> TargetResult
@@ -421,6 +459,10 @@ classDiagram
 
     class FacadeForgeEngine {
         +FacadeForgeEngine getTheInstance()
+        +ForgeEngineAccess forgeEngineAccess()
+    }
+
+    class ForgeEngineAccess {
         +BacktestEngine getBacktestEngine()
         +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, double lastPrice, boolean hasOpenPosition)
     }
@@ -434,8 +476,9 @@ classDiagram
         -boolean hasOpenPosition
     }
 
-    FacadeForgeEngine --> BacktestEngine
-    FacadeForgeEngine --> MarketContext : creates
+    FacadeForgeEngine --> ForgeEngineAccess
+    ForgeEngineAccess --> BacktestEngine
+    ForgeEngineAccess --> MarketContext : creates
 ```
 
 ## execution Package
@@ -443,6 +486,18 @@ classDiagram
 ```mermaid
 classDiagram
     direction LR
+
+    class FacadeForgeExecution {
+        +FacadeForgeExecution getTheInstance()
+        +ForgeExecutionAccess forgeExecutionAccess()
+    }
+
+    class ForgeExecutionAccess {
+        +ExecutionEngine createSimpleExecutionEngine()
+        +OrderRequest createMarketOrderRequest(String instrumentSymbol, OrderSide side, int quantity)
+        +Order createOrder()
+        +Fill createFill()
+    }
 
     class ExecutionEngine {
         <<interface>>
@@ -455,6 +510,11 @@ classDiagram
     class OrderSide
     class OrderType
 
+    FacadeForgeExecution --> ForgeExecutionAccess
+    ForgeExecutionAccess --> ExecutionEngine : creates
+    ForgeExecutionAccess --> OrderRequest : creates
+    ForgeExecutionAccess --> Order : creates
+    ForgeExecutionAccess --> Fill : creates
     ExecutionEngine <|.. SimpleExecutionEngine
     OrderRequest --> OrderSide
     Order --> OrderType
@@ -470,6 +530,10 @@ classDiagram
 
     class FacadeForgeReporting {
         +FacadeForgeReporting getTheInstance()
+        +ForgeReportingAccess forgeReportingAccess()
+    }
+
+    class ForgeReportingAccess {
         +BacktestResult createBacktestResult()
         +PerformanceMetrics createPerformanceMetrics()
         +InstrumentPerformanceReport createInstrumentPerformanceReport()
@@ -480,25 +544,61 @@ classDiagram
     class PerformanceMetrics
     class InstrumentPerformanceReport
 
-    FacadeForgeReporting --> BacktestResult : creates/summarizes
-    FacadeForgeReporting --> PerformanceMetrics : creates
-    FacadeForgeReporting --> InstrumentPerformanceReport : creates
+    FacadeForgeReporting --> ForgeReportingAccess
+    ForgeReportingAccess --> BacktestResult : creates/summarizes
+    ForgeReportingAccess --> PerformanceMetrics : creates
+    ForgeReportingAccess --> InstrumentPerformanceReport : creates
 ```
 
-## analytics and backtest Packages
+## analytics Package
 
 ```mermaid
 classDiagram
     direction LR
 
+    class FacadeForgeAnalytics {
+        +FacadeForgeAnalytics getTheInstance()
+        +ForgeAnalyticsAccess forgeAnalyticsAccess()
+    }
+
+    class ForgeAnalyticsAccess {
+        +FeatureSet createFeatureSet()
+        +MarketFeature createMarketFeature()
+    }
+
     class FeatureCalculator
     class FeatureSet
     class MarketFeature
+
+    FacadeForgeAnalytics --> ForgeAnalyticsAccess
+    ForgeAnalyticsAccess --> FeatureSet : creates
+    ForgeAnalyticsAccess --> MarketFeature : creates
+    FeatureCalculator --> FeatureSet
+    FeatureSet --> MarketFeature
+```
+
+## backtest Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeBacktest {
+        +FacadeForgeBacktest getTheInstance()
+        +ForgeBacktestAccess forgeBacktestAccess()
+    }
+
+    class ForgeBacktestAccess {
+        +Position createPosition()
+        +TradeResult createTradeResult()
+    }
+
     class Position
     class TradeResult
 
-    FeatureCalculator --> FeatureSet
-    FeatureSet --> MarketFeature
+    FacadeForgeBacktest --> ForgeBacktestAccess
+    ForgeBacktestAccess --> Position : creates
+    ForgeBacktestAccess --> TradeResult : creates
     Position --> TradeResult
 ```
 
@@ -510,6 +610,6 @@ classDiagram
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, and `TargetModel` without depending on specific implementations.
 - **Upcasting:** `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesContract` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeTarget`, `FacadeForgeEngine`, and `FacadeForgeReporting` hide package internals behind simpler singleton entry points obtained with `getTheInstance()`.
+- **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` are singleton entry points obtained with `getTheInstance()`. Package functionality is reached through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow.
 - **Service decomposition:** The app selection services own individual setup steps so the app facade can focus on coordinating the overall backtest setup.

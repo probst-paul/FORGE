@@ -13,14 +13,14 @@ public class StrategySelectionService {
     }
 
     public Class<? extends TradingStrategy> selectStrategy(UserInput input, UserOutput output) {
-        List<Class<? extends TradingStrategy>> strategies = facadeStrategy.findAvailableStrategies();
+        List<Class<? extends TradingStrategy>> strategies = facadeStrategy.forgeStrategyAccess().findAvailableStrategies();
         if (strategies.isEmpty()) {
             throw new IllegalStateException("No trading strategies are available");
         }
 
         output.printLine("Available strategies:");
         for (int i = 0; i < strategies.size(); i++) {
-            output.printLine((i + 1) + ". " + facadeStrategy.getDisplayName(strategies.get(i)));
+            output.printLine((i + 1) + ". " + facadeStrategy.forgeStrategyAccess().getDisplayName(strategies.get(i)));
         }
 
         int selectedIndex = input.readInt("Select strategy") - 1;
@@ -31,6 +31,6 @@ public class StrategySelectionService {
     }
 
     public String getDisplayName(Class<? extends TradingStrategy> strategy) {
-        return facadeStrategy.getDisplayName(strategy);
+        return facadeStrategy.forgeStrategyAccess().getDisplayName(strategy);
     }
 }

@@ -6,6 +6,7 @@ public class FacadeForgeEngine {
     private static final FacadeForgeEngine THE_INSTANCE = new FacadeForgeEngine();
 
     private final BacktestEngine backtestEngine;
+    private final ForgeEngineAccess access = new ForgeEngineAccess();
 
     public static FacadeForgeEngine getTheInstance() {
         return THE_INSTANCE;
@@ -19,16 +20,22 @@ public class FacadeForgeEngine {
         this.backtestEngine = backtestEngine;
     }
 
-    public BacktestEngine getBacktestEngine() {
-        return backtestEngine;
+    public ForgeEngineAccess forgeEngineAccess() {
+        return access;
     }
 
-    public MarketContext createMarketContext(
-            String instrumentSymbol,
-            LocalDateTime timestamp,
-            double lastPrice,
-            boolean hasOpenPosition
-    ) {
-        return new MarketContext(instrumentSymbol, timestamp, lastPrice, hasOpenPosition);
+    public class ForgeEngineAccess {
+        public BacktestEngine getBacktestEngine() {
+            return backtestEngine;
+        }
+
+        public MarketContext createMarketContext(
+                String instrumentSymbol,
+                LocalDateTime timestamp,
+                double lastPrice,
+                boolean hasOpenPosition
+        ) {
+            return new MarketContext(instrumentSymbol, timestamp, lastPrice, hasOpenPosition);
+        }
     }
 }

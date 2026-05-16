@@ -5,7 +5,7 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         FacadeForgeApplication forgeApplication = FacadeForgeApplication.getTheInstance();
-        forgeApplication.runBacktestSetup(
+        forgeApplication.forgeApplicationAccess().runBacktestSetup(
                 new ConsoleUserInput(new Scanner(System.in)),
                 new ConsoleUserOutput()
         );

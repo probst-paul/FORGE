@@ -9,6 +9,7 @@ public class FacadeForgeTarget {
     private static final FacadeForgeTarget THE_INSTANCE = new FacadeForgeTarget();
 
     private final TargetModelCatalog targetModelCatalog;
+    private final ForgeTargetAccess access = new ForgeTargetAccess();
 
     public static FacadeForgeTarget getTheInstance() {
         return THE_INSTANCE;
@@ -22,36 +23,42 @@ public class FacadeForgeTarget {
         this.targetModelCatalog = targetModelCatalog;
     }
 
-    public List<Class<? extends TargetModel>> findAvailableTargetModels() {
-        return targetModelCatalog.findAvailableTargetModels();
+    public ForgeTargetAccess forgeTargetAccess() {
+        return access;
     }
 
-    public String getDisplayName(Class<? extends TargetModel> targetModel) {
-        return targetModelCatalog.getDisplayName(targetModel);
-    }
+    public class ForgeTargetAccess {
+        public List<Class<? extends TargetModel>> findAvailableTargetModels() {
+            return targetModelCatalog.findAvailableTargetModels();
+        }
 
-    public TargetSettings createFixedRiskRewardSettings(
-            Class<? extends TargetModel> targetModel,
-            double rewardRiskRatio
-    ) {
-        return TargetSettings.fixedRiskReward(getDisplayName(targetModel), rewardRiskRatio);
-    }
+        public String getDisplayName(Class<? extends TargetModel> targetModel) {
+            return targetModelCatalog.getDisplayName(targetModel);
+        }
 
-    public TargetSettings createFixedTargetSettings(
-            Class<? extends TargetModel> targetModel,
-            int profitTargetTicks
-    ) {
-        return TargetSettings.fixedTarget(getDisplayName(targetModel), profitTargetTicks);
-    }
+        public TargetSettings createFixedRiskRewardSettings(
+                Class<? extends TargetModel> targetModel,
+                double rewardRiskRatio
+        ) {
+            return TargetSettings.fixedRiskReward(getDisplayName(targetModel), rewardRiskRatio);
+        }
 
-    public TargetModel createTargetModel(Class<? extends TargetModel> targetModel) {
-        try {
-            return targetModel.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException
-                 | IllegalAccessException
-                 | InvocationTargetException
-                 | NoSuchMethodException e) {
-            throw new IllegalStateException("Unable to create target model " + targetModel.getSimpleName(), e);
+        public TargetSettings createFixedTargetSettings(
+                Class<? extends TargetModel> targetModel,
+                int profitTargetTicks
+        ) {
+            return TargetSettings.fixedTarget(getDisplayName(targetModel), profitTargetTicks);
+        }
+
+        public TargetModel createTargetModel(Class<? extends TargetModel> targetModel) {
+            try {
+                return targetModel.getDeclaredConstructor().newInstance();
+            } catch (InstantiationException
+                     | IllegalAccessException
+                     | InvocationTargetException
+                     | NoSuchMethodException e) {
+                throw new IllegalStateException("Unable to create target model " + targetModel.getSimpleName(), e);
+            }
         }
     }
 }

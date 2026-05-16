@@ -9,6 +9,7 @@ public class FacadeForgeStrategy {
     private static final FacadeForgeStrategy THE_INSTANCE = new FacadeForgeStrategy();
 
     private final StrategyCatalog strategyCatalog;
+    private final ForgeStrategyAccess access = new ForgeStrategyAccess();
 
     public static FacadeForgeStrategy getTheInstance() {
         return THE_INSTANCE;
@@ -22,26 +23,32 @@ public class FacadeForgeStrategy {
         this.strategyCatalog = strategyCatalog;
     }
 
-    public List<Class<? extends TradingStrategy>> findAvailableStrategies() {
-        return strategyCatalog.findAvailableStrategies();
+    public ForgeStrategyAccess forgeStrategyAccess() {
+        return access;
     }
 
-    public String getDisplayName(Class<? extends TradingStrategy> strategy) {
-        return strategyCatalog.getDisplayName(strategy);
-    }
+    public class ForgeStrategyAccess {
+        public List<Class<? extends TradingStrategy>> findAvailableStrategies() {
+            return strategyCatalog.findAvailableStrategies();
+        }
 
-    public StrategyOptions createStrategyOptions(Class<? extends TradingStrategy> strategy) {
-        return new StrategyOptions(getDisplayName(strategy));
-    }
+        public String getDisplayName(Class<? extends TradingStrategy> strategy) {
+            return strategyCatalog.getDisplayName(strategy);
+        }
 
-    public TradingStrategy createStrategy(Class<? extends TradingStrategy> strategy) {
-        try {
-            return strategy.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException
-                 | IllegalAccessException
-                 | InvocationTargetException
-                 | NoSuchMethodException e) {
-            throw new IllegalStateException("Unable to create strategy " + strategy.getSimpleName(), e);
+        public StrategyOptions createStrategyOptions(Class<? extends TradingStrategy> strategy) {
+            return new StrategyOptions(getDisplayName(strategy));
+        }
+
+        public TradingStrategy createStrategy(Class<? extends TradingStrategy> strategy) {
+            try {
+                return strategy.getDeclaredConstructor().newInstance();
+            } catch (InstantiationException
+                     | IllegalAccessException
+                     | InvocationTargetException
+                     | NoSuchMethodException e) {
+                throw new IllegalStateException("Unable to create strategy " + strategy.getSimpleName(), e);
+            }
         }
     }
 }

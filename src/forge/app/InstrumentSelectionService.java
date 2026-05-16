@@ -17,7 +17,7 @@ public class InstrumentSelectionService {
     }
 
     public List<String> selectInstruments(UserInput input, UserOutput output) {
-        List<AvailableInstrumentData> instruments = facadeData.getAvailableInstruments();
+        List<AvailableInstrumentData> instruments = facadeData.forgeDataAccess().getAvailableInstruments();
         if (instruments.isEmpty()) {
             throw new IllegalStateException("No instrument data is available");
         }
@@ -46,7 +46,7 @@ public class InstrumentSelectionService {
     }
 
     public LocalDate[] selectDateRange(UserInput input, UserOutput output, List<String> instruments) {
-        AvailableDateRange availableDateRange = facadeData.getSharedDateRange(instruments);
+        AvailableDateRange availableDateRange = facadeData.forgeDataAccess().getSharedDateRange(instruments);
         output.printLine("Available date range for selected instruments: " + availableDateRange);
 
         LocalDate startDate = input.readDateOrDefault(
@@ -57,7 +57,7 @@ public class InstrumentSelectionService {
                 "End date (YYYY-MM-DD, blank for latest available)",
                 availableDateRange.getEndDate()
         );
-        facadeData.validateDateRange(instruments, startDate, endDate);
+        facadeData.forgeDataAccess().validateDateRange(instruments, startDate, endDate);
         return new LocalDate[]{startDate, endDate};
     }
 }

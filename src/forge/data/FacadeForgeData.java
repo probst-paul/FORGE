@@ -10,6 +10,7 @@ public class FacadeForgeData {
     private static final FacadeForgeData THE_INSTANCE = new FacadeForgeData();
 
     private final InstrumentDataCatalog instrumentDataCatalog;
+    private final ForgeDataAccess access = new ForgeDataAccess();
 
     public static FacadeForgeData getTheInstance() {
         return THE_INSTANCE;
@@ -23,15 +24,21 @@ public class FacadeForgeData {
         this.instrumentDataCatalog = instrumentDataCatalog;
     }
 
-    public List<AvailableInstrumentData> getAvailableInstruments() {
-        return instrumentDataCatalog.getAvailableInstruments();
+    public ForgeDataAccess forgeDataAccess() {
+        return access;
     }
 
-    public AvailableDateRange getSharedDateRange(List<String> symbols) {
-        return instrumentDataCatalog.getSharedDateRange(symbols);
-    }
+    public class ForgeDataAccess {
+        public List<AvailableInstrumentData> getAvailableInstruments() {
+            return instrumentDataCatalog.getAvailableInstruments();
+        }
 
-    public void validateDateRange(List<String> symbols, LocalDate startDate, LocalDate endDate) {
-        instrumentDataCatalog.validateDateRange(symbols, startDate, endDate);
+        public AvailableDateRange getSharedDateRange(List<String> symbols) {
+            return instrumentDataCatalog.getSharedDateRange(symbols);
+        }
+
+        public void validateDateRange(List<String> symbols, LocalDate startDate, LocalDate endDate) {
+            instrumentDataCatalog.validateDateRange(symbols, startDate, endDate);
+        }
     }
 }

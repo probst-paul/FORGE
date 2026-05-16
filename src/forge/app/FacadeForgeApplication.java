@@ -31,9 +31,14 @@ public class FacadeForgeApplication {
     private final RiskSettingsSelectionService riskSettingsSelectionService;
     private final TriggerSelectionService triggerSelectionService;
     private final TargetModelSelectionService targetModelSelectionService;
+    private final ForgeApplicationAccess access = new ForgeApplicationAccess();
 
     public static FacadeForgeApplication getTheInstance() {
         return THE_INSTANCE;
+    }
+
+    public ForgeApplicationAccess forgeApplicationAccess() {
+        return access;
     }
 
     public FacadeForgeApplication() {
@@ -91,46 +96,48 @@ public class FacadeForgeApplication {
         this.targetModelSelectionService = targetModelSelectionService;
     }
 
-    public void runBacktestSetup(UserInput input, UserOutput output) {
-        printTitle(output);
-        BacktestRequest request = configureBacktest(input, output);
+    public class ForgeApplicationAccess {
+        public void runBacktestSetup(UserInput input, UserOutput output) {
+            printTitle(output);
+            BacktestRequest request = configureBacktest(input, output);
 
-        output.printBlankLine();
-        output.printLine("Backtest request accepted:");
-        output.printLine(request.toString());
-    }
+            output.printBlankLine();
+            output.printLine("Backtest request accepted:");
+            output.printLine(request.toString());
+        }
 
-    public BacktestRequest configureBacktest(UserInput input, UserOutput output) {
-        printSection(output, "Select Instrument(s)");
-        List<String> instruments = instrumentSelectionService.selectInstruments(input, output);
+        public BacktestRequest configureBacktest(UserInput input, UserOutput output) {
+            printSection(output, "Select Instrument(s)");
+            List<String> instruments = instrumentSelectionService.selectInstruments(input, output);
 
-        printSection(output, "Select Date Range");
-        LocalDate[] dateRange = instrumentSelectionService.selectDateRange(input, output, instruments);
+            printSection(output, "Select Date Range");
+            LocalDate[] dateRange = instrumentSelectionService.selectDateRange(input, output, instruments);
 
-        printSection(output, "Select Trading Strategy");
-        Class<? extends TradingStrategy> selectedStrategy = strategySelectionService.selectStrategy(input, output);
+            printSection(output, "Select Trading Strategy");
+            Class<? extends TradingStrategy> selectedStrategy = strategySelectionService.selectStrategy(input, output);
 
-        printSection(output, "Risk Settings");
-        RiskSettings riskSettings = riskSettingsSelectionService.readRiskSettings(input);
+            printSection(output, "Risk Settings");
+            RiskSettings riskSettings = riskSettingsSelectionService.readRiskSettings(input);
 
-        printSection(output, "Select Trade Trigger");
-        Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output);
+            printSection(output, "Select Trade Trigger");
+            Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output);
 
-        printSection(output, "Select Target Model");
-        Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output);
+            printSection(output, "Select Target Model");
+            Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output);
 
-        printSection(output, "Target Model Options");
-        TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(input, selectedTargetModel);
+            printSection(output, "Target Model Options");
+            TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(input, selectedTargetModel);
 
-        return forgeConfigFacade.createBacktestRequest(
-                strategySelectionService.getDisplayName(selectedStrategy),
-                instruments,
-                dateRange[0],
-                dateRange[1],
-                triggerSelectionService.getDisplayName(selectedTrigger),
-                riskSettings,
-                targetSettings
-        );
+            return forgeConfigFacade.forgeConfigAccess().createBacktestRequest(
+                    strategySelectionService.getDisplayName(selectedStrategy),
+                    instruments,
+                    dateRange[0],
+                    dateRange[1],
+                    triggerSelectionService.getDisplayName(selectedTrigger),
+                    riskSettings,
+                    targetSettings
+            );
+        }
     }
 
     private void printTitle(UserOutput output) {
