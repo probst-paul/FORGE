@@ -2,7 +2,7 @@ package forge.cli;
 
 import forge.app.ConsoleUserInput;
 import forge.app.ConsoleUserOutput;
-import forge.app.DataImportRequest;
+import forge.app.DatabaseConnectionRequest;
 import forge.app.FacadeForgeApplication;
 import forge.app.UserInput;
 import forge.app.UserOutput;
@@ -10,7 +10,10 @@ import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
 import forge.config.TargetSettings;
+import forge.app.DataImportRequest;
 import forge.data.FacadeForgeData;
+import forge.data.DataImportResult;
+import forge.data.PostgresDatabaseSettings;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.TradingStrategy;
 import forge.target.FacadeForgeTarget;
@@ -70,18 +73,39 @@ public class CliApplicationController {
 
     public void run(UserInput input, UserOutput output) {
         printTitle(output);
+
+        boolean running = true;
+        while (running) {
+            running = selectAction(input, output);
+        }
+    }
+
+    private boolean selectAction(UserInput input, UserOutput output) {
         printSection(output, "Select Action");
         output.printLine("1. Run Backtest");
         output.printLine("2. Import Data");
+        output.printLine("3. Configure Database");
+        output.printLine("4. Exit");
 
         int selectedAction = input.readInt("Select action");
         if (selectedAction == 1) {
             runBacktestSetup(input, output);
-            return;
+            return false;
         }
         if (selectedAction == 2) {
             runDataImport(input, output);
-            return;
+            output.printBlankLine();
+            return true;
+        }
+        if (selectedAction == 3) {
+            configureDatabase(input, output);
+            output.printBlankLine();
+            return true;
+        }
+        if (selectedAction == 4) {
+            output.printBlankLine();
+            output.printLine("Exiting FORGE.");
+            return false;
         }
 
         throw new IllegalArgumentException("Selected action is not available");
@@ -132,11 +156,36 @@ public class CliApplicationController {
     private void runDataImport(UserInput input, UserOutput output) {
         printSection(output, "Import Data");
         DataImportRequest request = new DataImportRequest(input.readString("SCID data file path"));
-        DataImportRequest acceptedRequest = forgeApplication.forgeApplicationAccess().importData(request);
+        DataImportResult result = forgeApplication.forgeApplicationAccess().importData(request);
 
         output.printBlankLine();
-        output.printLine("Data import request accepted:");
-        output.printLine(acceptedRequest.getScidFilePath());
+        output.printLine("Data storage prepared:");
+        output.printLine("Database: " + result.getDatabaseName());
+        output.printLine("Table: " + result.getTableName());
+        output.printLine("Contract: " + result.getContractSymbol());
+        output.printLine("Rows imported: " + result.getImportedRows());
+    }
+
+    private void configureDatabase(UserInput input, UserOutput output) {
+        printSection(output, "Configure Database");
+        PostgresDatabaseSettings defaults = PostgresDatabaseSettings.fromEnvironment();
+        DatabaseConnectionRequest request = new DatabaseConnectionRequest(
+                input.readStringOrDefault("Host [" + defaults.getHost() + "]", defaults.getHost()),
+                input.readIntOrDefault("Port [" + defaults.getPort() + "]", defaults.getPort()),
+                input.readStringOrDefault("Database name [" + defaults.getDatabaseName() + "]", defaults.getDatabaseName()),
+                input.readStringOrDefault(
+                        "Maintenance database [" + defaults.getMaintenanceDatabaseName() + "]",
+                        defaults.getMaintenanceDatabaseName()
+                ),
+                input.readStringOrDefault("Username [" + defaults.getUsername() + "]", defaults.getUsername()),
+                input.readStringOrDefault("Password [leave blank to keep default]", defaults.getPassword())
+        );
+
+        DatabaseConnectionRequest acceptedRequest = forgeApplication.forgeApplicationAccess().configureDatabase(request);
+
+        output.printBlankLine();
+        output.printLine("Database configured:");
+        output.printLine(acceptedRequest.getHost() + ":" + acceptedRequest.getPort() + "/" + acceptedRequest.getDatabaseName());
     }
 
     private void printTitle(UserOutput output) {

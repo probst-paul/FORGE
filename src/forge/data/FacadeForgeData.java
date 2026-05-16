@@ -10,6 +10,7 @@ public class FacadeForgeData {
     private static final FacadeForgeData THE_INSTANCE = new FacadeForgeData();
 
     private final InstrumentDataCatalog instrumentDataCatalog;
+    private ScidDataImportService scidDataImportService;
     private final ForgeDataAccess access = new ForgeDataAccess();
 
     public static FacadeForgeData getTheInstance() {
@@ -17,11 +18,34 @@ public class FacadeForgeData {
     }
 
     public FacadeForgeData() {
-        this(new InstrumentDataCatalog());
+        this(
+                new InstrumentDataCatalog(),
+                new ScidDataImportService(
+                        new ContractNameResolver(),
+                        new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment())
+                )
+        );
     }
 
     public FacadeForgeData(InstrumentDataCatalog instrumentDataCatalog) {
+        this(
+                instrumentDataCatalog,
+                new ScidDataImportService(
+                        new ContractNameResolver(),
+                        new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment())
+                )
+        );
+    }
+
+    public FacadeForgeData(InstrumentDataCatalog instrumentDataCatalog, ScidDataImportService scidDataImportService) {
+        if (instrumentDataCatalog == null) {
+            throw new IllegalArgumentException("instrumentDataCatalog is required");
+        }
+        if (scidDataImportService == null) {
+            throw new IllegalArgumentException("scidDataImportService is required");
+        }
         this.instrumentDataCatalog = instrumentDataCatalog;
+        this.scidDataImportService = scidDataImportService;
     }
 
     public ForgeDataAccess forgeDataAccess() {
@@ -39,6 +63,20 @@ public class FacadeForgeData {
 
         public void validateDateRange(List<String> symbols, LocalDate startDate, LocalDate endDate) {
             instrumentDataCatalog.validateDateRange(symbols, startDate, endDate);
+        }
+
+        public DataImportResult importScidFile(String scidFilePath) {
+            return scidDataImportService.importScidFile(scidFilePath);
+        }
+
+        public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
+            if (databaseSettings == null) {
+                throw new IllegalArgumentException("databaseSettings is required");
+            }
+            scidDataImportService = new ScidDataImportService(
+                    new ContractNameResolver(),
+                    new PostgresTradeRepository(databaseSettings)
+            );
         }
     }
 }

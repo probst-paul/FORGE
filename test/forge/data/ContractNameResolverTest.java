@@ -1,0 +1,37 @@
+package forge.data;
+
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+@Execution(ExecutionMode.CONCURRENT)
+class ContractNameResolverTest {
+    private final ContractNameResolver resolver = new ContractNameResolver();
+
+    @Nested
+    class ResolveFromScidPath {
+        @Test
+        void resolvesFiveCharacterContractBeforeUnderscore() {
+            assertEquals("ESU25", resolver.resolveFromScidPath("/data/ESU25_FUT_CME.scid"));
+        }
+
+        @Test
+        void resolvesFourCharacterContractBeforeDot() {
+            assertEquals("ESZ5", resolver.resolveFromScidPath("/data/ESZ5.CME.scid"));
+        }
+
+        @Test
+        void resolvesWindowsStylePaths() {
+            assertEquals("NQM26", resolver.resolveFromScidPath("C:\\data\\NQM26_FUT_CME.scid"));
+        }
+
+        @Test
+        void rejectsFilesThatDoNotLookLikeFuturesContracts() {
+            assertThrows(IllegalArgumentException.class, () -> resolver.resolveFromScidPath("/data/BAD_FILE.scid"));
+        }
+    }
+}

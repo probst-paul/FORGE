@@ -13,6 +13,22 @@ public interface UserInput {
         return Double.parseDouble(readString(label));
     }
 
+    default String readStringOrDefault(String label, String defaultValue) {
+        String value = readString(label);
+        if (value.trim().isEmpty()) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    default int readIntOrDefault(String label, int defaultValue) {
+        String value = readString(label);
+        if (value.trim().isEmpty()) {
+            return defaultValue;
+        }
+        return Integer.parseInt(value);
+    }
+
     default LocalDate readDateOrDefault(String label, LocalDate defaultDate) {
         String value = readString(label);
         if (value.trim().isEmpty()) {
