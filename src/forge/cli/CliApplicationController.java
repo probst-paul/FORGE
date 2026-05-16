@@ -26,8 +26,6 @@ import forge.trigger.TradeTrigger;
 
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.util.List;
 import java.util.Scanner;
 
 public class CliApplicationController {
@@ -149,10 +147,7 @@ public class CliApplicationController {
 
     private BacktestRequest configureBacktest(UserInput input, UserOutput output) {
         printSection(output, "Select Instrument(s)");
-        List<String> instruments = instrumentSelectionService.selectInstruments(input, output);
-
-        printSection(output, "Select Date Range");
-        LocalDate[] dateRange = instrumentSelectionService.selectDateRange(input, output, instruments);
+        SelectedBacktestContracts selectedContracts = instrumentSelectionService.selectContracts(input, output);
 
         printSection(output, "Select Trading Strategy");
         Class<? extends TradingStrategy> selectedStrategy = strategySelectionService.selectStrategy(input, output);
@@ -171,9 +166,9 @@ public class CliApplicationController {
 
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 strategySelectionService.getDisplayName(selectedStrategy),
-                instruments,
-                dateRange[0],
-                dateRange[1],
+                selectedContracts.getContractSymbols(),
+                selectedContracts.getStartDate(),
+                selectedContracts.getEndDate(),
                 triggerSelectionService.getDisplayName(selectedTrigger),
                 riskSettings,
                 targetSettings

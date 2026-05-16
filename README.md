@@ -32,7 +32,8 @@ It is not yet a complete historical market replay or backtesting engine.
 Select Action
 ├─ Run Backtest
 │  ├─ Select Instrument(s)
-│  ├─ Select Date Range
+│  │  ├─ Choose an instrument's All Available front-month contracts
+│  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
 │  ├─ Select Trading Strategy
 │  ├─ Risk Settings
 │  ├─ Select Trade Trigger
@@ -47,6 +48,8 @@ Select Action
 ```
 
 At the `Select action` prompt, enter `quit` to exit the program. After the backtest setup summary is displayed, press Enter or type anything to return to `Select Action`, or enter `quit` to exit.
+
+Backtest setup no longer asks for a free-form date range. The CLI selects valid front-month contract windows instead. For example, `ES - All Available` includes all imported ES contract windows after rollover clipping, while `Select Custom Contracts` lets the user choose specific contracts such as `ESH25: 2024-12-16 to 2025-03-16` and `ESZ25: 2025-09-15 to 2025-12-14`. This avoids implying continuous data coverage when imported contract months have gaps.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
@@ -217,7 +220,9 @@ side            <- AskVolume > 0 means buy aggressor, BidVolume > 0 means sell a
 
 FORGE converts SCID float prices to integer tick counts during import using the hardcoded instrument tick size. The database stores those tick counts as `BIGINT` rather than storing floating-point prices, so strategy calculations can work in exact tick space and convert back to display prices only at the UI/reporting edge. Sierra Chart's count and volume fields are unsigned 4-byte integers, so FORGE stores imported count/volume values as `BIGINT` to preserve their full range in PostgreSQL. `side` is FORGE-specific rather than a Sierra Chart field, with `1` for buy aggressor, `-1` for sell aggressor, and `NULL` when the aggressor side cannot be identified. The import summary reports how many null-side rows were stored. Backtest data reads should filter to strategy-usable trades with `side IS NOT NULL`.
 
-Each contract table is treated as the authoritative dataset for that contract. If a contract table already exists, the CLI prompts before wiping and rebuilding it from the selected SCID file. FORGE stores the source file name and SCID record index on each row, creates a unique index over the SCID record index inside the contract table, and inserts with `ON CONFLICT DO NOTHING`. It also maintains a `forge_contract_imports` table with the source file metadata and next record index to process. The checkpoint advances only after a batch insert succeeds.
+Each contract table is treated as the authoritative dataset for that contract. If a contract table already exists, the CLI prompts before wiping and rebuilding it from the selected SCID file. FORGE stores the source file name and SCID record index on each row, creates a unique index over the SCID record index inside the contract table, and inserts with `ON CONFLICT DO NOTHING`. It also maintains a `forge_contract_imports` table with the source file metadata, next record index to process, row count, and first/last imported trade timestamps. The checkpoint advances only after a batch insert succeeds.
+
+The `Select Instrument(s)` screen is driven by the `forge_contract_imports` metadata table instead of scanning large contract trade tables for `MIN`/`MAX` timestamps. That keeps the instrument list responsive even when imported contracts contain tens of millions of rows. Existing contract imports created before this metadata existed may need to be rebuilt before they appear in the instrument selection list.
 
 The import flow skips records outside the contract's active front-month window before storing rows. For CME equity index roots (`ES`, `NQ`, `YM`, and `RTY`), FORGE clips each contract table to its active window using the common convention of rolling on the Monday before the third Friday of the contract month. For `CL`, FORGE estimates expiration as three business days before the 25th calendar day of the month before delivery, then rolls on the Friday before that expiration date. The backtest instrument list is derived from imported contract tables after that same active-window logic. Instruments without a rollover rule currently use the imported table date range as-is.
 

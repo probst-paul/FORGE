@@ -1,6 +1,7 @@
 package forge.data.catalog;
 
 import forge.data.catalog.InstrumentDataCatalog.AvailableDateRange;
+import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableInstrumentData;
 import forge.data.contract.ContractNameResolver;
 import forge.data.rollover.ContractRolloverCalendar;
@@ -65,6 +66,23 @@ class InstrumentDataCatalogTest {
             assertEquals("ES", instruments.get(0).getSymbol());
             assertEquals(LocalDate.of(2025, 3, 17), instruments.get(0).getStartDate());
             assertEquals(LocalDate.of(2025, 6, 15), instruments.get(0).getEndDate());
+        }
+    }
+
+    @Nested
+    class GetAvailableContracts {
+        @Test
+        void returnsImportedContractsClippedToActiveWindows() {
+            List<AvailableContractData> contracts = catalog.getAvailableContracts();
+
+            assertEquals(4, contracts.size());
+            assertEquals("ESU25", contracts.get(0).getContractSymbol());
+            assertEquals("ES", contracts.get(0).getInstrumentSymbol());
+            assertEquals(LocalDate.of(2025, 8, 1), contracts.get(0).getStartDate());
+            assertEquals(LocalDate.of(2025, 9, 14), contracts.get(0).getEndDate());
+            assertEquals("ESZ25", contracts.get(1).getContractSymbol());
+            assertEquals(LocalDate.of(2025, 10, 1), contracts.get(1).getStartDate());
+            assertEquals(LocalDate.of(2025, 12, 14), contracts.get(1).getEndDate());
         }
     }
 

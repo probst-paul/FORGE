@@ -66,6 +66,26 @@ public class InstrumentDataCatalog {
         return Collections.unmodifiableList(new ArrayList<>(loadAvailableData().values()));
     }
 
+    public List<AvailableContractData> getAvailableContracts() {
+        List<AvailableContractData> availableContracts = new ArrayList<>();
+        for (ContractDataSummary summary : contractDataSource.get()) {
+            String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(summary.getContractSymbol());
+            if (!futuresInstrumentSpecProvider.supports(instrumentSymbol)) {
+                continue;
+            }
+            ContractDataSummary activeSummary = clipToActiveWindow(summary);
+            if (activeSummary != null) {
+                availableContracts.add(new AvailableContractData(
+                        activeSummary.getContractSymbol(),
+                        instrumentSymbol,
+                        activeSummary.getStartDate(),
+                        activeSummary.getEndDate()
+                ));
+            }
+        }
+        return Collections.unmodifiableList(availableContracts);
+    }
+
     public AvailableDateRange getSharedDateRange(List<String> symbols) {
         if (symbols.isEmpty()) {
             throw new IllegalArgumentException("at least one instrument must be selected");
@@ -236,6 +256,56 @@ public class InstrumentDataCatalog {
                 return (FuturesInstrument) instrument;
             }
             throw new IllegalStateException("Instrument is not a futures instrument: " + instrument.getSymbolCode());
+        }
+    }
+
+    public static class AvailableContractData {
+        private final String contractSymbol;
+        private final String instrumentSymbol;
+        private final LocalDate startDate;
+        private final LocalDate endDate;
+
+        public AvailableContractData(String contractSymbol, String instrumentSymbol, LocalDate startDate, LocalDate endDate) {
+            if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
+                throw new IllegalArgumentException("contractSymbol is required");
+            }
+            if (instrumentSymbol == null || instrumentSymbol.trim().isEmpty()) {
+                throw new IllegalArgumentException("instrumentSymbol is required");
+            }
+            if (startDate == null) {
+                throw new IllegalArgumentException("startDate is required");
+            }
+            if (endDate == null) {
+                throw new IllegalArgumentException("endDate is required");
+            }
+            if (endDate.isBefore(startDate)) {
+                throw new IllegalArgumentException("endDate cannot be before startDate");
+            }
+            this.contractSymbol = contractSymbol.trim().toUpperCase();
+            this.instrumentSymbol = instrumentSymbol.trim().toUpperCase();
+            this.startDate = startDate;
+            this.endDate = endDate;
+        }
+
+        public String getContractSymbol() {
+            return contractSymbol;
+        }
+
+        public String getInstrumentSymbol() {
+            return instrumentSymbol;
+        }
+
+        public LocalDate getStartDate() {
+            return startDate;
+        }
+
+        public LocalDate getEndDate() {
+            return endDate;
+        }
+
+        @Override
+        public String toString() {
+            return contractSymbol + ": " + startDate + " to " + endDate;
         }
     }
 

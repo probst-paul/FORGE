@@ -91,18 +91,12 @@ sequenceDiagram
     Cli->>Input: readInt(action)
 
     alt Run Backtest
-        Cli->>Instruments: selectInstruments(input, output)
+        Cli->>Instruments: selectContracts(input, output)
         Instruments->>Data: forgeDataAccess().getAvailableInstruments()
-        Instruments->>Output: print instrument choices
-        Instruments->>Input: readString(selection)
-        Instruments-->>Cli: selected symbols
-
-        Cli->>Instruments: selectDateRange(input, output, symbols)
-        Instruments->>Data: forgeDataAccess().getSharedDateRange(symbols)
-        Instruments->>Input: readDateOrDefault(start)
-        Instruments->>Input: readDateOrDefault(end)
-        Instruments->>Data: forgeDataAccess().validateDateRange(symbols, start, end)
-        Instruments-->>Cli: selected date range
+        Instruments->>Data: forgeDataAccess().getAvailableContracts()
+        Instruments->>Output: print All Available and custom contract choices
+        Instruments->>Input: read selection
+        Instruments-->>Cli: selected contract windows
 
         Cli->>Strategies: selectStrategy(input, output)
         Strategies->>Strategy: forgeStrategyAccess().findAvailableStrategies()
@@ -270,8 +264,14 @@ classDiagram
     }
 
     class InstrumentSelectionService {
+        +SelectedBacktestContracts selectContracts(UserInput input, UserOutput output)
         +List~String~ selectInstruments(UserInput input, UserOutput output)
-        +LocalDate[] selectDateRange(UserInput input, UserOutput output, List~String~ instruments)
+    }
+
+    class SelectedBacktestContracts {
+        +List~String~ getContractSymbols()
+        +LocalDate getStartDate()
+        +LocalDate getEndDate()
     }
 
     class StrategySelectionService {
@@ -385,6 +385,7 @@ classDiagram
 
     class ForgeDataAccess {
         +List~AvailableInstrumentData~ getAvailableInstruments()
+        +List~AvailableContractData~ getAvailableContracts()
         +AvailableDateRange getSharedDateRange(List~String~ symbols)
         +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
         +DataImportPlan planScidImport(String scidFilePath)
@@ -417,6 +418,7 @@ classDiagram
 
     class InstrumentDataCatalog {
         +List~AvailableInstrumentData~ getAvailableInstruments()
+        +List~AvailableContractData~ getAvailableContracts()
         +AvailableDateRange getSharedDateRange(List~String~ symbols)
         +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
     }
@@ -434,6 +436,13 @@ classDiagram
         +String getSymbol()
         +double getFuturesTickSize()
         +double getFuturesTickDollarAmount()
+    }
+
+    class AvailableContractData {
+        -String contractSymbol
+        -String instrumentSymbol
+        -LocalDate startDate
+        -LocalDate endDate
     }
 
     class AvailableDateRange {
@@ -485,6 +494,7 @@ classDiagram
     InstrumentDataCatalog --> ContractNameResolver : root symbol
     InstrumentDataCatalog --> ContractRolloverCalendar : clip active windows
     InstrumentDataCatalog --> AvailableInstrumentData : creates
+    InstrumentDataCatalog --> AvailableContractData : creates
     InstrumentDataCatalog --> AvailableDateRange : creates
     InstrumentDataCatalog --> ContractDataSummary : groups
     InstrumentDataCatalog --> FuturesInstrumentSpecProvider

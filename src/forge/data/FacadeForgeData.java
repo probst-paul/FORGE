@@ -2,6 +2,7 @@ package forge.data;
 
 import forge.app.ImportProgressListener;
 import forge.data.catalog.InstrumentDataCatalog;
+import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableDateRange;
 import forge.data.catalog.InstrumentDataCatalog.AvailableInstrumentData;
 import forge.data.contract.ContractNameResolver;
@@ -64,6 +65,10 @@ public class FacadeForgeData {
     public class ForgeDataAccess {
         public List<AvailableInstrumentData> getAvailableInstruments() {
             return instrumentDataCatalog.getAvailableInstruments();
+        }
+
+        public List<AvailableContractData> getAvailableContracts() {
+            return instrumentDataCatalog.getAvailableContracts();
         }
 
         public AvailableDateRange getSharedDateRange(List<String> symbols) {

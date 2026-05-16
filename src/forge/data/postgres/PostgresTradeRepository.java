@@ -16,6 +16,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -165,6 +166,14 @@ public class PostgresTradeRepository {
                             "PRIMARY KEY (" + quoteIdentifier("tableName") + ")" +
                             ")"
             );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
+                            " ADD COLUMN IF NOT EXISTS " + quoteIdentifier("firstTradeDateTime") + " TIMESTAMPTZ"
+            );
+            statement.executeUpdate(
+                    "ALTER TABLE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
+                            " ADD COLUMN IF NOT EXISTS " + quoteIdentifier("lastTradeDateTime") + " TIMESTAMPTZ"
+            );
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not prepare PostgreSQL import checkpoint table", exception);
         }
@@ -196,25 +205,43 @@ public class PostgresTradeRepository {
 
     public List<ContractDataSummary> listImportedContractData() {
         ensureDatabaseExists();
+        ensureImportCheckpointTableExists();
 
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
                 settings.getPassword()
         )) {
-            List<ContractDataSummary> summaries = new ArrayList<>();
-            for (String tableName : listCurrentSchemaTableNames(connection)) {
-                if (!isContractTableName(tableName)) {
-                    continue;
-                }
-                ContractDataSummary summary = summarizeContractTable(connection, tableName);
-                if (summary != null) {
-                    summaries.add(summary);
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT " + quoteIdentifier("tableName") + ", " +
+                            quoteIdentifier("firstTradeDateTime") + ", " +
+                            quoteIdentifier("lastTradeDateTime") +
+                            " FROM " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
+                            " WHERE status = ?" +
+                            " AND " + quoteIdentifier("rowsInserted") + " > 0" +
+                            " AND " + quoteIdentifier("firstTradeDateTime") + " IS NOT NULL" +
+                            " AND " + quoteIdentifier("lastTradeDateTime") + " IS NOT NULL" +
+                            " ORDER BY " + quoteIdentifier("tableName")
+            )) {
+                statement.setString(1, "COMPLETE");
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    List<ContractDataSummary> summaries = new ArrayList<>();
+                    while (resultSet.next()) {
+                        String tableName = resultSet.getString(1);
+                        if (!isContractTableName(tableName) || !contractTableExists(connection, tableName)) {
+                            continue;
+                        }
+                        summaries.add(new ContractDataSummary(
+                                tableName,
+                                resultSet.getTimestamp(2).toInstant().atZone(ZoneOffset.UTC).toLocalDate(),
+                                resultSet.getTimestamp(3).toInstant().atZone(ZoneOffset.UTC).toLocalDate()
+                        ));
+                    }
+                    return summaries;
                 }
             }
-            return summaries;
         } catch (SQLException exception) {
-            throw new IllegalStateException("Could not load available instruments from PostgreSQL", exception);
+            throw new IllegalStateException("Could not load available instruments from PostgreSQL metadata", exception);
         }
     }
 
@@ -325,7 +352,7 @@ public class PostgresTradeRepository {
             connection.setAutoCommit(false);
             CopyManager copyManager = connection.unwrap(PGConnection.class).getCopyAPI();
             int importedRows = Math.toIntExact(copyManager.copyIn(copySql, copyData));
-            updateImportCheckpoint(connection, tableName, sourceFileName, nextRecordIndex, importedRows);
+            updateImportCheckpoint(connection, tableName, sourceFileName, nextRecordIndex, importedRows, trades);
             connection.commit();
             return importedRows;
         } catch (SQLException | IOException exception) {
@@ -338,10 +365,19 @@ public class PostgresTradeRepository {
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
                 settings.getPassword()
-        )) {
-            connection.setAutoCommit(false);
-            updateImportCheckpoint(connection, tableName, sourceFileName, nextRecordIndex, 0);
-            connection.commit();
+        );
+             PreparedStatement statement = connection.prepareStatement(
+                     "UPDATE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
+                             " SET " + quoteIdentifier("nextRecordIndex") + " = ?, " +
+                             "status = ?, " +
+                             quoteIdentifier("updatedAt") + " = ?" +
+                             " WHERE " + quoteIdentifier("tableName") + " = ?"
+             )) {
+            statement.setLong(1, nextRecordIndex);
+            statement.setString(2, "IN_PROGRESS");
+            statement.setTimestamp(3, Timestamp.from(Instant.now()));
+            statement.setString(4, tableName);
+            statement.executeUpdate();
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not advance PostgreSQL import checkpoint for '" + tableName + "'", exception);
         }
@@ -476,6 +512,8 @@ public class PostgresTradeRepository {
                         quoteIdentifier("lastModifiedMillis") + " = ?, " +
                         quoteIdentifier("nextRecordIndex") + " = ?, " +
                         quoteIdentifier("rowsInserted") + " = ?, " +
+                        quoteIdentifier("firstTradeDateTime") + " = ?, " +
+                        quoteIdentifier("lastTradeDateTime") + " = ?, " +
                         "status = ?, " +
                         quoteIdentifier("startedAt") + " = ?, " +
                         quoteIdentifier("updatedAt") + " = ?" +
@@ -487,10 +525,12 @@ public class PostgresTradeRepository {
             statement.setLong(3, lastModifiedMillis);
             statement.setLong(4, 1);
             statement.setLong(5, 0);
-            statement.setString(6, "IN_PROGRESS");
-            statement.setTimestamp(7, Timestamp.from(now));
-            statement.setTimestamp(8, Timestamp.from(now));
-            statement.setString(9, tableName);
+            statement.setNull(6, Types.TIMESTAMP_WITH_TIMEZONE);
+            statement.setNull(7, Types.TIMESTAMP_WITH_TIMEZONE);
+            statement.setString(8, "IN_PROGRESS");
+            statement.setTimestamp(9, Timestamp.from(now));
+            statement.setTimestamp(10, Timestamp.from(now));
+            statement.setString(11, tableName);
             statement.executeUpdate();
         }
     }
@@ -520,56 +560,8 @@ public class PostgresTradeRepository {
         }
     }
 
-    private List<String> listCurrentSchemaTableNames(Connection connection) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT table_name FROM information_schema.tables " +
-                        "WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' " +
-                        "ORDER BY table_name"
-        );
-             ResultSet resultSet = statement.executeQuery()) {
-            List<String> tableNames = new ArrayList<>();
-            while (resultSet.next()) {
-                tableNames.add(resultSet.getString(1));
-            }
-            return tableNames;
-        }
-    }
-
-    private ContractDataSummary summarizeContractTable(Connection connection, String tableName) throws SQLException {
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(
-                     "SELECT MIN(" + quoteIdentifier("tradeDateTime") + "), " +
-                             "MAX(" + quoteIdentifier("tradeDateTime") + ") " +
-                             "FROM " + quoteIdentifier(tableName)
-             )) {
-            if (!resultSet.next()) {
-                return null;
-            }
-            Timestamp startTimestamp = resultSet.getTimestamp(1);
-            Timestamp endTimestamp = resultSet.getTimestamp(2);
-            if (startTimestamp == null || endTimestamp == null) {
-                return null;
-            }
-            return new ContractDataSummary(
-                    tableName,
-                    startTimestamp.toInstant().atZone(ZoneOffset.UTC).toLocalDate(),
-                    endTimestamp.toInstant().atZone(ZoneOffset.UTC).toLocalDate()
-            );
-        }
-    }
-
     private boolean isContractTableName(String tableName) {
         return tableName != null && tableName.toUpperCase().matches("[A-Z]{1,3}[FGHJKMNQUVXZ][0-9]{1,2}");
-    }
-
-    private void deleteCheckpoint(Connection connection, String tableName) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "DELETE FROM " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
-                        " WHERE " + quoteIdentifier("tableName") + " = ?"
-        )) {
-            statement.setString(1, tableName);
-            statement.executeUpdate();
-        }
     }
 
     private void updateImportCheckpoint(
@@ -577,22 +569,84 @@ public class PostgresTradeRepository {
             String tableName,
             String sourceFileName,
             long nextRecordIndex,
-            int importedRows
+            int importedRows,
+            List<TradeRow> importedTrades
     ) throws SQLException {
+        TradeDateTimeBounds bounds = findTradeDateTimeBounds(importedTrades);
         try (PreparedStatement statement = connection.prepareStatement(
                 "UPDATE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
                         " SET " + quoteIdentifier("nextRecordIndex") + " = ?, " +
                         quoteIdentifier("rowsInserted") + " = " + quoteIdentifier("rowsInserted") + " + ?, " +
+                        quoteIdentifier("firstTradeDateTime") + " = CASE WHEN CAST(? AS TIMESTAMPTZ) IS NULL THEN " + quoteIdentifier("firstTradeDateTime") +
+                        " WHEN " + quoteIdentifier("firstTradeDateTime") + " IS NULL THEN CAST(? AS TIMESTAMPTZ)" +
+                        " ELSE LEAST(" + quoteIdentifier("firstTradeDateTime") + ", CAST(? AS TIMESTAMPTZ)) END, " +
+                        quoteIdentifier("lastTradeDateTime") + " = CASE WHEN CAST(? AS TIMESTAMPTZ) IS NULL THEN " + quoteIdentifier("lastTradeDateTime") +
+                        " WHEN " + quoteIdentifier("lastTradeDateTime") + " IS NULL THEN CAST(? AS TIMESTAMPTZ)" +
+                        " ELSE GREATEST(" + quoteIdentifier("lastTradeDateTime") + ", CAST(? AS TIMESTAMPTZ)) END, " +
                         "status = ?, " +
                         quoteIdentifier("updatedAt") + " = ?" +
                         " WHERE " + quoteIdentifier("tableName") + " = ?"
         )) {
             statement.setLong(1, nextRecordIndex);
             statement.setInt(2, importedRows);
-            statement.setString(3, "IN_PROGRESS");
-            statement.setTimestamp(4, Timestamp.from(Instant.now()));
-            statement.setString(5, tableName);
+            setNullableTimestamp(statement, 3, bounds.getFirstTradeDateTime());
+            setNullableTimestamp(statement, 4, bounds.getFirstTradeDateTime());
+            setNullableTimestamp(statement, 5, bounds.getFirstTradeDateTime());
+            setNullableTimestamp(statement, 6, bounds.getLastTradeDateTime());
+            setNullableTimestamp(statement, 7, bounds.getLastTradeDateTime());
+            setNullableTimestamp(statement, 8, bounds.getLastTradeDateTime());
+            statement.setString(9, "IN_PROGRESS");
+            statement.setTimestamp(10, Timestamp.from(Instant.now()));
+            statement.setString(11, tableName);
             statement.executeUpdate();
+        }
+    }
+
+    private TradeDateTimeBounds findTradeDateTimeBounds(List<TradeRow> trades) {
+        if (trades == null || trades.isEmpty()) {
+            return TradeDateTimeBounds.empty();
+        }
+        Instant firstTradeDateTime = null;
+        Instant lastTradeDateTime = null;
+        for (TradeRow trade : trades) {
+            Instant tradeDateTime = trade.getTradeDateTime();
+            if (firstTradeDateTime == null || tradeDateTime.isBefore(firstTradeDateTime)) {
+                firstTradeDateTime = tradeDateTime;
+            }
+            if (lastTradeDateTime == null || tradeDateTime.isAfter(lastTradeDateTime)) {
+                lastTradeDateTime = tradeDateTime;
+            }
+        }
+        return new TradeDateTimeBounds(firstTradeDateTime, lastTradeDateTime);
+    }
+
+    private void setNullableTimestamp(PreparedStatement statement, int index, Instant value) throws SQLException {
+        if (value == null) {
+            statement.setNull(index, Types.TIMESTAMP_WITH_TIMEZONE);
+            return;
+        }
+        statement.setTimestamp(index, Timestamp.from(value));
+    }
+
+    private static class TradeDateTimeBounds {
+        private final Instant firstTradeDateTime;
+        private final Instant lastTradeDateTime;
+
+        private TradeDateTimeBounds(Instant firstTradeDateTime, Instant lastTradeDateTime) {
+            this.firstTradeDateTime = firstTradeDateTime;
+            this.lastTradeDateTime = lastTradeDateTime;
+        }
+
+        public static TradeDateTimeBounds empty() {
+            return new TradeDateTimeBounds(null, null);
+        }
+
+        public Instant getFirstTradeDateTime() {
+            return firstTradeDateTime;
+        }
+
+        public Instant getLastTradeDateTime() {
+            return lastTradeDateTime;
         }
     }
 
