@@ -2,7 +2,8 @@ package forge.data;
 
 import forge.data.InstrumentDataCatalog.AvailableDateRange;
 import forge.data.InstrumentDataCatalog.AvailableInstrumentData;
-import forge.model.FuturesContract;
+import forge.model.FuturesInstrument;
+import forge.model.StaticFuturesInstrumentSpecProvider;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -17,19 +18,30 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Execution(ExecutionMode.CONCURRENT)
 class InstrumentDataCatalogTest {
-    private final InstrumentDataCatalog catalog = new InstrumentDataCatalog();
+    private final InstrumentDataCatalog catalog = new InstrumentDataCatalog(
+            () -> List.of(
+                    new ContractDataSummary("ESU25", LocalDate.of(2025, 8, 1), LocalDate.of(2025, 9, 15)),
+                    new ContractDataSummary("ESZ25", LocalDate.of(2025, 10, 1), LocalDate.of(2025, 12, 15)),
+                    new ContractDataSummary("NQZ25", LocalDate.of(2025, 11, 1), LocalDate.of(2025, 12, 12)),
+                    new ContractDataSummary("CLX25", LocalDate.of(2025, 9, 1), LocalDate.of(2025, 10, 20))
+            ),
+            new ContractNameResolver(),
+            new StaticFuturesInstrumentSpecProvider()
+    );
 
     @Nested
     class GetAvailableInstruments {
         @Test
-        void returnsConfiguredFuturesContracts() {
+        void returnsInstrumentRootsFromImportedContracts() {
             List<AvailableInstrumentData> instruments = catalog.getAvailableInstruments();
 
             assertEquals(3, instruments.size());
             assertEquals("ES", instruments.get(0).getSymbol());
-            assertInstanceOf(FuturesContract.class, instruments.get(0).getInstrument());
+            assertInstanceOf(FuturesInstrument.class, instruments.get(0).getInstrument());
             assertEquals(0.25, instruments.get(0).getFuturesTickSize());
             assertEquals(12.50, instruments.get(0).getFuturesTickDollarAmount());
+            assertEquals(LocalDate.of(2025, 8, 1), instruments.get(0).getStartDate());
+            assertEquals(LocalDate.of(2025, 12, 15), instruments.get(0).getEndDate());
         }
     }
 
@@ -39,8 +51,8 @@ class InstrumentDataCatalogTest {
         void returnsOverlapForSelectedSymbols() {
             AvailableDateRange range = catalog.getSharedDateRange(List.of("ES", "CL"));
 
-            assertEquals(LocalDate.of(2024, 2, 1), range.getStartDate());
-            assertEquals(LocalDate.of(2024, 3, 15), range.getEndDate());
+            assertEquals(LocalDate.of(2025, 9, 1), range.getStartDate());
+            assertEquals(LocalDate.of(2025, 10, 20), range.getEndDate());
         }
 
         @Test
@@ -55,8 +67,8 @@ class InstrumentDataCatalogTest {
         void acceptsDatesInsideSharedRange() {
             catalog.validateDateRange(
                     List.of("ES", "NQ"),
-                    LocalDate.of(2024, 1, 2),
-                    LocalDate.of(2024, 3, 29)
+                    LocalDate.of(2025, 11, 1),
+                    LocalDate.of(2025, 12, 12)
             );
         }
 
@@ -64,8 +76,8 @@ class InstrumentDataCatalogTest {
         void rejectsDatesOutsideSharedRange() {
             assertThrows(IllegalArgumentException.class, () -> catalog.validateDateRange(
                     List.of("ES", "CL"),
-                    LocalDate.of(2024, 1, 2),
-                    LocalDate.of(2024, 3, 15)
+                    LocalDate.of(2025, 8, 1),
+                    LocalDate.of(2025, 10, 20)
             ));
         }
     }

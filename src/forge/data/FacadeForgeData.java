@@ -10,7 +10,7 @@ import java.util.List;
 public class FacadeForgeData {
     private static final FacadeForgeData THE_INSTANCE = new FacadeForgeData();
 
-    private final InstrumentDataCatalog instrumentDataCatalog;
+    private InstrumentDataCatalog instrumentDataCatalog;
     private ScidDataImportService scidDataImportService;
     private final ForgeDataAccess access = new ForgeDataAccess();
 
@@ -19,12 +19,13 @@ public class FacadeForgeData {
     }
 
     public FacadeForgeData() {
+        this(new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment()));
+    }
+
+    private FacadeForgeData(PostgresTradeRepository tradeRepository) {
         this(
-                new InstrumentDataCatalog(),
-                new ScidDataImportService(
-                        new ContractNameResolver(),
-                        new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment())
-                )
+                new InstrumentDataCatalog(tradeRepository),
+                new ScidDataImportService(new ContractNameResolver(), tradeRepository)
         );
     }
 
@@ -82,9 +83,11 @@ public class FacadeForgeData {
             if (databaseSettings == null) {
                 throw new IllegalArgumentException("databaseSettings is required");
             }
+            PostgresTradeRepository tradeRepository = new PostgresTradeRepository(databaseSettings);
+            instrumentDataCatalog = new InstrumentDataCatalog(tradeRepository);
             scidDataImportService = new ScidDataImportService(
                     new ContractNameResolver(),
-                    new PostgresTradeRepository(databaseSettings)
+                    tradeRepository
             );
         }
     }

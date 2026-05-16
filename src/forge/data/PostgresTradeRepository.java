@@ -8,6 +8,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 
 public class PostgresTradeRepository {
@@ -180,6 +182,30 @@ public class PostgresTradeRepository {
             );
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not inspect PostgreSQL import state for '" + tableName + "'", exception);
+        }
+    }
+
+    public List<ContractDataSummary> listImportedContractData() {
+        ensureDatabaseExists();
+
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            List<ContractDataSummary> summaries = new ArrayList<>();
+            for (String tableName : listCurrentSchemaTableNames(connection)) {
+                if (!isContractTableName(tableName)) {
+                    continue;
+                }
+                ContractDataSummary summary = summarizeContractTable(connection, tableName);
+                if (summary != null) {
+                    summaries.add(summary);
+                }
+            }
+            return summaries;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not load available instruments from PostgreSQL", exception);
         }
     }
 
@@ -489,6 +515,48 @@ public class PostgresTradeRepository {
             resultSet.next();
             return resultSet.getLong(1);
         }
+    }
+
+    private List<String> listCurrentSchemaTableNames(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT table_name FROM information_schema.tables " +
+                        "WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' " +
+                        "ORDER BY table_name"
+        );
+             ResultSet resultSet = statement.executeQuery()) {
+            List<String> tableNames = new ArrayList<>();
+            while (resultSet.next()) {
+                tableNames.add(resultSet.getString(1));
+            }
+            return tableNames;
+        }
+    }
+
+    private ContractDataSummary summarizeContractTable(Connection connection, String tableName) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(
+                     "SELECT MIN(" + quoteIdentifier("tradeDateTime") + "), " +
+                             "MAX(" + quoteIdentifier("tradeDateTime") + ") " +
+                             "FROM " + quoteIdentifier(tableName)
+             )) {
+            if (!resultSet.next()) {
+                return null;
+            }
+            Timestamp startTimestamp = resultSet.getTimestamp(1);
+            Timestamp endTimestamp = resultSet.getTimestamp(2);
+            if (startTimestamp == null || endTimestamp == null) {
+                return null;
+            }
+            return new ContractDataSummary(
+                    tableName,
+                    startTimestamp.toInstant().atZone(ZoneOffset.UTC).toLocalDate(),
+                    endTimestamp.toInstant().atZone(ZoneOffset.UTC).toLocalDate()
+            );
+        }
+    }
+
+    private boolean isContractTableName(String tableName) {
+        return tableName != null && tableName.toUpperCase().matches("[A-Z]{1,3}[FGHJKMNQUVXZ][0-9]{1,2}");
     }
 
     private void deleteCheckpoint(Connection connection, String tableName) throws SQLException {

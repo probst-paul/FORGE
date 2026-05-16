@@ -11,10 +11,10 @@ It is not yet a complete historical market replay or backtesting engine.
 - Command-line backtest setup flow in `forge.app.Main`
 - Command-line import flow for preparing PostgreSQL contract tables from SCID file names
 - Maven build with JUnit 5 and PostgreSQL JDBC dependencies
-- In-memory instrument/date catalog with sample futures instruments
+- Database-derived instrument/date catalog based on imported contract tables
 - Futures contract model with symbol code, tick size, tick dollar amount, and expiration date
 - Static futures instrument definitions for ES, NQ, YM, RTY, and CL
-- Abstract `Instrument` base class and concrete `FuturesContract`
+- Abstract `Instrument` base class with concrete futures instrument and futures contract models
 - Strategy interface with an implemented `RangeBreakoutStrategy`
 - Trade trigger interface with an implemented no-op `OrderFlowExhaustionTrigger`
 - Target model interface with:
@@ -64,7 +64,7 @@ Order settings are currently defaulted internally and are not exposed in the CLI
 src/forge/app        Application facade, requests, console input/output abstractions
 src/forge/cli        CLI controller and selection services
 src/forge/config     Backtest configuration objects
-src/forge/data       Instrument catalog, PostgreSQL setup, and SCID import preparation
+src/forge/data       Database-derived instrument catalog, PostgreSQL setup, and SCID import
 src/forge/engine     Market context
 src/forge/execution  Order request and order enums
 src/forge/model      Instrument and futures contract models
@@ -77,11 +77,11 @@ test/forge           JUnit 5 tests
 ## Object-Oriented Design
 
 - **Abstract class:** `Instrument` stores common instrument identity and requires subclasses to provide `getInstrumentType()`.
-- **Inheritance:** `FuturesContract` extends `Instrument`.
+- **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument`.
 - **Interfaces:** `TradingStrategy`, `TradeTrigger`, and `TargetModel` define interchangeable behavior.
 - **Polymorphism:** `FixedRiskRewardTarget` and `FixedTarget` both implement `TargetModel.calculateTarget(...)` with different behavior.
-- **Upcasting:** `InstrumentDataCatalog` creates `FuturesContract` instances and stores them as `Instrument`.
-- **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesContract` when futures-specific details are needed.
+- **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
+- **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 
 ## Run the Application
 

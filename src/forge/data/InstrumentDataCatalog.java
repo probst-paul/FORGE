@@ -1,7 +1,8 @@
 package forge.data;
 
-import forge.model.FuturesContract;
+import forge.model.FuturesInstrument;
 import forge.model.FuturesInstrumentSpec;
+import forge.model.FuturesInstrumentSpecProvider;
 import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.model.Instrument;
 
@@ -11,37 +12,46 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class InstrumentDataCatalog {
-    private static final StaticFuturesInstrumentSpecProvider FUTURES_SPECS = new StaticFuturesInstrumentSpecProvider();
-
-    private final Map<String, AvailableInstrumentData> availableData;
+    private final Supplier<List<ContractDataSummary>> contractDataSource;
+    private final ContractNameResolver contractNameResolver;
+    private final FuturesInstrumentSpecProvider futuresInstrumentSpecProvider;
 
     public InstrumentDataCatalog() {
-        Map<String, AvailableInstrumentData> data = new LinkedHashMap<>();
-        addInstrumentData(
-                data,
-                createFuturesInstrument("ES", LocalDate.of(2024, 3, 15)),
-                LocalDate.of(2024, 1, 2),
-                LocalDate.of(2024, 3, 29)
+        this(new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment()));
+    }
+
+    public InstrumentDataCatalog(PostgresTradeRepository tradeRepository) {
+        this(
+                tradeRepository::listImportedContractData,
+                new ContractNameResolver(),
+                new StaticFuturesInstrumentSpecProvider()
         );
-        addInstrumentData(
-                data,
-                createFuturesInstrument("NQ", LocalDate.of(2024, 3, 15)),
-                LocalDate.of(2024, 1, 2),
-                LocalDate.of(2024, 3, 29)
-        );
-        addInstrumentData(
-                data,
-                createFuturesInstrument("CL", LocalDate.of(2024, 3, 20)),
-                LocalDate.of(2024, 2, 1),
-                LocalDate.of(2024, 3, 15)
-        );
-        this.availableData = Collections.unmodifiableMap(data);
+    }
+
+    InstrumentDataCatalog(
+            Supplier<List<ContractDataSummary>> contractDataSource,
+            ContractNameResolver contractNameResolver,
+            FuturesInstrumentSpecProvider futuresInstrumentSpecProvider
+    ) {
+        if (contractDataSource == null) {
+            throw new IllegalArgumentException("contractDataSource is required");
+        }
+        if (contractNameResolver == null) {
+            throw new IllegalArgumentException("contractNameResolver is required");
+        }
+        if (futuresInstrumentSpecProvider == null) {
+            throw new IllegalArgumentException("futuresInstrumentSpecProvider is required");
+        }
+        this.contractDataSource = contractDataSource;
+        this.contractNameResolver = contractNameResolver;
+        this.futuresInstrumentSpecProvider = futuresInstrumentSpecProvider;
     }
 
     public List<AvailableInstrumentData> getAvailableInstruments() {
-        return Collections.unmodifiableList(new ArrayList<>(availableData.values()));
+        return Collections.unmodifiableList(new ArrayList<>(loadAvailableData().values()));
     }
 
     public AvailableDateRange getSharedDateRange(List<String> symbols) {
@@ -51,8 +61,9 @@ public class InstrumentDataCatalog {
 
         LocalDate sharedStart = null;
         LocalDate sharedEnd = null;
+        Map<String, AvailableInstrumentData> availableData = loadAvailableData();
         for (String symbol : symbols) {
-            AvailableInstrumentData instrumentData = getInstrumentData(symbol);
+            AvailableInstrumentData instrumentData = getInstrumentData(availableData, symbol);
             if (sharedStart == null || instrumentData.getStartDate().isAfter(sharedStart)) {
                 sharedStart = instrumentData.getStartDate();
             }
@@ -68,6 +79,12 @@ public class InstrumentDataCatalog {
     }
 
     public void validateDateRange(List<String> symbols, LocalDate startDate, LocalDate endDate) {
+        if (startDate == null) {
+            throw new IllegalArgumentException("startDate is required");
+        }
+        if (endDate == null) {
+            throw new IllegalArgumentException("endDate is required");
+        }
         AvailableDateRange availableDateRange = getSharedDateRange(symbols);
         if (startDate.isBefore(availableDateRange.getStartDate()) || endDate.isAfter(availableDateRange.getEndDate())) {
             throw new IllegalArgumentException("date range must be within available instrument data");
@@ -77,25 +94,48 @@ public class InstrumentDataCatalog {
         }
     }
 
-    private AvailableInstrumentData getInstrumentData(String symbol) {
-        AvailableInstrumentData instrumentData = availableData.get(symbol.toUpperCase());
+    private Map<String, AvailableInstrumentData> loadAvailableData() {
+        Map<String, InstrumentDateBounds> boundsByInstrument = new LinkedHashMap<>();
+        for (ContractDataSummary summary : contractDataSource.get()) {
+            String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(summary.getContractSymbol());
+            if (!futuresInstrumentSpecProvider.supports(instrumentSymbol)) {
+                continue;
+            }
+            InstrumentDateBounds bounds = boundsByInstrument.computeIfAbsent(instrumentSymbol, key -> new InstrumentDateBounds());
+            bounds.include(summary.getStartDate(), summary.getEndDate());
+        }
+
+        Map<String, AvailableInstrumentData> availableData = new LinkedHashMap<>();
+        for (Map.Entry<String, InstrumentDateBounds> entry : boundsByInstrument.entrySet()) {
+            FuturesInstrumentSpec spec = futuresInstrumentSpecProvider.getBySymbol(entry.getKey());
+            InstrumentDateBounds bounds = entry.getValue();
+            addInstrumentData(
+                    availableData,
+                    createFuturesInstrument(spec),
+                    bounds.getStartDate(),
+                    bounds.getEndDate()
+            );
+        }
+        return availableData;
+    }
+
+    private AvailableInstrumentData getInstrumentData(Map<String, AvailableInstrumentData> availableData, String symbol) {
+        if (symbol == null || symbol.trim().isEmpty()) {
+            throw new IllegalArgumentException("symbol is required");
+        }
+        AvailableInstrumentData instrumentData = availableData.get(symbol.trim().toUpperCase());
         if (instrumentData == null) {
             throw new IllegalArgumentException("instrument is not available: " + symbol);
         }
         return instrumentData;
     }
 
-    private static Instrument createFuturesInstrument(
-            String symbol,
-            LocalDate expirationDate
-    ) {
-        FuturesInstrumentSpec spec = FUTURES_SPECS.getBySymbol(symbol);
-        return new FuturesContract(
+    private static Instrument createFuturesInstrument(FuturesInstrumentSpec spec) {
+        return new FuturesInstrument(
                 spec.getSymbolCode(),
                 spec.getDisplayName(),
                 spec.getTickSize(),
-                spec.getTickDollarAmount(),
-                expirationDate
+                spec.getTickDollarAmount()
         );
     }
 
@@ -128,15 +168,15 @@ public class InstrumentDataCatalog {
         }
 
         public double getFuturesTickSize() {
-            return asFuturesContract().getTickSize();
+            return asFuturesInstrument().getTickSize();
         }
 
         public double getFuturesTickDollarAmount() {
-            return asFuturesContract().getTickDollarAmount();
+            return asFuturesInstrument().getTickDollarAmount();
         }
 
         public LocalDate getFuturesExpirationDate() {
-            return asFuturesContract().getExpirationDate();
+            throw new UnsupportedOperationException("Instrument-level catalog entries do not have a single futures expiration date");
         }
 
         public LocalDate getStartDate() {
@@ -152,11 +192,33 @@ public class InstrumentDataCatalog {
             return instrument.getSymbolCode() + " (" + startDate + " to " + endDate + ")";
         }
 
-        private FuturesContract asFuturesContract() {
-            if (instrument instanceof FuturesContract) {
-                return (FuturesContract) instrument;
+        private FuturesInstrument asFuturesInstrument() {
+            if (instrument instanceof FuturesInstrument) {
+                return (FuturesInstrument) instrument;
             }
-            throw new IllegalStateException("Instrument is not a futures contract: " + instrument.getSymbolCode());
+            throw new IllegalStateException("Instrument is not a futures instrument: " + instrument.getSymbolCode());
+        }
+    }
+
+    private static class InstrumentDateBounds {
+        private LocalDate startDate;
+        private LocalDate endDate;
+
+        public void include(LocalDate candidateStartDate, LocalDate candidateEndDate) {
+            if (startDate == null || candidateStartDate.isBefore(startDate)) {
+                startDate = candidateStartDate;
+            }
+            if (endDate == null || candidateEndDate.isAfter(endDate)) {
+                endDate = candidateEndDate;
+            }
+        }
+
+        public LocalDate getStartDate() {
+            return startDate;
+        }
+
+        public LocalDate getEndDate() {
+            return endDate;
         }
     }
 
