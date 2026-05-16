@@ -2,6 +2,7 @@ package forge.data;
 
 import forge.data.InstrumentDataCatalog.AvailableDateRange;
 import forge.data.InstrumentDataCatalog.AvailableInstrumentData;
+import forge.app.ImportProgressListener;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -69,8 +70,12 @@ public class FacadeForgeData {
             return scidDataImportService.planImport(scidFilePath);
         }
 
-        public DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract) {
-            return scidDataImportService.importScidFile(scidFilePath, rebuildExistingContract);
+        public DataImportResult importScidFile(
+                String scidFilePath,
+                boolean rebuildExistingContract,
+                ImportProgressListener progressListener
+        ) {
+            return scidDataImportService.importScidFile(scidFilePath, rebuildExistingContract, progressListener);
         }
 
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {

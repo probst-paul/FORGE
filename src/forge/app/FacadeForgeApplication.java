@@ -39,7 +39,8 @@ public class FacadeForgeApplication {
             Objects.requireNonNull(request, "request is required");
             return forgeData.forgeDataAccess().importScidFile(
                     request.getScidFilePath(),
-                    request.shouldRebuildExistingContract()
+                    request.shouldRebuildExistingContract(),
+                    request.getProgressListener()
             );
         }
 

@@ -1,5 +1,8 @@
 package forge.data;
 
+import forge.app.ImportProgress;
+import forge.app.ImportProgressListener;
+
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.io.IOException;
@@ -42,11 +45,17 @@ public class ScidDataImportService {
         return tradeRepository.planImport(contractSymbol, tableName);
     }
 
-    public DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract) {
+    public DataImportResult importScidFile(
+            String scidFilePath,
+            boolean rebuildExistingContract,
+            ImportProgressListener progressListener
+    ) {
         String contractSymbol = contractNameResolver.resolveFromScidPath(scidFilePath);
         String tableName = contractSymbol;
         Path path = Path.of(scidFilePath);
         String sourceFileName = path.getFileName().toString();
+        ImportProgressListener listener = progressListener == null ? ImportProgressListener.NO_OP : progressListener;
+        long totalRecords = totalRecordCount(path);
 
         tradeRepository.ensureDatabaseExists();
         tradeRepository.ensureContractTradesTableExists(tableName);
@@ -60,6 +69,11 @@ public class ScidDataImportService {
         );
         tradeRepository.ensureContractRecordUniqueIndex(tableName);
         AtomicInteger importedRows = new AtomicInteger();
+        listener.onProgress(new ImportProgress(
+                contractSymbol,
+                checkpoint.getNextRecordIndex() - 1,
+                totalRecords
+        ));
         scidTradeReader.readTrades(
                 path,
                 checkpoint.getNextRecordIndex(),
@@ -72,11 +86,25 @@ public class ScidDataImportService {
                             trades,
                             nextRecordIndex
                     ));
+                    listener.onProgress(new ImportProgress(
+                            contractSymbol,
+                            Math.min(nextRecordIndex - 1, totalRecords),
+                            totalRecords
+                    ));
                 }
         );
         tradeRepository.markImportComplete(tableName, sourceFileName);
+        listener.onProgress(new ImportProgress(contractSymbol, totalRecords, totalRecords));
 
         return new DataImportResult(tradeRepository.getDatabaseName(), tableName, contractSymbol, importedRows.get());
+    }
+
+    private long totalRecordCount(Path path) {
+        long dataBytes = fileSize(path) - 56;
+        if (dataBytes < 0 || dataBytes % 40 != 0) {
+            throw new IllegalArgumentException("SCID file size does not match the expected header and record sizes");
+        }
+        return dataBytes / 40;
     }
 
     private long fileSize(Path path) {

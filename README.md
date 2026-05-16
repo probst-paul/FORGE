@@ -160,6 +160,7 @@ Then choose `2. Import Data` and enter a SCID path, for example:
 FORGE derives the contract from the file name and prepares a matching table:
 
 ```text
+Importing ESU25 [########################] 100% 123456/123456
 Data storage prepared:
 Database: forge
 Table: ESU25
@@ -196,6 +197,8 @@ side            <- AskVolume > 0 means buy aggressor, BidVolume > 0 means sell a
 `TIMESTAMPTZ` and `FLOAT4` match the practical PostgreSQL equivalents for Sierra Chart's UTC timestamp and 4-byte float price fields. Sierra Chart's count and volume fields are unsigned 4-byte integers, so FORGE stores imported count/volume values as `BIGINT` to preserve their full range in PostgreSQL. `side` is FORGE-specific rather than a Sierra Chart field, with `1` for buy aggressor and `-1` for sell aggressor. Records without a clear aggressor side are rejected during import.
 
 Each contract table is treated as the authoritative dataset for that contract. If a contract table already exists, the CLI prompts before wiping and rebuilding it from the selected SCID file. FORGE stores the source file name and SCID record index on each row, creates a unique index over the SCID record index inside the contract table, and inserts with `ON CONFLICT DO NOTHING`. It also maintains a `forge_contract_imports` table with the source file metadata and next record index to process. The checkpoint advances only after a batch insert succeeds.
+
+The CLI renders import progress as a single updating terminal line. The underlying progress calculation is exposed through `ImportProgress`, so a future JavaFX or Swing UI can render the same import state with a graphical progress bar.
 
 Database settings can also be provided with environment variables:
 

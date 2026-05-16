@@ -4,6 +4,7 @@ import forge.app.ConsoleUserInput;
 import forge.app.ConsoleUserOutput;
 import forge.app.DatabaseConnectionRequest;
 import forge.app.FacadeForgeApplication;
+import forge.app.ImportProgress;
 import forge.app.UserInput;
 import forge.app.UserOutput;
 import forge.config.BacktestRequest;
@@ -177,7 +178,7 @@ public class CliApplicationController {
         }
 
         DataImportResult result = forgeApplication.forgeApplicationAccess().importData(
-                new DataImportRequest(scidFilePath, rebuildExistingContract)
+                new DataImportRequest(scidFilePath, rebuildExistingContract, progress -> printImportProgress(output, progress))
         );
 
         output.printBlankLine();
@@ -186,6 +187,26 @@ public class CliApplicationController {
         output.printLine("Table: " + result.getTableName());
         output.printLine("Contract: " + result.getContractSymbol());
         output.printLine("Rows imported: " + result.getImportedRows());
+    }
+
+    private void printImportProgress(UserOutput output, ImportProgress progress) {
+        output.printStatusLine(renderImportProgress(progress));
+        if (progress.getProcessedRecords() == progress.getTotalRecords()) {
+            output.finishStatusLine();
+        }
+    }
+
+    private String renderImportProgress(ImportProgress progress) {
+        int barWidth = 24;
+        int filledWidth = (int) Math.round(progress.getCompletionRatio() * barWidth);
+        StringBuilder bar = new StringBuilder();
+        for (int index = 0; index < barWidth; index++) {
+            bar.append(index < filledWidth ? '#' : '-');
+        }
+        return "Importing " + progress.getContractSymbol() +
+                " [" + bar + "] " +
+                progress.getCompletionPercent() + "% " +
+                progress.getProcessedRecords() + "/" + progress.getTotalRecords();
     }
 
     private void configureDatabase(UserInput input, UserOutput output) {
