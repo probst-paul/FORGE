@@ -2,6 +2,8 @@ package forge.data;
 
 import forge.app.ImportProgress;
 import forge.app.ImportProgressListener;
+import forge.model.FuturesInstrumentSpecProvider;
+import forge.model.StaticFuturesInstrumentSpecProvider;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -12,20 +14,25 @@ public class ScidDataImportService {
     private static final int IMPORT_BATCH_SIZE = 10_000;
 
     private final ContractNameResolver contractNameResolver;
+    private final FuturesInstrumentSpecProvider futuresInstrumentSpecProvider;
     private final ScidTradeReader scidTradeReader;
     private final PostgresTradeRepository tradeRepository;
 
     public ScidDataImportService(ContractNameResolver contractNameResolver, PostgresTradeRepository tradeRepository) {
-        this(contractNameResolver, new ScidTradeReader(), tradeRepository);
+        this(contractNameResolver, new StaticFuturesInstrumentSpecProvider(), new ScidTradeReader(), tradeRepository);
     }
 
     public ScidDataImportService(
             ContractNameResolver contractNameResolver,
+            FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
             ScidTradeReader scidTradeReader,
             PostgresTradeRepository tradeRepository
     ) {
         if (contractNameResolver == null) {
             throw new IllegalArgumentException("contractNameResolver is required");
+        }
+        if (futuresInstrumentSpecProvider == null) {
+            throw new IllegalArgumentException("futuresInstrumentSpecProvider is required");
         }
         if (scidTradeReader == null) {
             throw new IllegalArgumentException("scidTradeReader is required");
@@ -34,12 +41,14 @@ public class ScidDataImportService {
             throw new IllegalArgumentException("tradeRepository is required");
         }
         this.contractNameResolver = contractNameResolver;
+        this.futuresInstrumentSpecProvider = futuresInstrumentSpecProvider;
         this.scidTradeReader = scidTradeReader;
         this.tradeRepository = tradeRepository;
     }
 
     public DataImportPlan planImport(String scidFilePath) {
         String contractSymbol = contractNameResolver.resolveFromScidPath(scidFilePath);
+        validateSupportedInstrument(contractSymbol);
         String tableName = contractSymbol;
         tradeRepository.ensureDatabaseExists();
         return tradeRepository.planImport(contractSymbol, tableName);
@@ -51,6 +60,7 @@ public class ScidDataImportService {
             ImportProgressListener progressListener
     ) {
         String contractSymbol = contractNameResolver.resolveFromScidPath(scidFilePath);
+        validateSupportedInstrument(contractSymbol);
         String tableName = contractSymbol;
         Path path = Path.of(scidFilePath);
         String sourceFileName = path.getFileName().toString();
@@ -121,5 +131,10 @@ public class ScidDataImportService {
         } catch (IOException exception) {
             throw new IllegalStateException("Could not read SCID file modified time: " + path, exception);
         }
+    }
+
+    private void validateSupportedInstrument(String contractSymbol) {
+        String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(contractSymbol);
+        futuresInstrumentSpecProvider.getBySymbol(instrumentSymbol);
     }
 }

@@ -13,6 +13,7 @@ It is not yet a complete historical market replay or backtesting engine.
 - Maven build with JUnit 5 and PostgreSQL JDBC dependencies
 - In-memory instrument/date catalog with sample futures instruments
 - Futures contract model with symbol code, tick size, tick dollar amount, and expiration date
+- Static futures instrument definitions for ES, NQ, YM, RTY, and CL
 - Abstract `Instrument` base class and concrete `FuturesContract`
 - Strategy interface with an implemented `RangeBreakoutStrategy`
 - Trade trigger interface with an implemented no-op `OrderFlowExhaustionTrigger`
@@ -100,6 +101,8 @@ java -jar target/forge-1.0-SNAPSHOT.jar
 ## PostgreSQL Setup
 
 FORGE uses PostgreSQL for imported market data storage. The import flow currently creates or reuses a database, creates a table for the contract derived from the SCID file name, reads Sierra Chart intraday records, and inserts each record as a trade row.
+
+Supported futures roots for import are currently `ES`, `NQ`, `YM`, `RTY`, and `CL`. Importing an unsupported root fails before the database table is created or modified.
 
 Install and start PostgreSQL on macOS with Homebrew:
 

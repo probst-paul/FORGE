@@ -1,6 +1,8 @@
 package forge.data;
 
 import forge.model.FuturesContract;
+import forge.model.FuturesInstrumentSpec;
+import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.model.Instrument;
 
 import java.time.LocalDate;
@@ -11,25 +13,27 @@ import java.util.List;
 import java.util.Map;
 
 public class InstrumentDataCatalog {
+    private static final StaticFuturesInstrumentSpecProvider FUTURES_SPECS = new StaticFuturesInstrumentSpecProvider();
+
     private final Map<String, AvailableInstrumentData> availableData;
 
     public InstrumentDataCatalog() {
         Map<String, AvailableInstrumentData> data = new LinkedHashMap<>();
         addInstrumentData(
                 data,
-                createFuturesInstrument("ES", "E-mini S&P 500", 0.25, 12.50, LocalDate.of(2024, 3, 15)),
+                createFuturesInstrument("ES", LocalDate.of(2024, 3, 15)),
                 LocalDate.of(2024, 1, 2),
                 LocalDate.of(2024, 3, 29)
         );
         addInstrumentData(
                 data,
-                createFuturesInstrument("NQ", "E-mini Nasdaq-100", 0.25, 5.00, LocalDate.of(2024, 3, 15)),
+                createFuturesInstrument("NQ", LocalDate.of(2024, 3, 15)),
                 LocalDate.of(2024, 1, 2),
                 LocalDate.of(2024, 3, 29)
         );
         addInstrumentData(
                 data,
-                createFuturesInstrument("CL", "Crude Oil", 0.01, 10.00, LocalDate.of(2024, 3, 20)),
+                createFuturesInstrument("CL", LocalDate.of(2024, 3, 20)),
                 LocalDate.of(2024, 2, 1),
                 LocalDate.of(2024, 3, 15)
         );
@@ -83,12 +87,16 @@ public class InstrumentDataCatalog {
 
     private static Instrument createFuturesInstrument(
             String symbol,
-            String displayName,
-            double tickSize,
-            double tickDollarAmount,
             LocalDate expirationDate
     ) {
-        return new FuturesContract(symbol, displayName, tickSize, tickDollarAmount, expirationDate);
+        FuturesInstrumentSpec spec = FUTURES_SPECS.getBySymbol(symbol);
+        return new FuturesContract(
+                spec.getSymbolCode(),
+                spec.getDisplayName(),
+                spec.getTickSize(),
+                spec.getTickDollarAmount(),
+                expirationDate
+        );
     }
 
     private static void addInstrumentData(

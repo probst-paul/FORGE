@@ -2,8 +2,12 @@ package forge.data;
 
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ContractNameResolver {
+    private static final Pattern CONTRACT_PATTERN = Pattern.compile("^([A-Z]{1,3})([FGHJKMNQUVXZ])([0-9]{1,2})$");
+
     public String resolveFromScidPath(String scidFilePath) {
         if (scidFilePath == null || scidFilePath.trim().isEmpty()) {
             throw new IllegalArgumentException("SCID file path is required");
@@ -28,6 +32,32 @@ public class ContractNameResolver {
         }
 
         return contract;
+    }
+
+    public String resolveInstrumentSymbol(String contractSymbol) {
+        Matcher matcher = matchContract(contractSymbol);
+        return matcher.group(1);
+    }
+
+    public String resolveContractMonthCode(String contractSymbol) {
+        Matcher matcher = matchContract(contractSymbol);
+        return matcher.group(2);
+    }
+
+    public String resolveContractYear(String contractSymbol) {
+        Matcher matcher = matchContract(contractSymbol);
+        return matcher.group(3);
+    }
+
+    private Matcher matchContract(String contractSymbol) {
+        if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
+            throw new IllegalArgumentException("contractSymbol is required");
+        }
+        Matcher matcher = CONTRACT_PATTERN.matcher(contractSymbol.trim().toUpperCase(Locale.ROOT));
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid futures contract: " + contractSymbol);
+        }
+        return matcher;
     }
 
     private int firstPresentIndex(int first, int second) {

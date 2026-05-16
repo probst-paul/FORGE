@@ -30,6 +30,13 @@ class ContractNameResolverTest {
         }
 
         @Test
+        void resolvesContractParts() {
+            assertEquals("RTY", resolver.resolveInstrumentSymbol("RTYM26"));
+            assertEquals("M", resolver.resolveContractMonthCode("RTYM26"));
+            assertEquals("26", resolver.resolveContractYear("RTYM26"));
+        }
+
+        @Test
         void rejectsFilesThatDoNotLookLikeFuturesContracts() {
             assertThrows(IllegalArgumentException.class, () -> resolver.resolveFromScidPath("/data/BAD_FILE.scid"));
         }
