@@ -38,13 +38,15 @@ Select Action
 │  ├─ Select Trade Trigger
 │  ├─ Select Target Model
 │  ├─ Target Model Options
-│  └─ Build BacktestRequest
+│  ├─ Build BacktestRequest
+│  └─ Press Enter or type anything to return to Select Action
 ├─ Import Data
 │  └─ Prepare PostgreSQL database/table for the selected SCID file
-├─ Configure Database
-│  └─ Set PostgreSQL host, port, database, maintenance database, username, and password
-└─ Exit
+└─ Configure Database
+   └─ Set PostgreSQL host, port, database, maintenance database, username, and password
 ```
+
+At the `Select action` prompt, enter `quit` to exit the program. After the backtest setup summary is displayed, press Enter or type anything to return to `Select Action`, or enter `quit` to exit.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
@@ -53,6 +55,9 @@ Order settings are currently defaulted internally and are not exposed in the CLI
 - Real market data retrieval from PostgreSQL
 - Market data reads from PostgreSQL with active-contract rollover filters
 - Derived market analytics
+- Analytics feature calculation beyond placeholder models
+- Full backtest package behavior beyond placeholder position/trade-result models
+- Execution package behavior beyond basic order request modeling
 - Full trade trigger evaluation against market data
 - Backtest engine orchestration
 - Order execution simulation
@@ -72,12 +77,15 @@ src/forge/data/importing  SCID import services, import DTOs, and trade rows
 src/forge/data/market     Market data provider abstractions
 src/forge/data/postgres   PostgreSQL settings and repository
 src/forge/data/rollover   Contract rollover calendars and rules
-src/forge/engine     Market context
-src/forge/execution  Order request and order enums
+src/forge/analytics  Placeholder analytics feature models
+src/forge/backtest   Placeholder backtest position/trade-result models
+src/forge/engine     Market context and placeholder engine facade
+src/forge/execution  Basic order request/enums; execution simulation is not implemented yet
 src/forge/model      Instrument and futures contract models
 src/forge/strategy   Strategy interface, catalog, and range breakout strategy
 src/forge/target     Target model interface, implementations, and results
 src/forge/trigger    Trigger interface, catalog, and trigger result model
+src/forge/reporting  Placeholder reporting/metrics models
 test/forge           JUnit 5 tests
 ```
 
@@ -215,6 +223,18 @@ The import flow skips records outside the contract's active front-month window b
 
 The CLI renders import progress as a single updating terminal line. The underlying progress calculation is exposed through `ImportProgress`, so a future JavaFX or Swing UI can render the same import state with a graphical progress bar.
 
+### Future Import Performance Ideas
+
+Current SCID imports use PostgreSQL text `COPY` in batches of `100,000` records and have tested at just under two minutes for a roughly 53 million record file on the current local setup. That is good enough for now, so the import path is intentionally being left as-is.
+
+Possible future performance enhancements:
+
+- Drop/recreate nonessential indexes during confirmed full rebuilds, then recreate them after import.
+- Stream parsed SCID rows directly into `COPY` instead of building batch strings in memory.
+- Use PostgreSQL binary `COPY` if text `COPY` becomes a bottleneck.
+- Add database tuning notes for large imports, such as `maintenance_work_mem`, `synchronous_commit`, and local disk considerations.
+- Add import timing/history records so performance changes can be compared across runs.
+
 Database settings can also be provided with environment variables:
 
 ```bash
@@ -236,4 +256,6 @@ mvn test
 
 ## Status
 
-FORGE is in early architectural development. The current implementation is intentionally small and focuses on clean object modeling, selection/configuration flow, and tested domain behavior before adding market data storage, replay, execution, and reporting.
+FORGE is in early architectural development. The current implementation now includes SCID-to-PostgreSQL ingestion, rollover-aware catalog availability, and exact tick-based price storage, but it is still not a complete backtesting system.
+
+The `analytics`, `backtest`, `engine`, `execution`, and `reporting` packages are largely placeholders or partial foundations. They exist to preserve the package/facade architecture while the real market replay, execution simulation, analytics, and reporting behavior are still being designed and implemented.

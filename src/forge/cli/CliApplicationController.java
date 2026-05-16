@@ -7,6 +7,7 @@ import forge.app.FacadeForgeApplication;
 import forge.app.ImportProgress;
 import forge.app.UserInput;
 import forge.app.UserOutput;
+import forge.app.UserQuitException;
 import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
@@ -76,11 +77,16 @@ public class CliApplicationController {
     }
 
     public void run(UserInput input, UserOutput output) {
-        printTitle(output);
+        try {
+            printTitle(output);
 
-        boolean running = true;
-        while (running) {
-            running = selectAction(input, output);
+            boolean running = true;
+            while (running) {
+                running = selectAction(input, output);
+            }
+        } catch (UserQuitException exception) {
+            output.printBlankLine();
+            output.printLine("Exiting FORGE.");
         }
     }
 
@@ -89,30 +95,37 @@ public class CliApplicationController {
         output.printLine("1. Run Backtest");
         output.printLine("2. Import Data");
         output.printLine("3. Configure Database");
-        output.printLine("4. Exit");
 
-        int selectedAction = input.readInt("Select action");
-        if (selectedAction == 1) {
-            runBacktestSetup(input, output);
-            return false;
-        }
-        if (selectedAction == 2) {
-            runDataImport(input, output);
-            output.printBlankLine();
-            return true;
-        }
-        if (selectedAction == 3) {
-            configureDatabase(input, output);
-            output.printBlankLine();
-            return true;
-        }
-        if (selectedAction == 4) {
-            output.printBlankLine();
-            output.printLine("Exiting FORGE.");
-            return false;
-        }
+        while (true) {
+            int selectedAction = input.readInt("Select action (or enter 'quit' to exit program)");
+            if (selectedAction == 1) {
+                runCliAction("run backtest setup", output, () -> runBacktestSetup(input, output));
+                output.printBlankLine();
+                return true;
+            }
+            if (selectedAction == 2) {
+                runCliAction("import data", output, () -> runDataImport(input, output));
+                output.printBlankLine();
+                return true;
+            }
+            if (selectedAction == 3) {
+                runCliAction("configure database", output, () -> configureDatabase(input, output));
+                output.printBlankLine();
+                return true;
+            }
 
-        throw new IllegalArgumentException("Selected action is not available");
+            output.printLine("Please select 1, 2, or 3, or enter 'quit' to exit program.");
+        }
+    }
+
+    private void runCliAction(String actionName, UserOutput output, Runnable action) {
+        try {
+            action.run();
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            output.printBlankLine();
+            output.printLine("Could not " + actionName + ": " + exception.getMessage());
+            output.printLine("Returning to Select Action.");
+        }
     }
 
     private void runBacktestSetup(UserInput input, UserOutput output) {
@@ -122,6 +135,8 @@ public class CliApplicationController {
         output.printBlankLine();
         output.printLine("Backtest request accepted:");
         output.printLine(acceptedRequest.toString());
+        output.printBlankLine();
+        input.readString("Press Enter or type anything to return to Select Action");
     }
 
     private BacktestRequest configureBacktest(UserInput input, UserOutput output) {
@@ -135,7 +150,7 @@ public class CliApplicationController {
         Class<? extends TradingStrategy> selectedStrategy = strategySelectionService.selectStrategy(input, output);
 
         printSection(output, "Risk Settings");
-        RiskSettings riskSettings = riskSettingsSelectionService.readRiskSettings(input);
+        RiskSettings riskSettings = riskSettingsSelectionService.readRiskSettings(input, output);
 
         printSection(output, "Select Trade Trigger");
         Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output);
@@ -144,7 +159,7 @@ public class CliApplicationController {
         Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output);
 
         printSection(output, "Target Model Options");
-        TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(input, selectedTargetModel);
+        TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(input, output, selectedTargetModel);
 
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 strategySelectionService.getDisplayName(selectedStrategy),
@@ -159,9 +174,18 @@ public class CliApplicationController {
 
     private void runDataImport(UserInput input, UserOutput output) {
         printSection(output, "Import Data");
-        String scidFilePath = input.readString("SCID data file path");
-        DataImportRequest planRequest = new DataImportRequest(scidFilePath);
-        DataImportPlan plan = forgeApplication.forgeApplicationAccess().planDataImport(planRequest);
+        String scidFilePath;
+        DataImportPlan plan;
+        while (true) {
+            try {
+                scidFilePath = input.readString("SCID data file path");
+                DataImportRequest planRequest = new DataImportRequest(scidFilePath);
+                plan = forgeApplication.forgeApplicationAccess().planDataImport(planRequest);
+                break;
+            } catch (IllegalArgumentException exception) {
+                output.printLine(exception.getMessage() + ". Please enter a valid SCID file path, or enter 'quit' to exit program.");
+            }
+        }
         boolean rebuildExistingContract = false;
 
         if (plan.hasExistingContractTable()) {
@@ -206,7 +230,7 @@ public class CliApplicationController {
             if ("n".equals(normalizedConfirmation)) {
                 return false;
             }
-            output.printLine("Please type y to wipe/rebuild or n to keep the existing data.");
+            output.printLine("Please type y to wipe/rebuild, n to keep the existing data, or enter 'quit' to exit program.");
         }
     }
 
@@ -258,17 +282,25 @@ public class CliApplicationController {
     private void configureDatabase(UserInput input, UserOutput output) {
         printSection(output, "Configure Database");
         PostgresDatabaseSettings defaults = PostgresDatabaseSettings.fromEnvironment();
-        DatabaseConnectionRequest request = new DatabaseConnectionRequest(
-                input.readStringOrDefault("Host [" + defaults.getHost() + "]", defaults.getHost()),
-                input.readIntOrDefault("Port [" + defaults.getPort() + "]", defaults.getPort()),
-                input.readStringOrDefault("Database name [" + defaults.getDatabaseName() + "]", defaults.getDatabaseName()),
-                input.readStringOrDefault(
-                        "Maintenance database [" + defaults.getMaintenanceDatabaseName() + "]",
-                        defaults.getMaintenanceDatabaseName()
-                ),
-                input.readStringOrDefault("Username [" + defaults.getUsername() + "]", defaults.getUsername()),
-                input.readStringOrDefault("Password [leave blank to keep default]", defaults.getPassword())
-        );
+        DatabaseConnectionRequest request;
+        while (true) {
+            try {
+                request = new DatabaseConnectionRequest(
+                        input.readStringOrDefault("Host [" + defaults.getHost() + "]", defaults.getHost()),
+                        input.readIntOrDefault("Port [" + defaults.getPort() + "]", defaults.getPort()),
+                        input.readStringOrDefault("Database name [" + defaults.getDatabaseName() + "]", defaults.getDatabaseName()),
+                        input.readStringOrDefault(
+                                "Maintenance database [" + defaults.getMaintenanceDatabaseName() + "]",
+                                defaults.getMaintenanceDatabaseName()
+                        ),
+                        input.readStringOrDefault("Username [" + defaults.getUsername() + "]", defaults.getUsername()),
+                        input.readStringOrDefault("Password [leave blank to keep default]", defaults.getPassword())
+                );
+                break;
+            } catch (IllegalArgumentException exception) {
+                output.printLine(exception.getMessage() + ". Please re-enter database settings, or enter 'quit' to exit program.");
+            }
+        }
 
         DatabaseConnectionRequest acceptedRequest = forgeApplication.forgeApplicationAccess().configureDatabase(request);
 

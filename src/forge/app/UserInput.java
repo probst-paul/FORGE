@@ -3,18 +3,25 @@ package forge.app;
 import java.time.LocalDate;
 
 public interface UserInput {
+    String QUIT_COMMAND = "quit";
+
     String readString(String label);
 
     default int readInt(String label) {
-        return Integer.parseInt(readString(label));
+        String value = readString(label);
+        requireNotQuit(value);
+        return Integer.parseInt(value);
     }
 
     default double readDouble(String label) {
-        return Double.parseDouble(readString(label));
+        String value = readString(label);
+        requireNotQuit(value);
+        return Double.parseDouble(value);
     }
 
     default String readStringOrDefault(String label, String defaultValue) {
         String value = readString(label);
+        requireNotQuit(value);
         if (value.trim().isEmpty()) {
             return defaultValue;
         }
@@ -23,6 +30,7 @@ public interface UserInput {
 
     default int readIntOrDefault(String label, int defaultValue) {
         String value = readString(label);
+        requireNotQuit(value);
         if (value.trim().isEmpty()) {
             return defaultValue;
         }
@@ -31,9 +39,20 @@ public interface UserInput {
 
     default LocalDate readDateOrDefault(String label, LocalDate defaultDate) {
         String value = readString(label);
+        requireNotQuit(value);
         if (value.trim().isEmpty()) {
             return defaultDate;
         }
         return LocalDate.parse(value);
+    }
+
+    default boolean isQuitCommand(String value) {
+        return value != null && QUIT_COMMAND.equalsIgnoreCase(value.trim());
+    }
+
+    default void requireNotQuit(String value) {
+        if (isQuitCommand(value)) {
+            throw new UserQuitException();
+        }
     }
 }

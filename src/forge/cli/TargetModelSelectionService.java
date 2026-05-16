@@ -26,22 +26,30 @@ public class TargetModelSelectionService {
             output.printLine((i + 1) + ". " + facadeTarget.forgeTargetAccess().getDisplayName(targetModels.get(i)));
         }
 
-        int selectedIndex = input.readInt("Select target model") - 1;
-        if (selectedIndex < 0 || selectedIndex >= targetModels.size()) {
-            throw new IllegalArgumentException("Selected target model is not available");
+        while (true) {
+            int selectedIndex = input.readInt("Select target model") - 1;
+            if (selectedIndex >= 0 && selectedIndex < targetModels.size()) {
+                return targetModels.get(selectedIndex);
+            }
+            output.printLine("Selected target model is not available. Please select an available target model, or enter 'quit' to exit program.");
         }
-        return targetModels.get(selectedIndex);
     }
 
-    public TargetSettings readTargetModelSettings(UserInput input, Class<? extends TargetModel> targetModel) {
+    public TargetSettings readTargetModelSettings(UserInput input, UserOutput output, Class<? extends TargetModel> targetModel) {
         String targetModelName = getDisplayName(targetModel);
-        if ("Fixed Risk/Reward".equals(targetModelName)) {
-            double rewardRiskRatio = input.readDouble("Reward/risk ratio");
-            return facadeTarget.forgeTargetAccess().createFixedRiskRewardSettings(targetModel, rewardRiskRatio);
-        }
+        while (true) {
+            try {
+                if ("Fixed Risk/Reward".equals(targetModelName)) {
+                    double rewardRiskRatio = input.readDouble("Reward/risk ratio");
+                    return facadeTarget.forgeTargetAccess().createFixedRiskRewardSettings(targetModel, rewardRiskRatio);
+                }
 
-        int profitTargetTicks = input.readInt("Profit target ticks");
-        return facadeTarget.forgeTargetAccess().createFixedTargetSettings(targetModel, profitTargetTicks);
+                int profitTargetTicks = input.readInt("Profit target ticks");
+                return facadeTarget.forgeTargetAccess().createFixedTargetSettings(targetModel, profitTargetTicks);
+            } catch (IllegalArgumentException exception) {
+                output.printLine(exception.getMessage() + ". Please enter valid target settings, or enter 'quit' to exit program.");
+            }
+        }
     }
 
     public String getDisplayName(Class<? extends TargetModel> targetModel) {

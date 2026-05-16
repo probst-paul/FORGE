@@ -25,11 +25,13 @@ public class TriggerSelectionService {
             output.printLine((i + 1) + ". " + facadeTrigger.forgeTriggerAccess().getDisplayName(triggers.get(i)));
         }
 
-        int selectedIndex = input.readInt("Select trade trigger") - 1;
-        if (selectedIndex < 0 || selectedIndex >= triggers.size()) {
-            throw new IllegalArgumentException("Selected trade trigger is not available");
+        while (true) {
+            int selectedIndex = input.readInt("Select trade trigger") - 1;
+            if (selectedIndex >= 0 && selectedIndex < triggers.size()) {
+                return triggers.get(selectedIndex);
+            }
+            output.printLine("Selected trade trigger is not available. Please select an available trigger, or enter 'quit' to exit program.");
         }
-        return triggers.get(selectedIndex);
     }
 
     public String getDisplayName(Class<? extends TradeTrigger> trigger) {

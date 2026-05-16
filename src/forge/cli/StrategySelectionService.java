@@ -25,11 +25,13 @@ public class StrategySelectionService {
             output.printLine((i + 1) + ". " + facadeStrategy.forgeStrategyAccess().getDisplayName(strategies.get(i)));
         }
 
-        int selectedIndex = input.readInt("Select strategy") - 1;
-        if (selectedIndex < 0 || selectedIndex >= strategies.size()) {
-            throw new IllegalArgumentException("Selected strategy is not available");
+        while (true) {
+            int selectedIndex = input.readInt("Select strategy") - 1;
+            if (selectedIndex >= 0 && selectedIndex < strategies.size()) {
+                return strategies.get(selectedIndex);
+            }
+            output.printLine("Selected strategy is not available. Please select an available strategy, or enter 'quit' to exit program.");
         }
-        return strategies.get(selectedIndex);
     }
 
     public String getDisplayName(Class<? extends TradingStrategy> strategy) {
