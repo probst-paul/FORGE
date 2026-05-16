@@ -1,8 +1,15 @@
 package forge.data;
 
-import forge.data.InstrumentDataCatalog.AvailableDateRange;
-import forge.data.InstrumentDataCatalog.AvailableInstrumentData;
 import forge.app.ImportProgressListener;
+import forge.data.catalog.InstrumentDataCatalog;
+import forge.data.catalog.InstrumentDataCatalog.AvailableDateRange;
+import forge.data.catalog.InstrumentDataCatalog.AvailableInstrumentData;
+import forge.data.contract.ContractNameResolver;
+import forge.data.importing.DataImportPlan;
+import forge.data.importing.DataImportResult;
+import forge.data.importing.ScidDataImportService;
+import forge.data.postgres.PostgresDatabaseSettings;
+import forge.data.postgres.PostgresTradeRepository;
 
 import java.time.LocalDate;
 import java.util.List;

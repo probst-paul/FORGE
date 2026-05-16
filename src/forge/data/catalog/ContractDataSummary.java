@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.catalog;
 
 import java.time.LocalDate;
 

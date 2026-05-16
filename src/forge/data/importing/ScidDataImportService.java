@@ -1,7 +1,9 @@
-package forge.data;
+package forge.data.importing;
 
 import forge.app.ImportProgress;
 import forge.app.ImportProgressListener;
+import forge.data.contract.ContractNameResolver;
+import forge.data.postgres.PostgresTradeRepository;
 import forge.model.FuturesInstrumentSpec;
 import forge.model.FuturesInstrumentSpecProvider;
 import forge.model.StaticFuturesInstrumentSpecProvider;

@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.contract;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

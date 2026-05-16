@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.rollover;
 
 import java.time.LocalDate;
 

@@ -13,6 +13,11 @@ classDiagram
     class FacadeForgeApplication
     class FacadeForgeConfig
     class FacadeForgeData
+    class InstrumentDataCatalog
+    class ContractNameResolver
+    class ScidDataImportService
+    class PostgresTradeRepository
+    class ContractRolloverCalendar
     class FacadeForgeStrategy
     class FacadeForgeTrigger
     class FacadeForgeTarget
@@ -41,6 +46,12 @@ classDiagram
     CliApplicationController --> FacadeForgeConfig : build request
 
     InstrumentSelectionService --> FacadeForgeData
+    FacadeForgeData --> InstrumentDataCatalog : catalog access
+    FacadeForgeData --> ScidDataImportService : import access
+    InstrumentDataCatalog --> PostgresTradeRepository : imported tables
+    InstrumentDataCatalog --> ContractRolloverCalendar : active windows
+    ScidDataImportService --> ContractNameResolver : contract root
+    ScidDataImportService --> PostgresTradeRepository : persist rows
     StrategySelectionService --> FacadeForgeStrategy
     TriggerSelectionService --> FacadeForgeTrigger
     TargetModelSelectionService --> FacadeForgeTarget
@@ -128,9 +139,24 @@ sequenceDiagram
         Cli->>Output: print accepted request
     else Import Data
         Cli->>Input: readString(SCID data file path)
+        Cli->>App: forgeApplicationAccess().planDataImport(request)
+        App->>Data: forgeDataAccess().planScidImport(path)
+        Data-->>App: DataImportPlan
+        App-->>Cli: DataImportPlan
+        opt Existing contract table
+            Cli->>Input: confirm wipe/rebuild
+        end
         Cli->>App: forgeApplicationAccess().importData(request)
-        App-->>Cli: accepted import request
-        Cli->>Output: print accepted import request
+        App->>Data: forgeDataAccess().importScidFile(path, rebuild, listener)
+        Data-->>App: DataImportResult
+        App-->>Cli: DataImportResult
+        Cli->>Output: print import progress/result
+    else Configure Database
+        Cli->>Input: read database settings
+        Cli->>App: forgeApplicationAccess().configureDatabase(...)
+        App->>Data: forgeDataAccess().configurePostgresDatabase(settings)
+        Data-->>App: configured
+        App-->>Cli: configured
     end
 ```
 
@@ -151,12 +177,37 @@ classDiagram
 
     class ForgeApplicationAccess {
         +BacktestRequest runBacktest(BacktestRequest request)
-        +DataImportRequest importData(DataImportRequest request)
+        +DataImportPlan planDataImport(DataImportRequest request)
+        +DataImportResult importData(DataImportRequest request)
+        +void configureDatabase(DatabaseConfigurationRequest request)
     }
 
     class DataImportRequest {
         -String scidFilePath
+        -boolean rebuildExistingContract
+        -ImportProgressListener progressListener
         +String getScidFilePath()
+    }
+
+    class DatabaseConfigurationRequest {
+        -String host
+        -int port
+        -String databaseName
+        -String maintenanceDatabaseName
+        -String username
+        -String password
+    }
+
+    class ImportProgress {
+        -String contractSymbol
+        -long processedRecords
+        -long totalRecords
+        +int getCompletionPercent()
+    }
+
+    class ImportProgressListener {
+        <<interface>>
+        +void onProgress(ImportProgress progress)
     }
 
     class UserInput {
@@ -176,6 +227,8 @@ classDiagram
         <<interface>>
         +void printLine(String text)
         +void printBlankLine()
+        +void printStatusLine(String text)
+        +void finishStatusLine()
     }
 
     class ConsoleUserOutput {
@@ -190,6 +243,9 @@ classDiagram
     FacadeForgeApplication --> ForgeApplicationAccess
     ForgeApplicationAccess --> BacktestRequest
     ForgeApplicationAccess --> DataImportRequest
+    ForgeApplicationAccess --> DatabaseConfigurationRequest
+    DataImportRequest --> ImportProgressListener
+    ImportProgressListener --> ImportProgress
 ```
 
 ## cli Package
@@ -316,7 +372,7 @@ classDiagram
     BacktestRequest --> OrderSettings
 ```
 
-## data and model Packages
+## data Package Facade
 
 ```mermaid
 classDiagram
@@ -331,13 +387,63 @@ classDiagram
         +List~AvailableInstrumentData~ getAvailableInstruments()
         +AvailableDateRange getSharedDateRange(List~String~ symbols)
         +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
+        +DataImportPlan planScidImport(String scidFilePath)
+        +DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract, ImportProgressListener listener)
+        +void configurePostgresDatabase(PostgresDatabaseSettings settings)
     }
+
+    class InstrumentDataCatalog
+    class ScidDataImportService
+    class PostgresTradeRepository
+    class PostgresDatabaseSettings
+    class DataImportPlan
+    class DataImportResult
+
+    FacadeForgeData --> ForgeDataAccess
+    ForgeDataAccess --> InstrumentDataCatalog : catalog
+    ForgeDataAccess --> ScidDataImportService : import
+    ForgeDataAccess --> PostgresDatabaseSettings : configure
+    ScidDataImportService --> PostgresTradeRepository
+    InstrumentDataCatalog --> PostgresTradeRepository
+    ForgeDataAccess --> DataImportPlan
+    ForgeDataAccess --> DataImportResult
+```
+
+## data.catalog and model Packages
+
+```mermaid
+classDiagram
+    direction LR
 
     class InstrumentDataCatalog {
         +List~AvailableInstrumentData~ getAvailableInstruments()
         +AvailableDateRange getSharedDateRange(List~String~ symbols)
         +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
     }
+
+    class ContractDataSummary {
+        -String contractSymbol
+        -LocalDate startDate
+        -LocalDate endDate
+    }
+
+    class AvailableInstrumentData {
+        -Instrument instrument
+        -LocalDate startDate
+        -LocalDate endDate
+        +String getSymbol()
+        +double getFuturesTickSize()
+        +double getFuturesTickDollarAmount()
+    }
+
+    class AvailableDateRange {
+        -LocalDate startDate
+        -LocalDate endDate
+    }
+
+    class ContractNameResolver
+    class ContractRolloverCalendar
+    class PostgresTradeRepository
 
     class Instrument {
         <<abstract>>
@@ -355,17 +461,200 @@ classDiagram
         +double calculateDollarValueForTicks(double ticks)
     }
 
-    class MarketDataSet
-    class PriceBar
-    class TickRecord
-    class PriceLevelVolume
-    class DateRange
+    class FuturesInstrument {
+        -double tickSize
+        -double tickDollarAmount
+    }
 
-    FacadeForgeData --> ForgeDataAccess
-    ForgeDataAccess --> InstrumentDataCatalog
-    InstrumentDataCatalog --> Instrument : stores
-    InstrumentDataCatalog ..> FuturesContract : futures details
+    class FuturesInstrumentSpec {
+        -String symbolCode
+        -String displayName
+        -double tickSize
+        -double tickDollarAmount
+    }
+
+    class FuturesInstrumentSpecProvider {
+        <<interface>>
+        +FuturesInstrumentSpec getBySymbol(String symbol)
+        +boolean supports(String symbol)
+    }
+
+    class StaticFuturesInstrumentSpecProvider
+
+    InstrumentDataCatalog --> PostgresTradeRepository : listImportedContractData()
+    InstrumentDataCatalog --> ContractNameResolver : root symbol
+    InstrumentDataCatalog --> ContractRolloverCalendar : clip active windows
+    InstrumentDataCatalog --> AvailableInstrumentData : creates
+    InstrumentDataCatalog --> AvailableDateRange : creates
+    InstrumentDataCatalog --> ContractDataSummary : groups
+    InstrumentDataCatalog --> FuturesInstrumentSpecProvider
+    FuturesInstrumentSpecProvider <|.. StaticFuturesInstrumentSpecProvider
+    StaticFuturesInstrumentSpecProvider --> FuturesInstrumentSpec
+    AvailableInstrumentData --> Instrument
+    Instrument <|-- FuturesInstrument
     Instrument <|-- FuturesContract
+```
+
+## data.contract Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ContractNameResolver {
+        +String resolveFromScidPath(String scidFilePath)
+        +String resolveInstrumentSymbol(String contractSymbol)
+        +String resolveContractMonthCode(String contractSymbol)
+        +String resolveContractYear(String contractSymbol)
+        +FuturesContractCode resolveContractCode(String contractSymbol)
+    }
+
+    class FuturesContractCode {
+        -String instrumentSymbol
+        -String monthCode
+        -int year
+        +Month getMonth()
+        +String toContractSymbol()
+    }
+
+    ContractNameResolver --> FuturesContractCode : creates
+```
+
+## data.rollover Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ContractRolloverCalendar {
+        +Optional~ContractRolloverWindow~ findActiveWindow(String contractSymbol)
+    }
+
+    class RolloverRule {
+        <<interface>>
+        +Optional~ContractRolloverWindow~ resolveActiveWindow(FuturesContractCode contractCode)
+    }
+
+    class EquityIndexRolloverRule
+    class CrudeOilRolloverRule
+
+    class ContractRolloverWindow {
+        -String contractSymbol
+        -LocalDate activeStartDate
+        -LocalDate activeEndDate
+    }
+
+    class ContractNameResolver
+    class FuturesContractCode
+
+    ContractRolloverCalendar --> ContractNameResolver
+    ContractRolloverCalendar --> RolloverRule
+    RolloverRule <|.. EquityIndexRolloverRule
+    RolloverRule <|.. CrudeOilRolloverRule
+    RolloverRule --> FuturesContractCode
+    RolloverRule --> ContractRolloverWindow : creates
+```
+
+## data.importing and data.postgres Packages
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ScidDataImportService {
+        +DataImportPlan planImport(String scidFilePath)
+        +DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract, ImportProgressListener listener)
+    }
+
+    class ScidTradeReader {
+        +List~TradeRow~ readTrades(Path scidFilePath, double tickSize)
+        +void readTrades(Path scidFilePath, long startRecordIndex, int batchSize, double tickSize, Consumer consumer)
+    }
+
+    class TradeRow {
+        -Instant tradeDateTime
+        -long priceTicks
+        -Long bidPriceTicks
+        -Long askPriceTicks
+        -long quantity
+        -Integer side
+        -long numTrades
+        -long scidRecordIndex
+    }
+
+    class DataImportPlan {
+        -String contractSymbol
+        -String tableName
+        -boolean existingContractTable
+        -long existingRows
+    }
+
+    class DataImportResult {
+        -String databaseName
+        -String tableName
+        -String contractSymbol
+        -int importedRows
+    }
+
+    class ImportCheckpoint {
+        -String tableName
+        -String sourceFileName
+        -long nextRecordIndex
+    }
+
+    class PostgresTradeRepository {
+        +void ensureDatabaseExists()
+        +void ensureContractTradesTableExists(String tableName)
+        +DataImportPlan planImport(String contractSymbol, String tableName)
+        +List~ContractDataSummary~ listImportedContractData()
+        +ImportCheckpoint prepareImportCheckpoint(...)
+        +int insertTradesAndAdvanceCheckpoint(...)
+    }
+
+    class PostgresDatabaseSettings {
+        +PostgresDatabaseSettings fromEnvironment()
+        +String primaryJdbcUrl()
+        +String maintenanceJdbcUrl()
+    }
+
+    class ContractNameResolver
+    class FuturesInstrumentSpecProvider
+    class ContractDataSummary
+
+    ScidDataImportService --> ContractNameResolver : derive contract
+    ScidDataImportService --> FuturesInstrumentSpecProvider : tick size
+    ScidDataImportService --> ScidTradeReader : reads batches
+    ScidDataImportService --> PostgresTradeRepository : persists
+    ScidTradeReader --> TradeRow : creates
+    PostgresTradeRepository --> PostgresDatabaseSettings
+    PostgresTradeRepository --> DataImportPlan : creates
+    PostgresTradeRepository --> ImportCheckpoint : creates/updates
+    PostgresTradeRepository --> TradeRow : inserts
+    PostgresTradeRepository --> ContractDataSummary : creates
+    ScidDataImportService --> DataImportResult : creates
+```
+
+## data.market Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class MarketDataProvider {
+        <<interface>>
+    }
+
+    class TickDataProvider {
+        <<interface>>
+    }
+
+    class InMemoryTickDataProvider
+
+    class DerivedMarketDataService {
+        <<interface>>
+    }
+
+    TickDataProvider <|.. InMemoryTickDataProvider
 ```
 
 ## strategy Package
@@ -657,11 +946,11 @@ classDiagram
 ## Assignment 1 Technique Mapping
 
 - **Abstract class:** `Instrument` defines shared instrument behavior while requiring subclasses to provide the instrument type.
-- **Inheritance:** `FuturesContract` extends `Instrument` because futures contracts are a specialized type of tradable instrument.
+- **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument` because futures instruments/contracts are specialized tradable instruments.
 - **Interfaces:** `TradingStrategy`, `TradeTrigger`, `TargetModel`, and `ExecutionEngine` define interchangeable behavior.
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, and `TargetModel` without depending on specific implementations.
-- **Upcasting:** `FuturesContract` objects can be stored or passed as `Instrument` references.
-- **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesContract` when futures-specific details such as tick size or tick dollar amount are needed.
+- **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
+- **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
 - **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` are singleton entry points obtained with `getTheInstance()`. Package functionality is reached through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow.
 - **Service decomposition:** The app selection services own individual setup steps so the app facade can focus on coordinating the overall backtest setup.

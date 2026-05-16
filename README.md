@@ -65,7 +65,13 @@ Order settings are currently defaulted internally and are not exposed in the CLI
 src/forge/app        Application facade, requests, console input/output abstractions
 src/forge/cli        CLI controller and selection services
 src/forge/config     Backtest configuration objects
-src/forge/data       Database-derived instrument catalog, PostgreSQL setup, and SCID import
+src/forge/data       Data facade
+src/forge/data/catalog    Database-derived instrument/date catalog
+src/forge/data/contract   Futures contract parsing helpers
+src/forge/data/importing  SCID import services, import DTOs, and trade rows
+src/forge/data/market     Market data provider abstractions
+src/forge/data/postgres   PostgreSQL settings and repository
+src/forge/data/rollover   Contract rollover calendars and rules
 src/forge/engine     Market context
 src/forge/execution  Order request and order enums
 src/forge/model      Instrument and futures contract models

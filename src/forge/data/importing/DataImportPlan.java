@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.importing;
 
 public class DataImportPlan {
     private final String contractSymbol;

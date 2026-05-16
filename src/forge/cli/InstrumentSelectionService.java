@@ -3,8 +3,8 @@ package forge.cli;
 import forge.app.UserInput;
 import forge.app.UserOutput;
 import forge.data.FacadeForgeData;
-import forge.data.InstrumentDataCatalog.AvailableDateRange;
-import forge.data.InstrumentDataCatalog.AvailableInstrumentData;
+import forge.data.catalog.InstrumentDataCatalog.AvailableDateRange;
+import forge.data.catalog.InstrumentDataCatalog.AvailableInstrumentData;
 
 import java.time.LocalDate;
 import java.util.Arrays;

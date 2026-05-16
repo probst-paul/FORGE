@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.contract;
 
 import java.nio.file.Path;
 import java.util.Locale;

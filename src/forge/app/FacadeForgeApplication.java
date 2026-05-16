@@ -1,10 +1,10 @@
 package forge.app;
 
 import forge.config.BacktestRequest;
-import forge.data.DataImportPlan;
-import forge.data.DataImportResult;
 import forge.data.FacadeForgeData;
-import forge.data.PostgresDatabaseSettings;
+import forge.data.importing.DataImportPlan;
+import forge.data.importing.DataImportResult;
+import forge.data.postgres.PostgresDatabaseSettings;
 
 import java.util.Objects;
 

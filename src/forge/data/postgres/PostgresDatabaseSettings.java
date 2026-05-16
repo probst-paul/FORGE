@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.postgres;
 
 public class PostgresDatabaseSettings {
     private static final String DEFAULT_HOST = "localhost";

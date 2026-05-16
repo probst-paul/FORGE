@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.importing;
 
 import java.time.Instant;
 import java.util.Objects;

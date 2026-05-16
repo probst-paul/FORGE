@@ -1,4 +1,6 @@
-package forge.data;
+package forge.data.rollover;
+
+import forge.data.contract.FuturesContractCode;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;

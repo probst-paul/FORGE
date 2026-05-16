@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.importing;
 
 public class DataImportResult {
     private final String databaseName;

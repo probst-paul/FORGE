@@ -1,4 +1,9 @@
-package forge.data;
+package forge.data.postgres;
+
+import forge.data.catalog.ContractDataSummary;
+import forge.data.importing.DataImportPlan;
+import forge.data.importing.ImportCheckpoint;
+import forge.data.importing.TradeRow;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

@@ -1,4 +1,4 @@
-package forge.data;
+package forge.data.importing;
 
 public class ImportCheckpoint {
     private final String tableName;
