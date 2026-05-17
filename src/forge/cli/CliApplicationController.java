@@ -2,6 +2,7 @@ package forge.cli;
 
 import forge.app.ConsoleUserInput;
 import forge.app.ConsoleUserOutput;
+import forge.app.BacktestProgress;
 import forge.app.DatabaseConnectionRequest;
 import forge.app.FacadeForgeApplication;
 import forge.app.ImportProgress;
@@ -137,7 +138,10 @@ public class CliApplicationController {
 
     private void runBacktestSetup(UserInput input, UserOutput output) {
         BacktestRequest request = configureBacktest(input, output);
-        BacktestResult result = forgeApplication.forgeApplicationAccess().runBacktest(request);
+        BacktestResult result = forgeApplication.forgeApplicationAccess().runBacktest(
+                request,
+                progress -> printBacktestProgress(output, progress)
+        );
 
         output.printBlankLine();
         output.printLine("Backtest complete:");
@@ -269,16 +273,33 @@ public class CliApplicationController {
     }
 
     private String renderImportProgress(ImportProgress progress) {
+        return "Importing " + progress.getContractSymbol() +
+                " [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
+                progress.getCompletionPercent() + "% " +
+                progress.getProcessedRecords() + "/" + progress.getTotalRecords();
+    }
+
+    private void printBacktestProgress(UserOutput output, BacktestProgress progress) {
+        output.printStatusLine(renderBacktestProgress(progress));
+        if (progress.getProcessedTicks() == progress.getTotalTicks()) {
+            output.finishStatusLine();
+        }
+    }
+
+    private String renderBacktestProgress(BacktestProgress progress) {
+        return "Running backtest [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
+                progress.getCompletionPercent() + "% " +
+                progress.getProcessedTicks() + "/" + progress.getTotalTicks();
+    }
+
+    private String renderProgressBar(double completionRatio) {
         int barWidth = 24;
-        int filledWidth = (int) Math.round(progress.getCompletionRatio() * barWidth);
+        int filledWidth = (int) Math.round(completionRatio * barWidth);
         StringBuilder bar = new StringBuilder();
         for (int index = 0; index < barWidth; index++) {
             bar.append(index < filledWidth ? '#' : '-');
         }
-        return "Importing " + progress.getContractSymbol() +
-                " [" + bar + "] " +
-                progress.getCompletionPercent() + "% " +
-                progress.getProcessedRecords() + "/" + progress.getTotalRecords();
+        return bar.toString();
     }
 
     private void configureDatabase(UserInput input, UserOutput output) {

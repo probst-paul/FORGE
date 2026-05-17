@@ -26,6 +26,11 @@ public class InMemoryTickDataProvider implements TickDataProvider {
         return new InMemoryTradeBatchReader(ticks, batchSize);
     }
 
+    @Override
+    public long countTicks(List<ContractTradeWindow> windows) {
+        return ticks.size();
+    }
+
     private static class InMemoryTradeBatchReader implements TradeBatchReader {
         private final List<TradeTick> ticks;
         private final int batchSize;

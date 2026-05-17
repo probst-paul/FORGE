@@ -44,6 +44,11 @@ public class FacadeForgeApplication {
             return forgeEngine.forgeEngineAccess().run(request);
         }
 
+        public BacktestResult runBacktest(BacktestRequest request, BacktestProgressListener progressListener) {
+            Objects.requireNonNull(request, "request is required");
+            return forgeEngine.forgeEngineAccess().run(request, progressListener);
+        }
+
         public DataImportResult importData(DataImportRequest request) {
             Objects.requireNonNull(request, "request is required");
             return forgeData.forgeDataAccess().importScidFile(

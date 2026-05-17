@@ -1,5 +1,7 @@
 package forge.engine;
 
+import forge.app.BacktestProgress;
+import forge.app.BacktestProgressListener;
 import forge.config.BacktestRequest;
 import forge.data.FacadeForgeData;
 import forge.data.contract.ContractNameResolver;
@@ -11,13 +13,18 @@ import forge.model.FuturesInstrumentSpec;
 import forge.model.FuturesInstrumentSpecProvider;
 import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.reporting.BacktestResult;
+import forge.reporting.ContractBacktestResult;
+import forge.reporting.InstrumentBacktestResult;
 import forge.strategy.StrategyCatalog;
 import forge.strategy.TradingStrategy;
 
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,9 +39,21 @@ public class BacktestEngine {
 
     public BacktestEngine() {
         this(
-                (windows, batchSize) -> FacadeForgeData.getTheInstance()
-                        .forgeDataAccess()
-                        .openTradeBatchReader(windows, batchSize),
+                new TradeBatchReaderFactory() {
+                    @Override
+                    public TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize) {
+                        return FacadeForgeData.getTheInstance()
+                                .forgeDataAccess()
+                                .openTradeBatchReader(windows, batchSize);
+                    }
+
+                    @Override
+                    public long countTicks(List<ContractTradeWindow> windows) {
+                        return FacadeForgeData.getTheInstance()
+                                .forgeDataAccess()
+                                .countTradeTicks(windows);
+                    }
+                },
                 new StrategyCatalog(),
                 new ContractNameResolver(),
                 new StaticFuturesInstrumentSpecProvider()
@@ -43,7 +62,19 @@ public class BacktestEngine {
 
     public BacktestEngine(TickDataProvider tickDataProvider) {
         this(
-                Objects.requireNonNull(tickDataProvider, "tickDataProvider is required")::openReader,
+                new TradeBatchReaderFactory() {
+                    private final TickDataProvider provider = Objects.requireNonNull(tickDataProvider, "tickDataProvider is required");
+
+                    @Override
+                    public TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize) {
+                        return provider.openReader(windows, batchSize);
+                    }
+
+                    @Override
+                    public long countTicks(List<ContractTradeWindow> windows) {
+                        return provider.countTicks(windows);
+                    }
+                },
                 new StrategyCatalog(),
                 new ContractNameResolver(),
                 new StaticFuturesInstrumentSpecProvider()
@@ -63,13 +94,20 @@ public class BacktestEngine {
     }
 
     public BacktestResult run(BacktestRequest request) {
+        return run(request, BacktestProgressListener.NO_OP);
+    }
+
+    public BacktestResult run(BacktestRequest request, BacktestProgressListener progressListener) {
         Objects.requireNonNull(request, "request is required");
+        BacktestProgressListener listener = progressListener == null ? BacktestProgressListener.NO_OP : progressListener;
         TradingStrategy strategy = createStrategy(request.getStrategyOptions().getStrategyName());
         TradeBatchReader reader = tradeBatchReaderFactory.openReader(request.getContractWindows(), DEFAULT_BATCH_SIZE);
+        long totalTicks = tradeBatchReaderFactory.countTicks(request.getContractWindows());
+        long processedTicks = 0;
+        listener.onProgress(new BacktestProgress(0, totalTicks));
         Map<String, FuturesInstrumentSpec> specsByInstrument = new HashMap<>();
+        Map<String, ContractRunAccumulator> contractAccumulators = initializeContractAccumulators(request);
 
-        long ticksProcessed = 0;
-        long orderSignalsGenerated = 0;
         while (true) {
             List<TradeTick> batch = reader.readNextBatch();
             if (batch.isEmpty()) {
@@ -77,19 +115,57 @@ public class BacktestEngine {
             }
             for (TradeTick tick : batch) {
                 MarketContext marketContext = toMarketContext(tick, specsByInstrument);
+                ContractRunAccumulator accumulator = contractAccumulators.computeIfAbsent(
+                        tick.getContractSymbol(),
+                        contractSymbol -> new ContractRunAccumulator(
+                                contractNameResolver.resolveInstrumentSymbol(contractSymbol),
+                                contractSymbol
+                        )
+                );
+                accumulator.incrementTicksProcessed();
                 if (strategy.evaluate(marketContext).isPresent()) {
-                    orderSignalsGenerated++;
+                    accumulator.incrementOrderSignalsGenerated();
                 }
-                ticksProcessed++;
             }
+            processedTicks += batch.size();
+            listener.onProgress(new BacktestProgress(Math.min(processedTicks, totalTicks), totalTicks));
         }
+        listener.onProgress(new BacktestProgress(totalTicks, totalTicks));
 
         return new BacktestResult(
                 request.getStrategyOptions().getStrategyName(),
-                request.getInstruments(),
-                ticksProcessed,
-                orderSignalsGenerated
+                toInstrumentResults(contractAccumulators)
         );
+    }
+
+    private Map<String, ContractRunAccumulator> initializeContractAccumulators(BacktestRequest request) {
+        Map<String, ContractRunAccumulator> accumulators = new LinkedHashMap<>();
+        for (ContractTradeWindow window : request.getContractWindows()) {
+            String contractSymbol = window.getContractSymbol();
+            accumulators.putIfAbsent(
+                    contractSymbol,
+                    new ContractRunAccumulator(
+                            contractNameResolver.resolveInstrumentSymbol(contractSymbol),
+                            contractSymbol
+                    )
+            );
+        }
+        return accumulators;
+    }
+
+    private List<InstrumentBacktestResult> toInstrumentResults(Map<String, ContractRunAccumulator> contractAccumulators) {
+        Map<String, List<ContractBacktestResult>> contractsByInstrument = new LinkedHashMap<>();
+        for (ContractRunAccumulator accumulator : contractAccumulators.values()) {
+            contractsByInstrument
+                    .computeIfAbsent(accumulator.getInstrumentSymbol(), key -> new ArrayList<>())
+                    .add(accumulator.toContractResult());
+        }
+
+        List<InstrumentBacktestResult> instrumentResults = new ArrayList<>();
+        for (Map.Entry<String, List<ContractBacktestResult>> entry : contractsByInstrument.entrySet()) {
+            instrumentResults.add(new InstrumentBacktestResult(entry.getKey(), entry.getValue()));
+        }
+        return instrumentResults;
     }
 
     private MarketContext toMarketContext(
@@ -128,5 +204,40 @@ public class BacktestEngine {
 
     interface TradeBatchReaderFactory {
         TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize);
+
+        long countTicks(List<ContractTradeWindow> windows);
+    }
+
+    private static class ContractRunAccumulator {
+        private final String instrumentSymbol;
+        private final String contractSymbol;
+        private long ticksProcessed;
+        private long orderSignalsGenerated;
+
+        private ContractRunAccumulator(String instrumentSymbol, String contractSymbol) {
+            this.instrumentSymbol = instrumentSymbol;
+            this.contractSymbol = contractSymbol;
+        }
+
+        private void incrementTicksProcessed() {
+            ticksProcessed++;
+        }
+
+        private void incrementOrderSignalsGenerated() {
+            orderSignalsGenerated++;
+        }
+
+        private String getInstrumentSymbol() {
+            return instrumentSymbol;
+        }
+
+        private ContractBacktestResult toContractResult() {
+            return new ContractBacktestResult(
+                    contractSymbol,
+                    ticksProcessed,
+                    orderSignalsGenerated,
+                    Collections.emptyList()
+            );
+        }
     }
 }

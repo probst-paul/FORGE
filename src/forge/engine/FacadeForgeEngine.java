@@ -1,5 +1,6 @@
 package forge.engine;
 
+import forge.app.BacktestProgressListener;
 import forge.config.BacktestRequest;
 import forge.reporting.BacktestResult;
 
@@ -43,6 +44,10 @@ public class FacadeForgeEngine {
 
         public BacktestResult run(BacktestRequest request) {
             return backtestEngine.run(request);
+        }
+
+        public BacktestResult run(BacktestRequest request, BacktestProgressListener progressListener) {
+            return backtestEngine.run(request, progressListener);
         }
     }
 }

@@ -37,6 +37,41 @@ public class PostgresTickDataProvider implements TickDataProvider {
         return new PostgresTradeBatchReader(windows, batchSize);
     }
 
+    @Override
+    public long countTicks(List<ContractTradeWindow> windows) {
+        if (windows == null || windows.isEmpty()) {
+            throw new IllegalArgumentException("at least one contract window is required");
+        }
+        long totalTicks = 0;
+        for (ContractTradeWindow window : windows) {
+            totalTicks += countTicks(window);
+        }
+        return totalTicks;
+    }
+
+    private long countTicks(ContractTradeWindow window) {
+        String tableName = validateContractTableName(window.getContractSymbol());
+        String sql = "SELECT COUNT(*) FROM " + quoteIdentifier(tableName) +
+                " WHERE side IS NOT NULL" +
+                " AND " + quoteIdentifier("tradeDateTime") + " >= ?" +
+                " AND " + quoteIdentifier("tradeDateTime") + " < ?";
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        );
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(window.getStartInclusiveInstant()));
+            statement.setTimestamp(2, Timestamp.from(window.getEndExclusiveInstant()));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getLong(1);
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not count trade ticks in PostgreSQL table '" + tableName + "'", exception);
+        }
+    }
+
     private class PostgresTradeBatchReader implements TradeBatchReader {
         private final List<ContractTradeWindow> windows;
         private final int batchSize;

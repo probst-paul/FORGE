@@ -13,6 +13,7 @@ It is not yet a complete historical market replay or backtesting engine.
 - Maven build with JUnit 5 and PostgreSQL JDBC dependencies
 - Database-derived instrument/date catalog based on imported contract tables
 - Date-based front-month rollover windows for imported equity index and CL futures
+- Batch-driven backtest replay over selected contract windows, with CLI progress reporting
 - Futures contract model with symbol code, tick size, tick dollar amount, and expiration date
 - Static futures instrument definitions for ES, NQ, YM, RTY, and CL
 - Abstract `Instrument` base class with concrete futures instrument and futures contract models
@@ -40,6 +41,7 @@ Select Action
 │  ├─ Select Target Model
 │  ├─ Target Model Options
 │  ├─ Build BacktestRequest
+│  ├─ Run backtest with progress
 │  └─ Press Enter or type anything to return to Select Action
 ├─ Import Data
 │  └─ Prepare PostgreSQL database/table for the selected SCID file
@@ -51,7 +53,7 @@ At the `Select action` prompt, enter `quit` to exit the program. After the backt
 
 Backtest setup no longer asks for a free-form date range. The CLI selects valid front-month contract windows instead. For example, `ES - All Available` includes all imported ES contract windows after rollover clipping, while `Select Custom Contracts` lets the user choose specific contracts such as `ESH25: 2024-12-16 to 2025-03-16` and `ESZ25: 2025-09-15 to 2025-12-14`. This avoids implying continuous data coverage when imported contract months have gaps.
 
-`BacktestRequest` carries those selected contract windows so the future backtest engine can read each contract table using its own valid rollover-clipped date range.
+`BacktestRequest` carries those selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
@@ -64,7 +66,7 @@ Order settings are currently defaulted internally and are not exposed in the CLI
 - Full trade trigger evaluation against market data
 - Order execution simulation
 - Completed trade result calculation
-- Performance reporting
+- Non-placeholder completed-trade performance reporting
 
 ## Project Structure
 
@@ -226,6 +228,14 @@ The `Select Instrument(s)` screen is driven by the `forge_contract_imports` meta
 The import flow skips records outside the contract's active front-month window before storing rows. For CME equity index roots (`ES`, `NQ`, `YM`, and `RTY`), FORGE clips each contract table to its active window using the common convention of rolling on the Monday before the third Friday of the contract month. For `CL`, FORGE estimates expiration as three business days before the 25th calendar day of the month before delivery, then rolls on the Friday before that expiration date. The backtest instrument list is derived from imported contract tables after that same active-window logic. Instruments without a rollover rule currently use the imported table date range as-is.
 
 The CLI renders import progress as a single updating terminal line. The underlying progress calculation is exposed through `ImportProgress`, so a future JavaFX or Swing UI can render the same import state with a graphical progress bar.
+
+Backtest runs use the same presentation idea. Before replay begins, FORGE counts strategy-usable ticks for the selected contract windows, then renders a single-line backtest progress bar while batches are processed:
+
+```text
+Running backtest [############------------] 50% 500000/1000000
+```
+
+The reusable backtest progress state is exposed through `BacktestProgress` and `BacktestProgressListener`; the CLI only owns the terminal-specific rendering.
 
 ### Future Import Performance Ideas
 

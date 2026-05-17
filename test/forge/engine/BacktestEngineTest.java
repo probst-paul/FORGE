@@ -18,6 +18,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,13 +33,19 @@ class BacktestEngineTest {
                     tick(1),
                     tick(2)
             )));
+            List<Long> progressTicks = new ArrayList<>();
 
-            BacktestResult result = engine.run(request());
+            BacktestResult result = engine.run(request(), progress -> progressTicks.add(progress.getProcessedTicks()));
 
             assertEquals("RangeBreakout", result.getStrategyName());
             assertEquals(List.of("ESU25"), result.getContractSymbols());
             assertEquals(2, result.getTicksProcessed());
             assertEquals(0, result.getOrderSignalsGenerated());
+            assertEquals(1, result.getInstrumentResults().size());
+            assertEquals("ES", result.getInstrumentResults().get(0).getInstrumentSymbol());
+            assertEquals(1, result.getInstrumentResults().get(0).getContractResults().size());
+            assertEquals("ESU25", result.getInstrumentResults().get(0).getContractResults().get(0).getContractSymbol());
+            assertEquals(List.of(0L, 2L, 2L), progressTicks);
         }
     }
 

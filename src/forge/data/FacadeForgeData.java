@@ -114,6 +114,10 @@ public class FacadeForgeData {
             return tickDataProvider.openReader(windows, batchSize);
         }
 
+        public long countTradeTicks(List<ContractTradeWindow> windows) {
+            return tickDataProvider.countTicks(windows);
+        }
+
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
             if (databaseSettings == null) {
                 throw new IllegalArgumentException("databaseSettings is required");

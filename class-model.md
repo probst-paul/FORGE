@@ -56,7 +56,7 @@ classDiagram
     TriggerSelectionService --> FacadeForgeTrigger
     TargetModelSelectionService --> FacadeForgeTarget
 
-    ForgeApplicationAccess ..> FacadeForgeEngine : later run request
+    ForgeApplicationAccess ..> FacadeForgeEngine : run request
     ForgeApplicationAccess ..> FacadeForgeExecution : later execute orders
     ForgeApplicationAccess ..> FacadeForgeReporting : later summarize result
     ForgeApplicationAccess ..> FacadeForgeAnalytics : later derive features
@@ -128,9 +128,9 @@ sequenceDiagram
 
         Cli->>Config: forgeConfigAccess().createBacktestRequest(...)
         Config-->>Cli: BacktestRequest
-        Cli->>App: forgeApplicationAccess().runBacktest(request)
-        App-->>Cli: accepted request
-        Cli->>Output: print accepted request
+        Cli->>App: forgeApplicationAccess().runBacktest(request, progress listener)
+        App-->>Cli: BacktestResult
+        Cli->>Output: print backtest progress/result
     else Import Data
         Cli->>Input: readString(SCID data file path)
         Cli->>App: forgeApplicationAccess().planDataImport(request)
@@ -170,7 +170,8 @@ classDiagram
     }
 
     class ForgeApplicationAccess {
-        +BacktestRequest runBacktest(BacktestRequest request)
+        +BacktestResult runBacktest(BacktestRequest request)
+        +BacktestResult runBacktest(BacktestRequest request, BacktestProgressListener listener)
         +DataImportPlan planDataImport(DataImportRequest request)
         +DataImportResult importData(DataImportRequest request)
         +void configureDatabase(DatabaseConfigurationRequest request)
@@ -202,6 +203,17 @@ classDiagram
     class ImportProgressListener {
         <<interface>>
         +void onProgress(ImportProgress progress)
+    }
+
+    class BacktestProgress {
+        -long processedTicks
+        -long totalTicks
+        +int getCompletionPercent()
+    }
+
+    class BacktestProgressListener {
+        <<interface>>
+        +void onProgress(BacktestProgress progress)
     }
 
     class UserInput {
@@ -236,10 +248,12 @@ classDiagram
     ConsoleUserOutput ..|> UserOutput
     FacadeForgeApplication --> ForgeApplicationAccess
     ForgeApplicationAccess --> BacktestRequest
+    ForgeApplicationAccess --> BacktestProgressListener
     ForgeApplicationAccess --> DataImportRequest
     ForgeApplicationAccess --> DatabaseConfigurationRequest
     DataImportRequest --> ImportProgressListener
     ImportProgressListener --> ImportProgress
+    BacktestProgressListener --> BacktestProgress
 ```
 
 ## cli Package
@@ -393,6 +407,7 @@ classDiagram
         +DataImportPlan planScidImport(String scidFilePath)
         +DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract, ImportProgressListener listener)
         +TradeBatchReader openTradeBatchReader(List~ContractTradeWindow~ windows, int batchSize)
+        +long countTradeTicks(List~ContractTradeWindow~ windows)
         +void configurePostgresDatabase(PostgresDatabaseSettings settings)
     }
 
@@ -408,7 +423,7 @@ classDiagram
     FacadeForgeData --> ForgeDataAccess
     ForgeDataAccess --> InstrumentDataCatalog : catalog
     ForgeDataAccess --> ScidDataImportService : import
-    ForgeDataAccess --> PostgresTickDataProvider : tick batches
+    ForgeDataAccess --> PostgresTickDataProvider : tick batches/counts
     ForgeDataAccess --> PostgresDatabaseSettings : configure
     ScidDataImportService --> PostgresTradeRepository
     InstrumentDataCatalog --> PostgresTradeRepository
@@ -633,6 +648,7 @@ classDiagram
 
     class PostgresTickDataProvider {
         +TradeBatchReader openReader(List~ContractTradeWindow~ windows, int batchSize)
+        +long countTicks(List~ContractTradeWindow~ windows)
     }
 
     class PostgresDatabaseSettings {
@@ -677,6 +693,7 @@ classDiagram
     class TickDataProvider {
         <<interface>>
         +TradeBatchReader openReader(List~ContractTradeWindow~ windows, int batchSize)
+        +long countTicks(List~ContractTradeWindow~ windows)
     }
 
     class TradeBatchReader {
@@ -863,10 +880,12 @@ classDiagram
         +BacktestEngine getBacktestEngine()
         +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, double lastPrice, boolean hasOpenPosition)
         +BacktestResult run(BacktestRequest request)
+        +BacktestResult run(BacktestRequest request, BacktestProgressListener listener)
     }
 
     class BacktestEngine {
         +BacktestResult run(BacktestRequest request)
+        +BacktestResult run(BacktestRequest request, BacktestProgressListener listener)
     }
 
     class MarketContext {
@@ -880,6 +899,7 @@ classDiagram
     ForgeEngineAccess --> BacktestEngine
     ForgeEngineAccess --> MarketContext : creates
     BacktestEngine --> BacktestRequest
+    BacktestEngine --> BacktestProgressListener : reports progress
     BacktestEngine --> TradeBatchReader : reads batches
     BacktestEngine --> TradingStrategy : evaluates
     BacktestEngine --> BacktestResult : creates
@@ -949,14 +969,41 @@ classDiagram
         -List~String~ contractSymbols
         -long ticksProcessed
         -long orderSignalsGenerated
+        -List~InstrumentBacktestResult~ instrumentResults
     }
-    class PerformanceMetrics
+    class InstrumentBacktestResult {
+        -String instrumentSymbol
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -List~ContractBacktestResult~ contractResults
+        -PerformanceMetrics performanceMetrics
+    }
+    class ContractBacktestResult {
+        -String contractSymbol
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -List~TradeResult~ trades
+        -PerformanceMetrics performanceMetrics
+    }
+    class PerformanceMetrics {
+        -int totalTrades
+        -int winningTrades
+        -int losingTrades
+        -double netProfitLoss
+        -double profitFactor
+        -double maximumDrawdown
+    }
     class InstrumentPerformanceReport
 
     FacadeForgeReporting --> ForgeReportingAccess
     ForgeReportingAccess --> BacktestResult : creates/summarizes
     ForgeReportingAccess --> PerformanceMetrics : creates
     ForgeReportingAccess --> InstrumentPerformanceReport : creates
+    BacktestResult --> InstrumentBacktestResult
+    InstrumentBacktestResult --> ContractBacktestResult
+    InstrumentBacktestResult --> PerformanceMetrics
+    ContractBacktestResult --> PerformanceMetrics
+    ContractBacktestResult --> TradeResult
 ```
 
 ## analytics Package
@@ -1003,7 +1050,16 @@ classDiagram
     }
 
     class Position
-    class TradeResult
+    class TradeResult {
+        -String instrumentSymbol
+        -String contractSymbol
+        -OrderSide side
+        -Instant entryTime
+        -long entryPriceTicks
+        -Instant exitTime
+        -long exitPriceTicks
+        -double grossDollars
+    }
 
     FacadeForgeBacktest --> ForgeBacktestAccess
     ForgeBacktestAccess --> Position : creates
