@@ -9,7 +9,11 @@ import forge.data.contract.ContractNameResolver;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.importing.ScidDataImportService;
+import forge.data.market.ContractTradeWindow;
+import forge.data.market.TradeBatchReader;
+import forge.data.market.TickDataProvider;
 import forge.data.postgres.PostgresDatabaseSettings;
+import forge.data.postgres.PostgresTickDataProvider;
 import forge.data.postgres.PostgresTradeRepository;
 
 import java.time.LocalDate;
@@ -20,6 +24,7 @@ public class FacadeForgeData {
 
     private InstrumentDataCatalog instrumentDataCatalog;
     private ScidDataImportService scidDataImportService;
+    private TickDataProvider tickDataProvider;
     private final ForgeDataAccess access = new ForgeDataAccess();
 
     public static FacadeForgeData getTheInstance() {
@@ -33,7 +38,8 @@ public class FacadeForgeData {
     private FacadeForgeData(PostgresTradeRepository tradeRepository) {
         this(
                 new InstrumentDataCatalog(tradeRepository),
-                new ScidDataImportService(new ContractNameResolver(), tradeRepository)
+                new ScidDataImportService(new ContractNameResolver(), tradeRepository),
+                new PostgresTickDataProvider(PostgresDatabaseSettings.fromEnvironment())
         );
     }
 
@@ -43,19 +49,32 @@ public class FacadeForgeData {
                 new ScidDataImportService(
                         new ContractNameResolver(),
                         new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment())
-                )
+                ),
+                new PostgresTickDataProvider(PostgresDatabaseSettings.fromEnvironment())
         );
     }
 
     public FacadeForgeData(InstrumentDataCatalog instrumentDataCatalog, ScidDataImportService scidDataImportService) {
+        this(instrumentDataCatalog, scidDataImportService, new PostgresTickDataProvider(PostgresDatabaseSettings.fromEnvironment()));
+    }
+
+    public FacadeForgeData(
+            InstrumentDataCatalog instrumentDataCatalog,
+            ScidDataImportService scidDataImportService,
+            TickDataProvider tickDataProvider
+    ) {
         if (instrumentDataCatalog == null) {
             throw new IllegalArgumentException("instrumentDataCatalog is required");
         }
         if (scidDataImportService == null) {
             throw new IllegalArgumentException("scidDataImportService is required");
         }
+        if (tickDataProvider == null) {
+            throw new IllegalArgumentException("tickDataProvider is required");
+        }
         this.instrumentDataCatalog = instrumentDataCatalog;
         this.scidDataImportService = scidDataImportService;
+        this.tickDataProvider = tickDataProvider;
     }
 
     public ForgeDataAccess forgeDataAccess() {
@@ -91,6 +110,10 @@ public class FacadeForgeData {
             return scidDataImportService.importScidFile(scidFilePath, rebuildExistingContract, progressListener);
         }
 
+        public TradeBatchReader openTradeBatchReader(List<ContractTradeWindow> windows, int batchSize) {
+            return tickDataProvider.openReader(windows, batchSize);
+        }
+
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
             if (databaseSettings == null) {
                 throw new IllegalArgumentException("databaseSettings is required");
@@ -101,6 +124,7 @@ public class FacadeForgeData {
                     new ContractNameResolver(),
                     tradeRepository
             );
+            tickDataProvider = new PostgresTickDataProvider(databaseSettings);
         }
     }
 }

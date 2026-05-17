@@ -1,5 +1,7 @@
 package forge.data.market;
 
+import java.util.List;
+
 public interface TickDataProvider {
-    // Supplies tick-level market data for replay.
+    TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize);
 }

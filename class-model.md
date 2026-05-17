@@ -390,22 +390,27 @@ classDiagram
         +void validateDateRange(List~String~ symbols, LocalDate startDate, LocalDate endDate)
         +DataImportPlan planScidImport(String scidFilePath)
         +DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract, ImportProgressListener listener)
+        +TradeBatchReader openTradeBatchReader(List~ContractTradeWindow~ windows, int batchSize)
         +void configurePostgresDatabase(PostgresDatabaseSettings settings)
     }
 
     class InstrumentDataCatalog
     class ScidDataImportService
     class PostgresTradeRepository
+    class PostgresTickDataProvider
     class PostgresDatabaseSettings
+    class TradeBatchReader
     class DataImportPlan
     class DataImportResult
 
     FacadeForgeData --> ForgeDataAccess
     ForgeDataAccess --> InstrumentDataCatalog : catalog
     ForgeDataAccess --> ScidDataImportService : import
+    ForgeDataAccess --> PostgresTickDataProvider : tick batches
     ForgeDataAccess --> PostgresDatabaseSettings : configure
     ScidDataImportService --> PostgresTradeRepository
     InstrumentDataCatalog --> PostgresTradeRepository
+    PostgresTickDataProvider --> TradeBatchReader : creates
     ForgeDataAccess --> DataImportPlan
     ForgeDataAccess --> DataImportResult
 ```
@@ -624,6 +629,10 @@ classDiagram
         +int insertTradesAndAdvanceCheckpoint(...)
     }
 
+    class PostgresTickDataProvider {
+        +TradeBatchReader openReader(List~ContractTradeWindow~ windows, int batchSize)
+    }
+
     class PostgresDatabaseSettings {
         +PostgresDatabaseSettings fromEnvironment()
         +String primaryJdbcUrl()
@@ -648,6 +657,8 @@ classDiagram
     PostgresTradeRepository --> ImportCheckpoint : creates/updates
     PostgresTradeRepository --> TradeRow : inserts
     PostgresTradeRepository --> ContractDataSummary : creates
+    PostgresTickDataProvider --> TradeTick : reads
+    PostgresTickDataProvider --> ContractTradeWindow : filters
     ScidDataImportService --> DataImportResult : creates
 ```
 
@@ -663,6 +674,29 @@ classDiagram
 
     class TickDataProvider {
         <<interface>>
+        +TradeBatchReader openReader(List~ContractTradeWindow~ windows, int batchSize)
+    }
+
+    class TradeBatchReader {
+        <<interface>>
+        +List~TradeTick~ readNextBatch()
+    }
+
+    class ContractTradeWindow {
+        -String contractSymbol
+        -LocalDate startDate
+        -LocalDate endDate
+    }
+
+    class TradeTick {
+        -String contractSymbol
+        -Instant tradeDateTime
+        -long priceTicks
+        -Long bidPriceTicks
+        -Long askPriceTicks
+        -long quantity
+        -int side
+        -long scidRecordIndex
     }
 
     class InMemoryTickDataProvider
@@ -672,6 +706,9 @@ classDiagram
     }
 
     TickDataProvider <|.. InMemoryTickDataProvider
+    TickDataProvider --> TradeBatchReader : opens
+    TradeBatchReader --> TradeTick : returns
+    TickDataProvider --> ContractTradeWindow : reads
 ```
 
 ## strategy Package

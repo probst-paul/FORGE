@@ -55,8 +55,7 @@ Order settings are currently defaulted internally and are not exposed in the CLI
 
 ## Not Yet Implemented
 
-- Real market data retrieval from PostgreSQL
-- Market data reads from PostgreSQL with active-contract rollover filters
+- Backtest engine consumption of PostgreSQL trade batches
 - Derived market analytics
 - Analytics feature calculation beyond placeholder models
 - Full backtest package behavior beyond placeholder position/trade-result models
@@ -77,8 +76,8 @@ src/forge/data       Data facade
 src/forge/data/catalog    Database-derived instrument/date catalog
 src/forge/data/contract   Futures contract parsing helpers
 src/forge/data/importing  SCID import services, import DTOs, and trade rows
-src/forge/data/market     Market data provider abstractions
-src/forge/data/postgres   PostgreSQL settings and repository
+src/forge/data/market     Market data provider abstractions and trade batch models
+src/forge/data/postgres   PostgreSQL settings, import repository, and tick data provider
 src/forge/data/rollover   Contract rollover calendars and rules
 src/forge/analytics  Placeholder analytics feature models
 src/forge/backtest   Placeholder backtest position/trade-result models
