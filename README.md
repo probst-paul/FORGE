@@ -51,6 +51,8 @@ At the `Select action` prompt, enter `quit` to exit the program. After the backt
 
 Backtest setup no longer asks for a free-form date range. The CLI selects valid front-month contract windows instead. For example, `ES - All Available` includes all imported ES contract windows after rollover clipping, while `Select Custom Contracts` lets the user choose specific contracts such as `ESH25: 2024-12-16 to 2025-03-16` and `ESZ25: 2025-09-15 to 2025-12-14`. This avoids implying continuous data coverage when imported contract months have gaps.
 
+`BacktestRequest` carries those selected contract windows so the future backtest engine can read each contract table using its own valid rollover-clipped date range.
+
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
 ## Not Yet Implemented

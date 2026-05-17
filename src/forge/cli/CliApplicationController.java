@@ -166,9 +166,7 @@ public class CliApplicationController {
 
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 strategySelectionService.getDisplayName(selectedStrategy),
-                selectedContracts.getContractSymbols(),
-                selectedContracts.getStartDate(),
-                selectedContracts.getEndDate(),
+                selectedContracts.getContractWindows(),
                 triggerSelectionService.getDisplayName(selectedTrigger),
                 riskSettings,
                 targetSettings

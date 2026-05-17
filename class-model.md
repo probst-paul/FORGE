@@ -324,6 +324,7 @@ classDiagram
     class BacktestRequest {
         -StrategyOptions strategyOptions
         -List~String~ instruments
+        -List~ContractTradeWindow~ contractWindows
         -LocalDate startDate
         -LocalDate endDate
         -TradeTriggerOptions tradeTriggerOptions
@@ -370,6 +371,7 @@ classDiagram
     BacktestRequest --> RiskSettings
     BacktestRequest --> TargetSettings
     BacktestRequest --> OrderSettings
+    BacktestRequest --> ContractTradeWindow
 ```
 
 ## data Package Facade

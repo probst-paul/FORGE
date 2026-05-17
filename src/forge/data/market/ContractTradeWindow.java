@@ -46,4 +46,9 @@ public class ContractTradeWindow {
     public Instant getEndExclusiveInstant() {
         return endDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
     }
+
+    @Override
+    public String toString() {
+        return contractSymbol + ": " + startDate + " to " + endDate;
+    }
 }

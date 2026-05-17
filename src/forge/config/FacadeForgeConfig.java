@@ -1,5 +1,6 @@
 package forge.config;
 
+import forge.data.market.ContractTradeWindow;
 import forge.execution.OrderType;
 
 import java.time.LocalDate;
@@ -41,6 +42,23 @@ public class FacadeForgeConfig {
         }
 
         public BacktestRequest createBacktestRequest(
+                String strategyName,
+                List<ContractTradeWindow> contractWindows,
+                String triggerName,
+                RiskSettings riskSettings,
+                TargetSettings targetSettings
+        ) {
+            return createBacktestRequest(
+                    new StrategyOptions(strategyName),
+                    contractWindows,
+                    new TradeTriggerOptions(triggerName),
+                    riskSettings,
+                    targetSettings,
+                    defaultOrderSettings()
+            );
+        }
+
+        public BacktestRequest createBacktestRequest(
                 StrategyOptions strategyOptions,
                 List<String> instruments,
                 LocalDate startDate,
@@ -55,6 +73,24 @@ public class FacadeForgeConfig {
                     instruments,
                     startDate,
                     endDate,
+                    tradeTriggerOptions,
+                    riskSettings,
+                    targetSettings,
+                    orderSettings
+            );
+        }
+
+        public BacktestRequest createBacktestRequest(
+                StrategyOptions strategyOptions,
+                List<ContractTradeWindow> contractWindows,
+                TradeTriggerOptions tradeTriggerOptions,
+                RiskSettings riskSettings,
+                TargetSettings targetSettings,
+                OrderSettings orderSettings
+        ) {
+            return new BacktestRequest(
+                    strategyOptions,
+                    contractWindows,
                     tradeTriggerOptions,
                     riskSettings,
                     targetSettings,

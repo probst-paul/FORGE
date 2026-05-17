@@ -5,8 +5,8 @@ import forge.app.UserOutput;
 import forge.data.FacadeForgeData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableInstrumentData;
+import forge.data.market.ContractTradeWindow;
 
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,18 +94,14 @@ public class InstrumentSelectionService {
         if (contracts == null || contracts.isEmpty()) {
             throw new IllegalArgumentException("at least one contract must be selected");
         }
-        List<String> contractSymbols = new ArrayList<>();
-        LocalDate startDate = null;
-        LocalDate endDate = null;
+        List<ContractTradeWindow> contractWindows = new ArrayList<>();
         for (AvailableContractData contract : contracts) {
-            contractSymbols.add(contract.getContractSymbol());
-            if (startDate == null || contract.getStartDate().isBefore(startDate)) {
-                startDate = contract.getStartDate();
-            }
-            if (endDate == null || contract.getEndDate().isAfter(endDate)) {
-                endDate = contract.getEndDate();
-            }
+            contractWindows.add(new ContractTradeWindow(
+                    contract.getContractSymbol(),
+                    contract.getStartDate(),
+                    contract.getEndDate()
+            ));
         }
-        return new SelectedBacktestContracts(contractSymbols, startDate, endDate);
+        return new SelectedBacktestContracts(contractWindows);
     }
 }
