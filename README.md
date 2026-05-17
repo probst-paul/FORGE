@@ -57,13 +57,11 @@ Order settings are currently defaulted internally and are not exposed in the CLI
 
 ## Not Yet Implemented
 
-- Backtest engine consumption of PostgreSQL trade batches
 - Derived market analytics
 - Analytics feature calculation beyond placeholder models
 - Full backtest package behavior beyond placeholder position/trade-result models
 - Execution package behavior beyond basic order request modeling
 - Full trade trigger evaluation against market data
-- Backtest engine orchestration
 - Order execution simulation
 - Completed trade result calculation
 - Performance reporting
@@ -83,7 +81,7 @@ src/forge/data/postgres   PostgreSQL settings, import repository, and tick data 
 src/forge/data/rollover   Contract rollover calendars and rules
 src/forge/analytics  Placeholder analytics feature models
 src/forge/backtest   Placeholder backtest position/trade-result models
-src/forge/engine     Market context and placeholder engine facade
+src/forge/engine     Market context and simple batch-driven backtest engine
 src/forge/execution  Basic order request/enums; execution simulation is not implemented yet
 src/forge/model      Instrument and futures contract models
 src/forge/strategy   Strategy interface, catalog, and range breakout strategy

@@ -1,5 +1,8 @@
 package forge.engine;
 
+import forge.config.BacktestRequest;
+import forge.reporting.BacktestResult;
+
 import java.time.LocalDateTime;
 
 public class FacadeForgeEngine {
@@ -36,6 +39,10 @@ public class FacadeForgeEngine {
                 boolean hasOpenPosition
         ) {
             return new MarketContext(instrumentSymbol, timestamp, lastPrice, hasOpenPosition);
+        }
+
+        public BacktestResult run(BacktestRequest request) {
+            return backtestEngine.run(request);
         }
     }
 }

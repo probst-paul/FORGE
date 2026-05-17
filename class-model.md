@@ -862,9 +862,12 @@ classDiagram
     class ForgeEngineAccess {
         +BacktestEngine getBacktestEngine()
         +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, double lastPrice, boolean hasOpenPosition)
+        +BacktestResult run(BacktestRequest request)
     }
 
-    class BacktestEngine
+    class BacktestEngine {
+        +BacktestResult run(BacktestRequest request)
+    }
 
     class MarketContext {
         -String instrumentSymbol
@@ -876,6 +879,10 @@ classDiagram
     FacadeForgeEngine --> ForgeEngineAccess
     ForgeEngineAccess --> BacktestEngine
     ForgeEngineAccess --> MarketContext : creates
+    BacktestEngine --> BacktestRequest
+    BacktestEngine --> TradeBatchReader : reads batches
+    BacktestEngine --> TradingStrategy : evaluates
+    BacktestEngine --> BacktestResult : creates
 ```
 
 ## execution Package
@@ -937,7 +944,12 @@ classDiagram
         +String summarize(BacktestResult result)
     }
 
-    class BacktestResult
+    class BacktestResult {
+        -String strategyName
+        -List~String~ contractSymbols
+        -long ticksProcessed
+        -long orderSignalsGenerated
+    }
     class PerformanceMetrics
     class InstrumentPerformanceReport
 

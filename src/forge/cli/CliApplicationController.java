@@ -17,6 +17,7 @@ import forge.data.FacadeForgeData;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
+import forge.reporting.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.TradingStrategy;
 import forge.target.FacadeForgeTarget;
@@ -136,11 +137,11 @@ public class CliApplicationController {
 
     private void runBacktestSetup(UserInput input, UserOutput output) {
         BacktestRequest request = configureBacktest(input, output);
-        BacktestRequest acceptedRequest = forgeApplication.forgeApplicationAccess().runBacktest(request);
+        BacktestResult result = forgeApplication.forgeApplicationAccess().runBacktest(request);
 
         output.printBlankLine();
-        output.printLine("Backtest request accepted:");
-        output.printLine(acceptedRequest.toString());
+        output.printLine("Backtest complete:");
+        output.printLine(result.toString());
         output.printBlankLine();
         input.readString("Press Enter or type anything to return to Select Action");
     }

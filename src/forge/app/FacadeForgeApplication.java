@@ -5,6 +5,8 @@ import forge.data.FacadeForgeData;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
+import forge.engine.FacadeForgeEngine;
+import forge.reporting.BacktestResult;
 
 import java.util.Objects;
 
@@ -12,14 +14,20 @@ public class FacadeForgeApplication {
     private static final FacadeForgeApplication THE_INSTANCE = new FacadeForgeApplication();
 
     private final FacadeForgeData forgeData;
+    private final FacadeForgeEngine forgeEngine;
     private final ForgeApplicationAccess access = new ForgeApplicationAccess();
 
     public FacadeForgeApplication() {
-        this(FacadeForgeData.getTheInstance());
+        this(FacadeForgeData.getTheInstance(), FacadeForgeEngine.getTheInstance());
     }
 
     public FacadeForgeApplication(FacadeForgeData forgeData) {
+        this(forgeData, FacadeForgeEngine.getTheInstance());
+    }
+
+    public FacadeForgeApplication(FacadeForgeData forgeData, FacadeForgeEngine forgeEngine) {
         this.forgeData = Objects.requireNonNull(forgeData, "forgeData is required");
+        this.forgeEngine = Objects.requireNonNull(forgeEngine, "forgeEngine is required");
     }
 
     public static FacadeForgeApplication getTheInstance() {
@@ -31,8 +39,9 @@ public class FacadeForgeApplication {
     }
 
     public class ForgeApplicationAccess {
-        public BacktestRequest runBacktest(BacktestRequest request) {
-            return Objects.requireNonNull(request, "request is required");
+        public BacktestResult runBacktest(BacktestRequest request) {
+            Objects.requireNonNull(request, "request is required");
+            return forgeEngine.forgeEngineAccess().run(request);
         }
 
         public DataImportResult importData(DataImportRequest request) {
