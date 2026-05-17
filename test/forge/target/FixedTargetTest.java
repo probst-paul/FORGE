@@ -33,20 +33,24 @@ class FixedTargetTest {
         void calculatesBuyTargetFromFixedTicks() {
             FixedTarget target = new FixedTarget(8);
 
-            TargetResult result = target.calculateTarget(OrderSide.BUY, 5000, 4998, 0.25);
+            TargetResult result = target.calculateTarget(OrderSide.BUY, 20000, 19992);
 
-            assertEquals(5002.0, result.getTargetPrice());
-            assertEquals(4998.0, result.getStopPrice());
+            assertEquals(20008, result.getTargetPriceTicks());
+            assertEquals(19992, result.getStopPriceTicks());
+            assertEquals(5002.0, result.getTargetPrice(0.25));
+            assertEquals(4998.0, result.getStopPrice(0.25));
         }
 
         @Test
         void calculatesSellTargetFromFixedTicks() {
             FixedTarget target = new FixedTarget(8);
 
-            TargetResult result = target.calculateTarget(OrderSide.SELL, 5000, 5002, 0.25);
+            TargetResult result = target.calculateTarget(OrderSide.SELL, 20000, 20008);
 
-            assertEquals(4998.0, result.getTargetPrice());
-            assertEquals(5002.0, result.getStopPrice());
+            assertEquals(19992, result.getTargetPriceTicks());
+            assertEquals(20008, result.getStopPriceTicks());
+            assertEquals(4998.0, result.getTargetPrice(0.25));
+            assertEquals(5002.0, result.getStopPrice(0.25));
         }
     }
 }

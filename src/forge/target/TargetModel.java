@@ -7,8 +7,7 @@ public interface TargetModel {
 
     TargetResult calculateTarget(
             OrderSide side,
-            double entryPrice,
-            double stopPrice,
-            double tickSize
+            long entryPriceTicks,
+            long stopPriceTicks
     );
 }

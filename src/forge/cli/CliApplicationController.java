@@ -20,6 +20,7 @@ import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.reporting.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
+import forge.strategy.StrategyConfigurationProfile;
 import forge.strategy.TradingStrategy;
 import forge.target.FacadeForgeTarget;
 import forge.target.TargetModel;
@@ -156,18 +157,24 @@ public class CliApplicationController {
 
         printSection(output, "Select Trading Strategy");
         Class<? extends TradingStrategy> selectedStrategy = strategySelectionService.selectStrategy(input, output);
+        StrategyConfigurationProfile strategyProfile = strategySelectionService.getConfigurationProfile(selectedStrategy);
 
         printSection(output, "Risk Settings");
         RiskSettings riskSettings = riskSettingsSelectionService.readRiskSettings(input, output);
 
-        printSection(output, "Select Trade Trigger");
-        Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output);
+        printSection(output, strategyProfile.isTriggerSelectionAllowed() ? "Select Trade Trigger" : "Trade Trigger");
+        Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output, strategyProfile);
 
-        printSection(output, "Select Target Model");
-        Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output);
+        printSection(output, strategyProfile.isTargetSelectionAllowed() ? "Select Target Model" : "Target Model");
+        Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output, strategyProfile);
 
         printSection(output, "Target Model Options");
-        TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(input, output, selectedTargetModel);
+        TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(
+                input,
+                output,
+                selectedTargetModel,
+                strategyProfile
+        );
 
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 strategySelectionService.getDisplayName(selectedStrategy),

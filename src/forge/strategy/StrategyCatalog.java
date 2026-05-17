@@ -1,5 +1,12 @@
 package forge.strategy;
 
+import forge.config.TargetSettings;
+import forge.target.FixedRiskRewardTarget;
+import forge.target.FixedTarget;
+import forge.target.TargetModel;
+import forge.trigger.OrderFlowExhaustionTrigger;
+import forge.trigger.TradeTrigger;
+
 import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.net.JarURLConnection;
@@ -12,7 +19,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -49,6 +58,27 @@ public class StrategyCatalog {
             return simpleName.substring(0, simpleName.length() - "Strategy".length());
         }
         return simpleName;
+    }
+
+    public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategyClass) {
+        if (RangeBreakoutStrategy.class.equals(strategyClass)) {
+            List<Class<? extends TradeTrigger>> allowedTriggers = List.of(OrderFlowExhaustionTrigger.class);
+            List<Class<? extends TargetModel>> allowedTargets = List.of(FixedRiskRewardTarget.class, FixedTarget.class);
+            Map<Class<? extends TargetModel>, TargetSettings> defaultTargetSettings = new LinkedHashMap<>();
+            defaultTargetSettings.put(FixedRiskRewardTarget.class, TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2.0));
+            defaultTargetSettings.put(FixedTarget.class, TargetSettings.fixedTarget("Target", 8));
+            return new StrategyConfigurationProfile(
+                    strategyClass,
+                    allowedTriggers,
+                    OrderFlowExhaustionTrigger.class,
+                    false,
+                    allowedTargets,
+                    FixedRiskRewardTarget.class,
+                    true,
+                    defaultTargetSettings
+            );
+        }
+        throw new IllegalArgumentException("No configuration profile is defined for " + strategyClass.getSimpleName());
     }
 
     private void addFileSystemStrategies(URL resource, List<Class<? extends TradingStrategy>> strategies) {

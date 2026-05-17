@@ -2,8 +2,6 @@ package forge.target;
 
 import forge.execution.OrderSide;
 
-import java.util.Objects;
-
 public class FixedTarget implements TargetModel {
     private final int targetTicks;
 
@@ -24,35 +22,29 @@ public class FixedTarget implements TargetModel {
     }
 
     @Override
-    public TargetResult calculateTarget(OrderSide side, double entryPrice, double stopPrice, double tickSize) {
-        validateInputs(side, entryPrice, stopPrice, tickSize);
+    public TargetResult calculateTarget(OrderSide side, long entryPriceTicks, long stopPriceTicks) {
+        validateInputs(side, entryPriceTicks, stopPriceTicks);
 
-        double targetDistance = targetTicks * tickSize;
-        double targetPrice = side == OrderSide.BUY
-                ? entryPrice + targetDistance
-                : entryPrice - targetDistance;
+        long targetPriceTicks = side == OrderSide.BUY
+                ? entryPriceTicks + targetTicks
+                : entryPriceTicks - targetTicks;
 
-        return new TargetResult(roundToTick(targetPrice, tickSize), roundToTick(stopPrice, tickSize));
+        return new TargetResult(targetPriceTicks, stopPriceTicks);
     }
 
     public int getTargetTicks() {
         return targetTicks;
     }
 
-    private void validateInputs(OrderSide side, double entryPrice, double stopPrice, double tickSize) {
-        Objects.requireNonNull(side, "side is required");
-        if (entryPrice <= 0) {
-            throw new IllegalArgumentException("entryPrice must be greater than zero");
+    private void validateInputs(OrderSide side, long entryPriceTicks, long stopPriceTicks) {
+        if (side == null) {
+            throw new NullPointerException("side is required");
         }
-        if (stopPrice <= 0) {
-            throw new IllegalArgumentException("stopPrice must be greater than zero");
+        if (entryPriceTicks <= 0) {
+            throw new IllegalArgumentException("entryPriceTicks must be greater than zero");
         }
-        if (tickSize <= 0) {
-            throw new IllegalArgumentException("tickSize must be greater than zero");
+        if (stopPriceTicks <= 0) {
+            throw new IllegalArgumentException("stopPriceTicks must be greater than zero");
         }
-    }
-
-    private double roundToTick(double price, double tickSize) {
-        return Math.round(price / tickSize) * tickSize;
     }
 }

@@ -3,6 +3,7 @@ package forge.cli;
 import forge.app.UserInput;
 import forge.app.UserOutput;
 import forge.strategy.FacadeForgeStrategy;
+import forge.strategy.StrategyConfigurationProfile;
 import forge.strategy.TradingStrategy;
 
 import java.util.List;
@@ -36,5 +37,9 @@ public class StrategySelectionService {
 
     public String getDisplayName(Class<? extends TradingStrategy> strategy) {
         return facadeStrategy.forgeStrategyAccess().getDisplayName(strategy);
+    }
+
+    public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategy) {
+        return facadeStrategy.forgeStrategyAccess().getConfigurationProfile(strategy);
     }
 }

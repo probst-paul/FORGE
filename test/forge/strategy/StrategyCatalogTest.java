@@ -4,10 +4,14 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import forge.target.FixedRiskRewardTarget;
+import forge.target.FixedTarget;
+import forge.trigger.OrderFlowExhaustionTrigger;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -29,6 +33,24 @@ class StrategyCatalogTest {
         @Test
         void removesStrategySuffix() {
             assertEquals("RangeBreakout", catalog.getDisplayName(RangeBreakoutStrategy.class));
+        }
+    }
+
+    @Nested
+    class GetConfigurationProfile {
+        @Test
+        void rangeBreakoutDefinesCompatibleTriggerAndTargets() {
+            StrategyConfigurationProfile profile = catalog.getConfigurationProfile(RangeBreakoutStrategy.class);
+
+            assertEquals(RangeBreakoutStrategy.class, profile.getStrategyClass());
+            assertEquals(List.of(OrderFlowExhaustionTrigger.class), profile.getAllowedTriggers());
+            assertEquals(OrderFlowExhaustionTrigger.class, profile.getDefaultTrigger());
+            assertFalse(profile.isTriggerSelectionAllowed());
+            assertEquals(List.of(FixedRiskRewardTarget.class, FixedTarget.class), profile.getAllowedTargets());
+            assertEquals(FixedRiskRewardTarget.class, profile.getDefaultTarget());
+            assertTrue(profile.isTargetSelectionAllowed());
+            assertEquals(2.0, profile.getDefaultTargetSettings(FixedRiskRewardTarget.class).getRewardRiskRatio());
+            assertEquals(8, profile.getDefaultTargetSettings(FixedTarget.class).getProfitTargetTicks());
         }
     }
 }

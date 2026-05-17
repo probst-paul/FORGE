@@ -19,6 +19,15 @@ public interface UserInput {
         return Double.parseDouble(value);
     }
 
+    default double readDoubleOrDefault(String label, double defaultValue) {
+        String value = readString(label);
+        requireNotQuit(value);
+        if (value.trim().isEmpty()) {
+            return defaultValue;
+        }
+        return Double.parseDouble(value);
+    }
+
     default String readStringOrDefault(String label, String defaultValue) {
         String value = readString(label);
         requireNotQuit(value);

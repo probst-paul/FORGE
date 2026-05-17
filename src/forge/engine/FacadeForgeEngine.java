@@ -42,6 +42,24 @@ public class FacadeForgeEngine {
             return new MarketContext(instrumentSymbol, timestamp, lastPrice, hasOpenPosition);
         }
 
+        public MarketContext createMarketContext(
+                String instrumentSymbol,
+                LocalDateTime timestamp,
+                long lastPriceTicks,
+                double tickSize,
+                double tickDollarValue,
+                boolean hasOpenPosition
+        ) {
+            return new MarketContext(
+                    instrumentSymbol,
+                    timestamp,
+                    lastPriceTicks,
+                    tickSize,
+                    tickDollarValue,
+                    hasOpenPosition
+            );
+        }
+
         public BacktestResult run(BacktestRequest request) {
             return backtestEngine.run(request);
         }

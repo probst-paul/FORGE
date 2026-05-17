@@ -37,9 +37,9 @@ Select Action
 │  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
 │  ├─ Select Trading Strategy
 │  ├─ Risk Settings
-│  ├─ Select Trade Trigger
-│  ├─ Select Target Model
-│  ├─ Target Model Options
+│  ├─ Use or select strategy-compatible trade trigger
+│  ├─ Use or select strategy-compatible target model
+│  ├─ Target model options with strategy defaults
 │  ├─ Build BacktestRequest
 │  ├─ Run backtest with progress
 │  └─ Press Enter or type anything to return to Select Action
@@ -56,6 +56,8 @@ Backtest setup no longer asks for a free-form date range. The CLI selects valid 
 `BacktestRequest` carries those selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
+
+Strategies own their compatible trigger and target choices. The CLI only asks the user to select a trigger or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default trigger and target settings; for example, `RangeBreakoutStrategy` currently uses `OrderFlowExhaustionTrigger`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
 
 ## Not Yet Implemented
 
@@ -87,6 +89,7 @@ src/forge/engine     Market context and simple batch-driven backtest engine
 src/forge/execution  Basic order request/enums; execution simulation is not implemented yet
 src/forge/model      Instrument and futures contract models
 src/forge/strategy   Strategy interface, catalog, and range breakout strategy
+src/forge/strategy/support  Reusable strategy helper services and value objects
 src/forge/target     Target model interface, implementations, and results
 src/forge/trigger    Trigger interface, catalog, and trigger result model
 src/forge/reporting  Placeholder reporting/metrics models
@@ -98,7 +101,7 @@ test/forge           JUnit 5 tests
 - **Abstract class:** `Instrument` stores common instrument identity and requires subclasses to provide `getInstrumentType()`.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument`.
 - **Interfaces:** `TradingStrategy`, `TradeTrigger`, and `TargetModel` define interchangeable behavior.
-- **Polymorphism:** `FixedRiskRewardTarget` and `FixedTarget` both implement `TargetModel.calculateTarget(...)` with different behavior.
+- **Polymorphism:** `FixedRiskRewardTarget` and `FixedTarget` both implement tick-based `TargetModel.calculateTarget(...)` with different behavior.
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 
@@ -220,6 +223,10 @@ side            <- AskVolume > 0 means buy aggressor, BidVolume > 0 means sell a
 ```
 
 FORGE converts SCID float prices to integer tick counts during import using the hardcoded instrument tick size. The database stores those tick counts as `BIGINT` rather than storing floating-point prices, so strategy calculations can work in exact tick space and convert back to display prices only at the UI/reporting edge. Sierra Chart's count and volume fields are unsigned 4-byte integers, so FORGE stores imported count/volume values as `BIGINT` to preserve their full range in PostgreSQL. `side` is FORGE-specific rather than a Sierra Chart field, with `1` for buy aggressor, `-1` for sell aggressor, and `NULL` when the aggressor side cannot be identified. The import summary reports how many null-side rows were stored. Backtest data reads should filter to strategy-usable trades with `side IS NOT NULL`.
+
+`MarketContext` carries both tick-native values and display-price accessors. New strategy logic should prefer `getLastPriceTicks()`, `getTickSize()`, and `getTickDollarValue()` for exact and efficient calculations, while `getLastPrice()` remains available for display-oriented or legacy strategy code.
+
+Target calculations are tick-native as well. `TargetModel.calculateTarget(...)` accepts entry and stop prices as tick counts, and `TargetResult` stores target/stop ticks. Display prices are derived only when needed by passing a tick size to `TargetResult`.
 
 Each contract table is treated as the authoritative dataset for that contract. If a contract table already exists, the CLI prompts before wiping and rebuilding it from the selected SCID file. FORGE stores the source file name and SCID record index on each row, creates a unique index over the SCID record index inside the contract table, and inserts with `ON CONFLICT DO NOTHING`. It also maintains a `forge_contract_imports` table with the source file metadata, next record index to process, row count, and first/last imported trade timestamps. The checkpoint advances only after a batch insert succeeds.
 

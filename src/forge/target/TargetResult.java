@@ -1,34 +1,50 @@
 package forge.target;
 
 public class TargetResult {
-    private final double targetPrice;
-    private final double stopPrice;
+    private final long targetPriceTicks;
+    private final long stopPriceTicks;
 
-    public TargetResult(double targetPrice, double stopPrice) {
-        if (targetPrice <= 0) {
-            throw new IllegalArgumentException("targetPrice must be greater than zero");
+    public TargetResult(long targetPriceTicks, long stopPriceTicks) {
+        if (targetPriceTicks <= 0) {
+            throw new IllegalArgumentException("targetPriceTicks must be greater than zero");
         }
-        if (stopPrice <= 0) {
-            throw new IllegalArgumentException("stopPrice must be greater than zero");
+        if (stopPriceTicks <= 0) {
+            throw new IllegalArgumentException("stopPriceTicks must be greater than zero");
         }
 
-        this.targetPrice = targetPrice;
-        this.stopPrice = stopPrice;
+        this.targetPriceTicks = targetPriceTicks;
+        this.stopPriceTicks = stopPriceTicks;
     }
 
-    public double getTargetPrice() {
-        return targetPrice;
+    public long getTargetPriceTicks() {
+        return targetPriceTicks;
     }
 
-    public double getStopPrice() {
-        return stopPrice;
+    public long getStopPriceTicks() {
+        return stopPriceTicks;
+    }
+
+    public double getTargetPrice(double tickSize) {
+        validateTickSize(tickSize);
+        return targetPriceTicks * tickSize;
+    }
+
+    public double getStopPrice(double tickSize) {
+        validateTickSize(tickSize);
+        return stopPriceTicks * tickSize;
+    }
+
+    private void validateTickSize(double tickSize) {
+        if (tickSize <= 0) {
+            throw new IllegalArgumentException("tickSize must be greater than zero");
+        }
     }
 
     @Override
     public String toString() {
         return "TargetResult{" +
-                "targetPrice=" + targetPrice +
-                ", stopPrice=" + stopPrice +
+                "targetPriceTicks=" + targetPriceTicks +
+                ", stopPriceTicks=" + stopPriceTicks +
                 '}';
     }
 }

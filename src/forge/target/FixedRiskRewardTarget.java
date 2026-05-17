@@ -2,8 +2,6 @@ package forge.target;
 
 import forge.execution.OrderSide;
 
-import java.util.Objects;
-
 public class FixedRiskRewardTarget implements TargetModel {
     private final double rewardRiskRatio;
 
@@ -24,45 +22,40 @@ public class FixedRiskRewardTarget implements TargetModel {
     }
 
     @Override
-    public TargetResult calculateTarget(OrderSide side, double entryPrice, double stopPrice, double tickSize) {
-        validateInputs(side, entryPrice, stopPrice, tickSize);
+    public TargetResult calculateTarget(OrderSide side, long entryPriceTicks, long stopPriceTicks) {
+        validateInputs(side, entryPriceTicks, stopPriceTicks);
 
-        double risk = Math.abs(entryPrice - stopPrice);
-        double targetDistance = risk * rewardRiskRatio;
-        double targetPrice = side == OrderSide.BUY
-                ? entryPrice + targetDistance
-                : entryPrice - targetDistance;
+        long riskTicks = Math.abs(entryPriceTicks - stopPriceTicks);
+        long targetDistanceTicks = Math.round(riskTicks * rewardRiskRatio);
+        long targetPriceTicks = side == OrderSide.BUY
+                ? entryPriceTicks + targetDistanceTicks
+                : entryPriceTicks - targetDistanceTicks;
 
-        return new TargetResult(roundToTick(targetPrice, tickSize), roundToTick(stopPrice, tickSize));
+        return new TargetResult(targetPriceTicks, stopPriceTicks);
     }
 
     public double getRewardRiskRatio() {
         return rewardRiskRatio;
     }
 
-    private void validateInputs(OrderSide side, double entryPrice, double stopPrice, double tickSize) {
-        Objects.requireNonNull(side, "side is required");
-        if (entryPrice <= 0) {
-            throw new IllegalArgumentException("entryPrice must be greater than zero");
+    private void validateInputs(OrderSide side, long entryPriceTicks, long stopPriceTicks) {
+        if (side == null) {
+            throw new NullPointerException("side is required");
         }
-        if (stopPrice <= 0) {
-            throw new IllegalArgumentException("stopPrice must be greater than zero");
+        if (entryPriceTicks <= 0) {
+            throw new IllegalArgumentException("entryPriceTicks must be greater than zero");
         }
-        if (tickSize <= 0) {
-            throw new IllegalArgumentException("tickSize must be greater than zero");
+        if (stopPriceTicks <= 0) {
+            throw new IllegalArgumentException("stopPriceTicks must be greater than zero");
         }
-        if (entryPrice == stopPrice) {
-            throw new IllegalArgumentException("entryPrice and stopPrice cannot be equal");
+        if (entryPriceTicks == stopPriceTicks) {
+            throw new IllegalArgumentException("entryPriceTicks and stopPriceTicks cannot be equal");
         }
-        if (side == OrderSide.BUY && stopPrice >= entryPrice) {
-            throw new IllegalArgumentException("buy stopPrice must be below entryPrice");
+        if (side == OrderSide.BUY && stopPriceTicks >= entryPriceTicks) {
+            throw new IllegalArgumentException("buy stopPriceTicks must be below entryPriceTicks");
         }
-        if (side == OrderSide.SELL && stopPrice <= entryPrice) {
-            throw new IllegalArgumentException("sell stopPrice must be above entryPrice");
+        if (side == OrderSide.SELL && stopPriceTicks <= entryPriceTicks) {
+            throw new IllegalArgumentException("sell stopPriceTicks must be above entryPriceTicks");
         }
-    }
-
-    private double roundToTick(double price, double tickSize) {
-        return Math.round(price / tickSize) * tickSize;
     }
 }

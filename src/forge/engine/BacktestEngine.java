@@ -177,9 +177,15 @@ public class BacktestEngine {
                 instrumentSymbol,
                 futuresInstrumentSpecProvider::getBySymbol
         );
-        double lastPrice = tick.getPriceTicks() * spec.getTickSize();
         LocalDateTime timestamp = LocalDateTime.ofInstant(tick.getTradeDateTime(), ZoneOffset.UTC);
-        return new MarketContext(instrumentSymbol, timestamp, lastPrice, false);
+        return new MarketContext(
+                instrumentSymbol,
+                timestamp,
+                tick.getPriceTicks(),
+                spec.getTickSize(),
+                spec.getTickDollarAmount(),
+                false
+        );
     }
 
     private TradingStrategy createStrategy(String strategyName) {

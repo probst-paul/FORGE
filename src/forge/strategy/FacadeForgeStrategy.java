@@ -40,6 +40,10 @@ public class FacadeForgeStrategy {
             return new StrategyOptions(getDisplayName(strategy));
         }
 
+        public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategy) {
+            return strategyCatalog.getConfigurationProfile(strategy);
+        }
+
         public TradingStrategy createStrategy(Class<? extends TradingStrategy> strategy) {
             try {
                 return strategy.getDeclaredConstructor().newInstance();

@@ -103,26 +103,32 @@ sequenceDiagram
         Strategies->>Strategy: forgeStrategyAccess().getDisplayName(strategy)
         Strategies->>Input: readInt(selection)
         Strategies-->>Cli: selected strategy class
+        Cli->>Strategies: getConfigurationProfile(selected strategy)
+        Strategies->>Strategy: forgeStrategyAccess().getConfigurationProfile(strategy)
+        Strategy-->>Strategies: StrategyConfigurationProfile
+        Strategies-->>Cli: strategy trigger/target profile
 
         Cli->>Risk: readRiskSettings(input)
         Risk->>Input: readDouble(risk per trade)
         Risk->>Input: readDouble(max daily loss)
         Risk-->>Cli: RiskSettings
 
-        Cli->>Triggers: selectTrigger(input, output)
-        Triggers->>Trigger: forgeTriggerAccess().findAvailableTriggers()
+        Cli->>Triggers: selectTrigger(input, output, strategy profile)
         Triggers->>Trigger: forgeTriggerAccess().getDisplayName(trigger)
-        Triggers->>Input: readInt(selection)
+        opt Strategy allows trigger selection
+            Triggers->>Input: readInt(selection)
+        end
         Triggers-->>Cli: selected trigger class
 
-        Cli->>Targets: selectTargetModel(input, output)
-        Targets->>Target: forgeTargetAccess().findAvailableTargetModels()
+        Cli->>Targets: selectTargetModel(input, output, strategy profile)
         Targets->>Target: forgeTargetAccess().getDisplayName(target)
-        Targets->>Input: readInt(selection)
+        opt Strategy allows target selection
+            Targets->>Input: readInt(selection)
+        end
         Targets-->>Cli: selected target class
 
-        Cli->>Targets: readTargetModelSettings(input, selected target)
-        Targets->>Input: read target-specific value
+        Cli->>Targets: readTargetModelSettings(input, selected target, strategy profile)
+        Targets->>Input: read target-specific value with strategy default
         Targets->>Target: forgeTargetAccess().create target settings
         Targets-->>Cli: TargetSettings
 
@@ -745,12 +751,24 @@ classDiagram
         +List~Class~ findAvailableStrategies()
         +String getDisplayName(Class strategy)
         +StrategyOptions createStrategyOptions(Class strategy)
+        +StrategyConfigurationProfile getConfigurationProfile(Class strategy)
         +TradingStrategy createStrategy(Class strategy)
     }
 
     class StrategyCatalog {
         +List~Class~ findAvailableStrategies()
         +String getDisplayName(Class strategyClass)
+        +StrategyConfigurationProfile getConfigurationProfile(Class strategyClass)
+    }
+
+    class StrategyConfigurationProfile {
+        -List~Class~ allowedTriggers
+        -Class defaultTrigger
+        -boolean triggerSelectionAllowed
+        -List~Class~ allowedTargets
+        -Class defaultTarget
+        -boolean targetSelectionAllowed
+        +TargetSettings getDefaultTargetSettings(Class targetModel)
     }
 
     class TradingStrategy {
@@ -766,10 +784,29 @@ classDiagram
         -int quantity
     }
 
+    class TimeframeRangeCalculator {
+        +Optional~PriceRange~ calculatePriceRange(Collection~TradeTick~ ticks, Instant startInclusive, Instant endExclusive)
+    }
+
+    class PriceRange {
+        -long lowPriceTicks
+        -long highPriceTicks
+        +long getRangeTicks()
+        +double getLowPrice(double tickSize)
+        +double getHighPrice(double tickSize)
+    }
+
     FacadeForgeStrategy --> ForgeStrategyAccess
     ForgeStrategyAccess --> StrategyCatalog
+    ForgeStrategyAccess --> StrategyConfigurationProfile : exposes
+    StrategyCatalog --> StrategyConfigurationProfile : creates
     ForgeStrategyAccess --> TradingStrategy : creates
+    StrategyConfigurationProfile --> TradeTrigger : allowed/default triggers
+    StrategyConfigurationProfile --> TargetModel : allowed/default targets
+    StrategyConfigurationProfile --> TargetSettings : defaults
     TradingStrategy <|.. RangeBreakoutStrategy
+    TimeframeRangeCalculator --> TradeTick : scans
+    TimeframeRangeCalculator --> PriceRange : returns
 ```
 
 ## trigger Package
@@ -840,7 +877,7 @@ classDiagram
     class TargetModel {
         <<interface>>
         +String getName()
-        +TargetResult calculateTarget(OrderSide side, double entryPrice, double stopPrice, double tickSize)
+        +TargetResult calculateTarget(OrderSide side, long entryPriceTicks, long stopPriceTicks)
     }
 
     class FixedRiskRewardTarget {
@@ -852,8 +889,10 @@ classDiagram
     }
 
     class TargetResult {
-        -double targetPrice
-        -double stopPrice
+        -long targetPriceTicks
+        -long stopPriceTicks
+        +double getTargetPrice(double tickSize)
+        +double getStopPrice(double tickSize)
     }
 
     FacadeForgeTarget --> ForgeTargetAccess
@@ -879,6 +918,7 @@ classDiagram
     class ForgeEngineAccess {
         +BacktestEngine getBacktestEngine()
         +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, double lastPrice, boolean hasOpenPosition)
+        +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, long lastPriceTicks, double tickSize, double tickDollarValue, boolean hasOpenPosition)
         +BacktestResult run(BacktestRequest request)
         +BacktestResult run(BacktestRequest request, BacktestProgressListener listener)
     }
@@ -891,7 +931,10 @@ classDiagram
     class MarketContext {
         -String instrumentSymbol
         -LocalDateTime timestamp
+        -long lastPriceTicks
         -double lastPrice
+        -double tickSize
+        -double tickDollarValue
         -boolean hasOpenPosition
     }
 

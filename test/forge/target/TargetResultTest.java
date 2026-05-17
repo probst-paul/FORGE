@@ -13,17 +13,20 @@ class TargetResultTest {
     @Nested
     class Constructor {
         @Test
-        void storesTargetAndStopPrices() {
-            TargetResult result = new TargetResult(5002, 4998);
+        void storesTargetAndStopPriceTicks() {
+            TargetResult result = new TargetResult(20008, 19992);
 
-            assertEquals(5002, result.getTargetPrice());
-            assertEquals(4998, result.getStopPrice());
+            assertEquals(20008, result.getTargetPriceTicks());
+            assertEquals(19992, result.getStopPriceTicks());
+            assertEquals(5002.0, result.getTargetPrice(0.25));
+            assertEquals(4998.0, result.getStopPrice(0.25));
         }
 
         @Test
-        void rejectsInvalidPrices() {
+        void rejectsInvalidPriceTicks() {
             assertThrows(IllegalArgumentException.class, () -> new TargetResult(0, 4998));
             assertThrows(IllegalArgumentException.class, () -> new TargetResult(5002, 0));
+            assertThrows(IllegalArgumentException.class, () -> new TargetResult(5002, 4998).getTargetPrice(0));
         }
     }
 }
