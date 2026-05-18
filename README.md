@@ -18,7 +18,12 @@ It is not yet a complete historical market replay or backtesting engine.
 - Static futures instrument definitions for ES, NQ, YM, RTY, and CL
 - Abstract `Instrument` base class with concrete futures instrument and futures contract models
 - Strategy interface with an implemented `RangeBreakoutStrategy`
-- Trade trigger interface with an implemented no-op `OrderFlowExhaustionTrigger`
+- Trade trigger interface with:
+  - `OrderFlowExhaustionTrigger`
+  - `PriceCrossoverTrigger`
+- Stop model interface for non-target trade exits with:
+  - `PriceBasedStop`
+  - `TimeBasedStop`
 - Target model interface with:
   - `FixedRiskRewardTarget`
   - `FixedTarget`
@@ -38,6 +43,7 @@ Select Action
 │  ├─ Select Trading Strategy
 │  ├─ Risk Settings
 │  ├─ Use or select strategy-compatible trade trigger
+│  ├─ Trigger options when the selected trigger requires parameters
 │  ├─ Use or select strategy-compatible target model
 │  ├─ Target model options with strategy defaults
 │  ├─ Build BacktestRequest
@@ -57,7 +63,9 @@ Backtest setup no longer asks for a free-form date range. The CLI selects valid 
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
-Strategies own their compatible trigger and target choices. The CLI only asks the user to select a trigger or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default trigger and target settings; for example, `RangeBreakoutStrategy` currently uses `OrderFlowExhaustionTrigger`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
+Strategies own their compatible trigger and target choices. The CLI only asks the user to select a trigger or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default trigger and target settings; for example, `RangeBreakoutStrategy` defaults to `OrderFlowExhaustionTrigger`, also allows `PriceCrossoverTrigger`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
+
+`PriceCrossoverTrigger` is configured in ticks. For a long trigger, the condition is true when the current trade price reaches or exceeds the threshold. For a short trigger, the condition is true when the current trade price reaches or falls below the threshold.
 
 ## Not Yet Implemented
 
@@ -66,6 +74,7 @@ Strategies own their compatible trigger and target choices. The CLI only asks th
 - Full backtest package behavior beyond placeholder position/trade-result models
 - Execution package behavior beyond basic order request modeling
 - Full trade trigger evaluation against market data
+- CLI stop selection and stop evaluation inside the backtest engine
 - Order execution simulation
 - Completed trade result calculation
 - Non-placeholder completed-trade performance reporting
@@ -90,6 +99,7 @@ src/forge/execution  Basic order request/enums; execution simulation is not impl
 src/forge/model      Instrument and futures contract models
 src/forge/strategy   Strategy interface, catalog, and range breakout strategy
 src/forge/strategy/support  Reusable strategy helper services and value objects
+src/forge/stop       Stop model interface, catalog, and stop result model
 src/forge/target     Target model interface, implementations, and results
 src/forge/trigger    Trigger interface, catalog, and trigger result model
 src/forge/reporting  Placeholder reporting/metrics models
@@ -100,7 +110,7 @@ test/forge           JUnit 5 tests
 
 - **Abstract class:** `Instrument` stores common instrument identity and requires subclasses to provide `getInstrumentType()`.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument`.
-- **Interfaces:** `TradingStrategy`, `TradeTrigger`, and `TargetModel` define interchangeable behavior.
+- **Interfaces:** `TradingStrategy`, `TradeTrigger`, `StopModel`, and `TargetModel` define interchangeable behavior.
 - **Polymorphism:** `FixedRiskRewardTarget` and `FixedTarget` both implement tick-based `TargetModel.calculateTarget(...)` with different behavior.
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.

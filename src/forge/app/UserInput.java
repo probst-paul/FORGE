@@ -13,6 +13,12 @@ public interface UserInput {
         return Integer.parseInt(value);
     }
 
+    default long readLong(String label) {
+        String value = readString(label);
+        requireNotQuit(value);
+        return Long.parseLong(value);
+    }
+
     default double readDouble(String label) {
         String value = readString(label);
         requireNotQuit(value);

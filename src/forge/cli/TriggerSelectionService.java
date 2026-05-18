@@ -2,11 +2,15 @@ package forge.cli;
 
 import forge.app.UserInput;
 import forge.app.UserOutput;
+import forge.config.TradeTriggerOptions;
 import forge.strategy.StrategyConfigurationProfile;
+import forge.trigger.PriceCrossoverTrigger;
+import forge.trigger.TriggerDirection;
 import forge.trigger.TradeTrigger;
 import forge.trigger.FacadeForgeTrigger;
 
 import java.util.List;
+import java.util.Map;
 
 public class TriggerSelectionService {
     private final FacadeForgeTrigger facadeTrigger;
@@ -65,5 +69,52 @@ public class TriggerSelectionService {
 
     public String getDisplayName(Class<? extends TradeTrigger> trigger) {
         return facadeTrigger.forgeTriggerAccess().getDisplayName(trigger);
+    }
+
+    public boolean hasConfigurableOptions(Class<? extends TradeTrigger> trigger) {
+        return PriceCrossoverTrigger.class.equals(trigger);
+    }
+
+    public TradeTriggerOptions readTriggerOptions(
+            UserInput input,
+            UserOutput output,
+            Class<? extends TradeTrigger> trigger
+    ) {
+        if (!hasConfigurableOptions(trigger)) {
+            return facadeTrigger.forgeTriggerAccess().createTriggerOptions(trigger);
+        }
+
+        while (true) {
+            try {
+                TriggerDirection direction = readDirection(input, output);
+                long priceThresholdTicks = input.readLong("Price threshold ticks");
+                if (priceThresholdTicks <= 0) {
+                    throw new IllegalArgumentException("priceThresholdTicks must be greater than zero");
+                }
+                return facadeTrigger.forgeTriggerAccess().createTriggerOptions(
+                        trigger,
+                        Map.of(
+                                "direction", direction.name(),
+                                "priceThresholdTicks", Long.toString(priceThresholdTicks)
+                        )
+                );
+            } catch (IllegalArgumentException exception) {
+                output.printLine(exception.getMessage() + ". Please enter valid trigger settings, or enter 'quit' to exit program.");
+            }
+        }
+    }
+
+    private TriggerDirection readDirection(UserInput input, UserOutput output) {
+        output.printLine("Trigger direction:");
+        output.printLine("1. Long");
+        output.printLine("2. Short");
+        int selectedDirection = input.readInt("Select trigger direction");
+        if (selectedDirection == 1) {
+            return TriggerDirection.LONG;
+        }
+        if (selectedDirection == 2) {
+            return TriggerDirection.SHORT;
+        }
+        throw new IllegalArgumentException("Selected trigger direction is not available");
     }
 }

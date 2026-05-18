@@ -20,6 +20,7 @@ classDiagram
     class ContractRolloverCalendar
     class FacadeForgeStrategy
     class FacadeForgeTrigger
+    class FacadeForgeStop
     class FacadeForgeTarget
     class FacadeForgeEngine
     class FacadeForgeReporting
@@ -54,6 +55,7 @@ classDiagram
     ScidDataImportService --> PostgresTradeRepository : persist rows
     StrategySelectionService --> FacadeForgeStrategy
     TriggerSelectionService --> FacadeForgeTrigger
+    FacadeForgeApplication ..> FacadeForgeStop : later manage stops
     TargetModelSelectionService --> FacadeForgeTarget
 
     ForgeApplicationAccess ..> FacadeForgeEngine : run request
@@ -119,6 +121,12 @@ sequenceDiagram
             Triggers->>Input: readInt(selection)
         end
         Triggers-->>Cli: selected trigger class
+        Cli->>Triggers: readTriggerOptions(input, output, selected trigger)
+        opt Selected trigger requires parameters
+            Triggers->>Input: read direction and threshold ticks
+        end
+        Triggers->>Trigger: forgeTriggerAccess().createTriggerOptions(trigger, parameters)
+        Triggers-->>Cli: TradeTriggerOptions
 
         Cli->>Targets: selectTargetModel(input, output, strategy profile)
         Targets->>Target: forgeTargetAccess().getDisplayName(target)
@@ -305,6 +313,7 @@ classDiagram
 
     class TriggerSelectionService {
         +Class selectTrigger(UserInput input, UserOutput output)
+        +TradeTriggerOptions readTriggerOptions(UserInput input, UserOutput output, Class trigger)
         +String getDisplayName(Class trigger)
     }
 
@@ -824,6 +833,7 @@ classDiagram
         +List~Class~ findAvailableTriggers()
         +String getDisplayName(Class trigger)
         +TradeTriggerOptions createTriggerOptions(Class trigger)
+        +TradeTriggerOptions createTriggerOptions(Class trigger, Map parameters)
         +TradeTrigger createTrigger(Class trigger)
     }
 
@@ -839,15 +849,91 @@ classDiagram
     }
 
     class OrderFlowExhaustionTrigger
-    class TriggerResult
+    class PriceCrossoverTrigger {
+        -TriggerDirection direction
+        -long priceThresholdTicks
+        +TriggerResult evaluate(MarketContext context)
+    }
+    class TriggerResult {
+        -boolean triggered
+        -TriggerDirection direction
+        +TriggerResult triggered(TriggerDirection direction)
+        +TriggerResult notTriggered()
+        +boolean isTriggered()
+        +TriggerDirection getDirection()
+    }
     class TriggerDirection
 
     FacadeForgeTrigger --> ForgeTriggerAccess
     ForgeTriggerAccess --> TriggerCatalog
     ForgeTriggerAccess --> TradeTrigger : creates
     TradeTrigger <|.. OrderFlowExhaustionTrigger
+    TradeTrigger <|.. PriceCrossoverTrigger
     TradeTrigger --> TriggerResult
+    PriceCrossoverTrigger --> TriggerDirection
     TriggerResult --> TriggerDirection
+```
+
+## stop Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeStop {
+        +FacadeForgeStop getTheInstance()
+        +ForgeStopAccess forgeStopAccess()
+    }
+
+    class ForgeStopAccess {
+        +List~Class~ findAvailableStopModels()
+        +String getDisplayName(Class stopModel)
+        +PriceBasedStop createPriceBasedStop(long stopPriceTicks)
+        +TimeBasedStop createTimeBasedStop(LocalTime exitTime)
+        +StopModel createStopModel(Class stopModel)
+    }
+
+    class StopModelCatalog {
+        +List~Class~ findAvailableStopModels()
+        +String getDisplayName(Class stopModelClass)
+    }
+
+    class StopModel {
+        <<interface>>
+        +String getName()
+        +StopResult evaluateStop(OrderSide side, MarketContext context)
+    }
+
+    class PriceBasedStop {
+        -long stopPriceTicks
+        +StopResult evaluateStop(OrderSide side, MarketContext context)
+    }
+
+    class TimeBasedStop {
+        -LocalTime exitTime
+        +StopResult evaluateStop(OrderSide side, MarketContext context)
+    }
+
+    class StopResult {
+        -boolean stopped
+        -StopReason reason
+        -long exitPriceTicks
+        +StopResult stopped(StopReason reason, long exitPriceTicks)
+        +StopResult notStopped()
+        +boolean isStopped()
+        +StopReason getReason()
+        +long getExitPriceTicks()
+    }
+
+    class StopReason
+
+    FacadeForgeStop --> ForgeStopAccess
+    ForgeStopAccess --> StopModelCatalog
+    ForgeStopAccess --> StopModel : creates
+    StopModel <|.. PriceBasedStop
+    StopModel <|.. TimeBasedStop
+    StopModel --> StopResult
+    StopResult --> StopReason
 ```
 
 ## target Package
@@ -1114,10 +1200,10 @@ classDiagram
 
 - **Abstract class:** `Instrument` defines shared instrument behavior while requiring subclasses to provide the instrument type.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument` because futures instruments/contracts are specialized tradable instruments.
-- **Interfaces:** `TradingStrategy`, `TradeTrigger`, `TargetModel`, and `ExecutionEngine` define interchangeable behavior.
-- **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, and `TargetModel` without depending on specific implementations.
+- **Interfaces:** `TradingStrategy`, `TradeTrigger`, `StopModel`, `TargetModel`, and `ExecutionEngine` define interchangeable behavior.
+- **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, `StopModel`, and `TargetModel` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` are singleton entry points obtained with `getTheInstance()`. Package functionality is reached through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` are singleton entry points obtained with `getTheInstance()`. Package functionality is reached through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow.
 - **Service decomposition:** The app selection services own individual setup steps so the app facade can focus on coordinating the overall backtest setup.

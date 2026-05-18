@@ -7,6 +7,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import forge.target.FixedRiskRewardTarget;
 import forge.target.FixedTarget;
 import forge.trigger.OrderFlowExhaustionTrigger;
+import forge.trigger.PriceCrossoverTrigger;
 
 import java.util.List;
 
@@ -43,9 +44,9 @@ class StrategyCatalogTest {
             StrategyConfigurationProfile profile = catalog.getConfigurationProfile(RangeBreakoutStrategy.class);
 
             assertEquals(RangeBreakoutStrategy.class, profile.getStrategyClass());
-            assertEquals(List.of(OrderFlowExhaustionTrigger.class), profile.getAllowedTriggers());
+            assertEquals(List.of(OrderFlowExhaustionTrigger.class, PriceCrossoverTrigger.class), profile.getAllowedTriggers());
             assertEquals(OrderFlowExhaustionTrigger.class, profile.getDefaultTrigger());
-            assertFalse(profile.isTriggerSelectionAllowed());
+            assertTrue(profile.isTriggerSelectionAllowed());
             assertEquals(List.of(FixedRiskRewardTarget.class, FixedTarget.class), profile.getAllowedTargets());
             assertEquals(FixedRiskRewardTarget.class, profile.getDefaultTarget());
             assertTrue(profile.isTargetSelectionAllowed());

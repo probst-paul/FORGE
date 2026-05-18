@@ -12,7 +12,9 @@ import forge.app.UserQuitException;
 import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
+import forge.config.StrategyOptions;
 import forge.config.TargetSettings;
+import forge.config.TradeTriggerOptions;
 import forge.app.DataImportRequest;
 import forge.data.FacadeForgeData;
 import forge.data.importing.DataImportPlan;
@@ -164,6 +166,7 @@ public class CliApplicationController {
 
         printSection(output, strategyProfile.isTriggerSelectionAllowed() ? "Select Trade Trigger" : "Trade Trigger");
         Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output, strategyProfile);
+        TradeTriggerOptions triggerOptions = triggerSelectionService.readTriggerOptions(input, output, selectedTrigger);
 
         printSection(output, strategyProfile.isTargetSelectionAllowed() ? "Select Target Model" : "Target Model");
         Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output, strategyProfile);
@@ -177,11 +180,12 @@ public class CliApplicationController {
         );
 
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
-                strategySelectionService.getDisplayName(selectedStrategy),
+                new StrategyOptions(strategySelectionService.getDisplayName(selectedStrategy)),
                 selectedContracts.getContractWindows(),
-                triggerSelectionService.getDisplayName(selectedTrigger),
+                triggerOptions,
                 riskSettings,
-                targetSettings
+                targetSettings,
+                forgeConfig.forgeConfigAccess().defaultOrderSettings()
         );
     }
 

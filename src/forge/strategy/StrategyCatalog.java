@@ -5,6 +5,7 @@ import forge.target.FixedRiskRewardTarget;
 import forge.target.FixedTarget;
 import forge.target.TargetModel;
 import forge.trigger.OrderFlowExhaustionTrigger;
+import forge.trigger.PriceCrossoverTrigger;
 import forge.trigger.TradeTrigger;
 
 import java.io.IOException;
@@ -62,7 +63,7 @@ public class StrategyCatalog {
 
     public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategyClass) {
         if (RangeBreakoutStrategy.class.equals(strategyClass)) {
-            List<Class<? extends TradeTrigger>> allowedTriggers = List.of(OrderFlowExhaustionTrigger.class);
+            List<Class<? extends TradeTrigger>> allowedTriggers = List.of(OrderFlowExhaustionTrigger.class, PriceCrossoverTrigger.class);
             List<Class<? extends TargetModel>> allowedTargets = List.of(FixedRiskRewardTarget.class, FixedTarget.class);
             Map<Class<? extends TargetModel>, TargetSettings> defaultTargetSettings = new LinkedHashMap<>();
             defaultTargetSettings.put(FixedRiskRewardTarget.class, TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2.0));
@@ -71,7 +72,7 @@ public class StrategyCatalog {
                     strategyClass,
                     allowedTriggers,
                     OrderFlowExhaustionTrigger.class,
-                    false,
+                    true,
                     allowedTargets,
                     FixedRiskRewardTarget.class,
                     true,

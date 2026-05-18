@@ -21,6 +21,7 @@ class TriggerCatalogTest {
             List<Class<? extends TradeTrigger>> triggers = catalog.findAvailableTriggers();
 
             assertTrue(triggers.contains(OrderFlowExhaustionTrigger.class));
+            assertTrue(triggers.contains(PriceCrossoverTrigger.class));
         }
     }
 
@@ -29,6 +30,7 @@ class TriggerCatalogTest {
         @Test
         void removesTriggerSuffix() {
             assertEquals("OrderFlowExhaustion", catalog.getDisplayName(OrderFlowExhaustionTrigger.class));
+            assertEquals("PriceCrossover", catalog.getDisplayName(PriceCrossoverTrigger.class));
         }
     }
 }
