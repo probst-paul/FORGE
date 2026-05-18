@@ -26,6 +26,7 @@ class StrategyCatalogTest {
             List<Class<? extends TradingStrategy>> strategies = catalog.findAvailableStrategies();
 
             assertTrue(strategies.contains(RangeBreakoutStrategy.class));
+            assertTrue(strategies.contains(OpeningRangeContinuationStrategy.class));
         }
     }
 
@@ -34,6 +35,7 @@ class StrategyCatalogTest {
         @Test
         void removesStrategySuffix() {
             assertEquals("RangeBreakout", catalog.getDisplayName(RangeBreakoutStrategy.class));
+            assertEquals("OpeningRangeContinuation", catalog.getDisplayName(OpeningRangeContinuationStrategy.class));
         }
     }
 
@@ -52,6 +54,19 @@ class StrategyCatalogTest {
             assertTrue(profile.isTargetSelectionAllowed());
             assertEquals(2.0, profile.getDefaultTargetSettings(FixedRiskRewardTarget.class).getRewardRiskRatio());
             assertEquals(8, profile.getDefaultTargetSettings(FixedTarget.class).getProfitTargetTicks());
+        }
+
+        @Test
+        void openingRangeContinuationDefinesInternalTriggerAndTargetProfile() {
+            StrategyConfigurationProfile profile = catalog.getConfigurationProfile(OpeningRangeContinuationStrategy.class);
+
+            assertEquals(OpeningRangeContinuationStrategy.class, profile.getStrategyClass());
+            assertEquals(List.of(PriceCrossoverTrigger.class), profile.getAllowedTriggers());
+            assertEquals(PriceCrossoverTrigger.class, profile.getDefaultTrigger());
+            assertFalse(profile.isTriggerSelectionAllowed());
+            assertEquals(List.of(FixedTarget.class), profile.getAllowedTargets());
+            assertEquals(FixedTarget.class, profile.getDefaultTarget());
+            assertFalse(profile.isTargetSelectionAllowed());
         }
     }
 }

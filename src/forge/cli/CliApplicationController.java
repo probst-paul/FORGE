@@ -166,7 +166,9 @@ public class CliApplicationController {
 
         printSection(output, strategyProfile.isTriggerSelectionAllowed() ? "Select Trade Trigger" : "Trade Trigger");
         Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output, strategyProfile);
-        TradeTriggerOptions triggerOptions = triggerSelectionService.readTriggerOptions(input, output, selectedTrigger);
+        TradeTriggerOptions triggerOptions = strategyProfile.isTriggerSelectionAllowed()
+                ? triggerSelectionService.readTriggerOptions(input, output, selectedTrigger)
+                : triggerSelectionService.createDefaultTriggerOptions(selectedTrigger);
 
         printSection(output, strategyProfile.isTargetSelectionAllowed() ? "Select Target Model" : "Target Model");
         Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output, strategyProfile);

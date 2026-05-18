@@ -793,6 +793,25 @@ classDiagram
         -int quantity
     }
 
+    class OpeningRangeContinuationStrategy {
+        -int quantity
+        -ExitStyle exitStyle
+        -double rewardRiskRatio
+        -Map sessions
+        -TradePlan lastTradePlan
+        +Optional~OrderRequest~ evaluate(MarketContext context)
+        +Optional~TradePlan~ getLastTradePlan()
+    }
+
+    class ExitStyle
+
+    class TradePlan {
+        -OrderSide side
+        -long targetPriceTicks
+        -long stopPriceTicks
+        -LocalTime timeStop
+    }
+
     class TimeframeRangeCalculator {
         +Optional~PriceRange~ calculatePriceRange(Collection~TradeTick~ ticks, Instant startInclusive, Instant endExclusive)
     }
@@ -814,6 +833,9 @@ classDiagram
     StrategyConfigurationProfile --> TargetModel : allowed/default targets
     StrategyConfigurationProfile --> TargetSettings : defaults
     TradingStrategy <|.. RangeBreakoutStrategy
+    TradingStrategy <|.. OpeningRangeContinuationStrategy
+    OpeningRangeContinuationStrategy --> TradePlan : stores active plan
+    OpeningRangeContinuationStrategy --> ExitStyle
     TimeframeRangeCalculator --> TradeTick : scans
     TimeframeRangeCalculator --> PriceRange : returns
 ```

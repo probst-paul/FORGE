@@ -75,6 +75,10 @@ public class TriggerSelectionService {
         return PriceCrossoverTrigger.class.equals(trigger);
     }
 
+    public TradeTriggerOptions createDefaultTriggerOptions(Class<? extends TradeTrigger> trigger) {
+        return facadeTrigger.forgeTriggerAccess().createTriggerOptions(trigger);
+    }
+
     public TradeTriggerOptions readTriggerOptions(
             UserInput input,
             UserOutput output,

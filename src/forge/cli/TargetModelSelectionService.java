@@ -88,6 +88,9 @@ public class TargetModelSelectionService {
             StrategyConfigurationProfile strategyProfile
     ) {
         TargetSettings defaults = strategyProfile.getDefaultTargetSettings(targetModel);
+        if (!strategyProfile.isTargetSelectionAllowed()) {
+            return defaults;
+        }
         String targetModelName = getDisplayName(targetModel);
         while (true) {
             try {

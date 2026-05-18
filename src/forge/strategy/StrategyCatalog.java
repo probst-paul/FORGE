@@ -62,6 +62,22 @@ public class StrategyCatalog {
     }
 
     public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategyClass) {
+        if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {
+            List<Class<? extends TradeTrigger>> allowedTriggers = List.of(PriceCrossoverTrigger.class);
+            List<Class<? extends TargetModel>> allowedTargets = List.of(FixedTarget.class);
+            Map<Class<? extends TargetModel>, TargetSettings> defaultTargetSettings = new LinkedHashMap<>();
+            defaultTargetSettings.put(FixedTarget.class, TargetSettings.fixedTarget("Target", 1));
+            return new StrategyConfigurationProfile(
+                    strategyClass,
+                    allowedTriggers,
+                    PriceCrossoverTrigger.class,
+                    false,
+                    allowedTargets,
+                    FixedTarget.class,
+                    false,
+                    defaultTargetSettings
+            );
+        }
         if (RangeBreakoutStrategy.class.equals(strategyClass)) {
             List<Class<? extends TradeTrigger>> allowedTriggers = List.of(OrderFlowExhaustionTrigger.class, PriceCrossoverTrigger.class);
             List<Class<? extends TargetModel>> allowedTargets = List.of(FixedRiskRewardTarget.class, FixedTarget.class);

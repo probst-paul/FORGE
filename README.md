@@ -17,7 +17,9 @@ It is not yet a complete historical market replay or backtesting engine.
 - Futures contract model with symbol code, tick size, tick dollar amount, and expiration date
 - Static futures instrument definitions for ES, NQ, YM, RTY, and CL
 - Abstract `Instrument` base class with concrete futures instrument and futures contract models
-- Strategy interface with an implemented `RangeBreakoutStrategy`
+- Strategy interface with:
+  - `RangeBreakoutStrategy`
+  - `OpeningRangeContinuationStrategy`
 - Trade trigger interface with:
   - `OrderFlowExhaustionTrigger`
   - `PriceCrossoverTrigger`
@@ -66,6 +68,8 @@ Order settings are currently defaulted internally and are not exposed in the CLI
 Strategies own their compatible trigger and target choices. The CLI only asks the user to select a trigger or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default trigger and target settings; for example, `RangeBreakoutStrategy` defaults to `OrderFlowExhaustionTrigger`, also allows `PriceCrossoverTrigger`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
 
 `PriceCrossoverTrigger` is configured in ticks. For a long trigger, the condition is true when the current trade price reaches or exceeds the threshold. For a short trigger, the condition is true when the current trade price reaches or falls below the threshold.
+
+`OpeningRangeContinuationStrategy` uses Central Time sessions. It builds the overnight range from `17:00` through `08:29:59`, builds the RTH first-hour range from `08:30` through `09:29:59`, and only arms if the first-hour range remains inside the overnight range. Trades are allowed from `09:30` through `10:29:59`, one trade per day. By default, a long entry crosses the first-hour high, targets the overnight high, stops at the first-hour low, and time-stops at `10:30`; a short entry mirrors that logic at the first-hour low, overnight low, and first-hour high. The strategy can also be configured to use a risk/reward exit style, which keeps the same first-hour stop and calculates the target from entry risk in ticks.
 
 ## Not Yet Implemented
 
