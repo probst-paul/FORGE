@@ -142,7 +142,6 @@ public class ScidDataImportService {
                 }
         );
         tradeRepository.markImportComplete(tableName, sourceFileName);
-        listener.onProgress(new ImportProgress(contractSymbol, totalRecords, totalRecords));
 
         return new DataImportResult(
                 tradeRepository.getDatabaseName(),

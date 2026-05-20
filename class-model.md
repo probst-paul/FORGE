@@ -1218,7 +1218,7 @@ classDiagram
     Position --> TradeResult
 ```
 
-## Assignment 1 Technique Mapping
+## Technique Mapping
 
 - **Abstract class:** `Instrument` defines shared instrument behavior while requiring subclasses to provide the instrument type.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument` because futures instruments/contracts are specialized tradable instruments.
@@ -1226,6 +1226,8 @@ classDiagram
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, `StopModel`, and `TargetModel` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade pattern:** `FacadeForgeApplication` coordinates setup, while package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` are singleton entry points obtained with `getTheInstance()`. Package functionality is reached through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
-- **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow.
+- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Integrated file I/O:** `ScidTradeReader.readTrades(...)` performs the core file I/O by opening a SCID file with `FileChannel.open(scidFilePath, StandardOpenOption.READ)`, reading binary records into a `ByteBuffer`, validating the SCID header, and converting complete records into `TradeRow` objects. `ScidDataImportService` integrates that file reader into the import workflow and also uses `Files.size(...)` and `Files.getLastModifiedTime(...)` to capture file metadata for checkpointing.
+- **Exception handling:** `ConsoleUserInput` throws the user-defined `UserQuitException` when the user enters `quit` or console input ends, and `CliApplicationController` catches it to exit cleanly. Validation failures use `IllegalArgumentException` to reject invalid settings, unsupported contracts, and malformed SCID records before processing continues. File and database failures are caught as lower-level exceptions such as `IOException` or `SQLException` and wrapped in `IllegalStateException` with application-level messages.
+- **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation.
 - **Service decomposition:** The app selection services own individual setup steps so the app facade can focus on coordinating the overall backtest setup.

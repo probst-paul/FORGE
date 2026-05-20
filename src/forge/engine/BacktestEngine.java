@@ -130,7 +130,6 @@ public class BacktestEngine {
             processedTicks += batch.size();
             listener.onProgress(new BacktestProgress(Math.min(processedTicks, totalTicks), totalTicks));
         }
-        listener.onProgress(new BacktestProgress(totalTicks, totalTicks));
 
         return new BacktestResult(
                 request.getStrategyOptions().getStrategyName(),
