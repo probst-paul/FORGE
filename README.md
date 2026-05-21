@@ -25,12 +25,7 @@ It is not yet a complete historical market replay or backtesting engine.
 - Trade trigger interface with:
   - `OrderFlowExhaustionTrigger`
   - `PriceCrossoverTrigger`
-- Stop model interface for non-target trade exits with:
-  - `PriceBasedStop`
-  - `TimeBasedStop`
-- Target model interface with:
-  - `FixedRiskRewardTarget`
-  - `FixedTarget`
+- Target/stop exit settings represented by strategy trade plans and the trade lifecycle layer
 - Basic `OrderRequest` and `Fill` modeling
 - Completed-trade reporting metrics by instrument and contract
 - JUnit 5 tests for implemented behavior
@@ -49,7 +44,7 @@ Select Action
 │  ├─ Risk Settings
 │  ├─ Use or select strategy-compatible trade trigger
 │  ├─ Trigger options when the selected trigger requires parameters
-│  ├─ Use or select strategy-compatible target model
+│  ├─ Use or select strategy-compatible target mode
 │  ├─ Target model options with strategy defaults
 │  ├─ Build BacktestRequest
 │  ├─ Run backtest with progress
@@ -130,8 +125,8 @@ test/forge           JUnit 5 tests
 
 - **Abstract class:** `Instrument` stores common instrument identity and requires subclasses to provide `getInstrumentType()`.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument`.
-- **Interfaces:** `TradingStrategy`, `TradeTrigger`, `StopModel`, and `TargetModel` define interchangeable behavior.
-- **Polymorphism:** `FixedRiskRewardTarget` and `FixedTarget` both implement tick-based `TargetModel.calculateTarget(...)` with different behavior.
+- **Interfaces:** `TradingStrategy`, `TradeTrigger`, and `ExecutionEngine` define interchangeable behavior.
+- **Polymorphism:** Strategy and trigger implementations can be selected and evaluated through shared interfaces without depending on concrete classes.
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 
@@ -256,7 +251,7 @@ FORGE converts SCID float prices to integer tick counts during import using the 
 
 `MarketContext` carries both tick-native values and display-price accessors. New strategy logic should prefer `getLastPriceTicks()`, `getTickSize()`, and `getTickDollarValue()` for exact and efficient calculations, while `getLastPrice()` remains available for display-oriented or legacy strategy code.
 
-Target calculations are tick-native as well. `TargetModel.calculateTarget(...)` accepts entry and stop prices as tick counts, and `TargetResult` stores target/stop ticks. Display prices are derived only when needed by passing a tick size to `TargetResult`.
+Exit calculations are tick-native as well. Strategies emit `TradePlan` values containing target and stop prices in ticks, and `TradeLifecycleEngine` evaluates target, stop, and time-stop exits directly in tick space.
 
 Each contract table is treated as the authoritative dataset for that contract. If a contract table already exists, the CLI prompts before wiping and rebuilding it from the selected SCID file. FORGE stores the source file name and SCID record index on each row, creates a unique index over the SCID record index inside the contract table, and inserts with `ON CONFLICT DO NOTHING`. It also maintains a `forge_contract_imports` table with the source file metadata, next record index to process, row count, and first/last imported trade timestamps. The checkpoint advances only after a batch insert succeeds.
 

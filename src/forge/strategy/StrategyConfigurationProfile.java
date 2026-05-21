@@ -1,7 +1,6 @@
 package forge.strategy;
 
 import forge.config.TargetSettings;
-import forge.target.TargetModel;
 import forge.trigger.TradeTrigger;
 
 import java.util.Collections;
@@ -15,27 +14,27 @@ public class StrategyConfigurationProfile {
     private final List<Class<? extends TradeTrigger>> allowedTriggers;
     private final Class<? extends TradeTrigger> defaultTrigger;
     private final boolean triggerSelectionAllowed;
-    private final List<Class<? extends TargetModel>> allowedTargets;
-    private final Class<? extends TargetModel> defaultTarget;
+    private final List<String> allowedTargets;
+    private final String defaultTarget;
     private final boolean targetSelectionAllowed;
-    private final Map<Class<? extends TargetModel>, TargetSettings> defaultTargetSettingsByTarget;
+    private final Map<String, TargetSettings> defaultTargetSettingsByTarget;
 
     public StrategyConfigurationProfile(
             Class<? extends TradingStrategy> strategyClass,
             List<Class<? extends TradeTrigger>> allowedTriggers,
             Class<? extends TradeTrigger> defaultTrigger,
             boolean triggerSelectionAllowed,
-            List<Class<? extends TargetModel>> allowedTargets,
-            Class<? extends TargetModel> defaultTarget,
+            List<String> allowedTargets,
+            String defaultTarget,
             boolean targetSelectionAllowed,
-            Map<Class<? extends TargetModel>, TargetSettings> defaultTargetSettingsByTarget
+            Map<String, TargetSettings> defaultTargetSettingsByTarget
     ) {
         this.strategyClass = Objects.requireNonNull(strategyClass, "strategyClass is required");
         this.allowedTriggers = validateChoices(allowedTriggers, "allowedTriggers");
         this.defaultTrigger = validateDefault(defaultTrigger, this.allowedTriggers, "defaultTrigger");
         this.triggerSelectionAllowed = triggerSelectionAllowed && this.allowedTriggers.size() > 1;
-        this.allowedTargets = validateChoices(allowedTargets, "allowedTargets");
-        this.defaultTarget = validateDefault(defaultTarget, this.allowedTargets, "defaultTarget");
+        this.allowedTargets = validateTargetChoices(allowedTargets, "allowedTargets");
+        this.defaultTarget = validateDefaultTarget(defaultTarget, this.allowedTargets, "defaultTarget");
         this.targetSelectionAllowed = targetSelectionAllowed && this.allowedTargets.size() > 1;
         this.defaultTargetSettingsByTarget = validateDefaultTargetSettings(defaultTargetSettingsByTarget, this.allowedTargets);
     }
@@ -56,11 +55,11 @@ public class StrategyConfigurationProfile {
         return triggerSelectionAllowed;
     }
 
-    public List<Class<? extends TargetModel>> getAllowedTargets() {
+    public List<String> getAllowedTargets() {
         return allowedTargets;
     }
 
-    public Class<? extends TargetModel> getDefaultTarget() {
+    public String getDefaultTarget() {
         return defaultTarget;
     }
 
@@ -68,12 +67,19 @@ public class StrategyConfigurationProfile {
         return targetSelectionAllowed;
     }
 
-    public TargetSettings getDefaultTargetSettings(Class<? extends TargetModel> targetModel) {
-        TargetSettings settings = defaultTargetSettingsByTarget.get(targetModel);
+    public TargetSettings getDefaultTargetSettings(String targetMode) {
+        TargetSettings settings = defaultTargetSettingsByTarget.get(targetMode);
         if (settings == null) {
-            throw new IllegalArgumentException("No default target settings configured for " + targetModel.getSimpleName());
+            throw new IllegalArgumentException("No default target settings configured for " + targetMode);
         }
         return settings;
+    }
+
+    public String getTargetDisplayName(String targetMode) {
+        if (!allowedTargets.contains(targetMode)) {
+            throw new IllegalArgumentException("Target is not available for this strategy: " + targetMode);
+        }
+        return targetMode;
     }
 
     private <T> List<Class<? extends T>> validateChoices(List<Class<? extends T>> choices, String name) {
@@ -99,19 +105,46 @@ public class StrategyConfigurationProfile {
         return defaultChoice;
     }
 
-    private Map<Class<? extends TargetModel>, TargetSettings> validateDefaultTargetSettings(
-            Map<Class<? extends TargetModel>, TargetSettings> settingsByTarget,
-            List<Class<? extends TargetModel>> allowedTargets
+    private Map<String, TargetSettings> validateDefaultTargetSettings(
+            Map<String, TargetSettings> settingsByTarget,
+            List<String> allowedTargets
     ) {
         Objects.requireNonNull(settingsByTarget, "defaultTargetSettingsByTarget is required");
-        Map<Class<? extends TargetModel>, TargetSettings> normalized = new LinkedHashMap<>();
-        for (Class<? extends TargetModel> targetModel : allowedTargets) {
-            TargetSettings settings = settingsByTarget.get(targetModel);
+        Map<String, TargetSettings> normalized = new LinkedHashMap<>();
+        for (String targetMode : allowedTargets) {
+            TargetSettings settings = settingsByTarget.get(targetMode);
             if (settings == null) {
-                throw new IllegalArgumentException("Default target settings are required for " + targetModel.getSimpleName());
+                throw new IllegalArgumentException("Default target settings are required for " + targetMode);
             }
-            normalized.put(targetModel, settings);
+            normalized.put(targetMode, settings);
         }
         return Collections.unmodifiableMap(normalized);
+    }
+
+    private List<String> validateTargetChoices(List<String> choices, String name) {
+        Objects.requireNonNull(choices, name + " is required");
+        if (choices.isEmpty()) {
+            throw new IllegalArgumentException(name + " must contain at least one choice");
+        }
+        for (String choice : choices) {
+            if (choice == null || choice.trim().isEmpty()) {
+                throw new IllegalArgumentException(name + " cannot contain blank choices");
+            }
+        }
+        return Collections.unmodifiableList(List.copyOf(choices));
+    }
+
+    private String validateDefaultTarget(
+            String defaultChoice,
+            List<String> allowedChoices,
+            String name
+    ) {
+        if (defaultChoice == null || defaultChoice.trim().isEmpty()) {
+            throw new IllegalArgumentException(name + " is required");
+        }
+        if (!allowedChoices.contains(defaultChoice)) {
+            throw new IllegalArgumentException(name + " must be included in allowed choices");
+        }
+        return defaultChoice;
     }
 }

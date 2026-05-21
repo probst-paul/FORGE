@@ -29,8 +29,6 @@ import forge.reporting.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.StrategyConfigurationProfile;
 import forge.strategy.TradingStrategy;
-import forge.target.FacadeForgeTarget;
-import forge.target.TargetModel;
 import forge.trigger.FacadeForgeTrigger;
 import forge.trigger.TradeTrigger;
 
@@ -48,7 +46,7 @@ public class CliApplicationController {
     private final StrategySelectionService strategySelectionService;
     private final RiskSettingsSelectionService riskSettingsSelectionService;
     private final TriggerSelectionService triggerSelectionService;
-    private final TargetModelSelectionService targetModelSelectionService;
+    private final TargetSettingsSelectionService targetSettingsSelectionService;
 
     public CliApplicationController() {
         this(
@@ -58,7 +56,7 @@ public class CliApplicationController {
                 new StrategySelectionService(FacadeForgeStrategy.getTheInstance()),
                 new RiskSettingsSelectionService(),
                 new TriggerSelectionService(FacadeForgeTrigger.getTheInstance()),
-                new TargetModelSelectionService(FacadeForgeTarget.getTheInstance())
+                new TargetSettingsSelectionService()
         );
     }
 
@@ -69,7 +67,7 @@ public class CliApplicationController {
             StrategySelectionService strategySelectionService,
             RiskSettingsSelectionService riskSettingsSelectionService,
             TriggerSelectionService triggerSelectionService,
-            TargetModelSelectionService targetModelSelectionService
+            TargetSettingsSelectionService targetSettingsSelectionService
     ) {
         this.forgeApplication = forgeApplication;
         this.forgeConfig = forgeConfig;
@@ -77,7 +75,7 @@ public class CliApplicationController {
         this.strategySelectionService = strategySelectionService;
         this.riskSettingsSelectionService = riskSettingsSelectionService;
         this.triggerSelectionService = triggerSelectionService;
-        this.targetModelSelectionService = targetModelSelectionService;
+        this.targetSettingsSelectionService = targetSettingsSelectionService;
     }
 
     public void run() {
@@ -181,14 +179,14 @@ public class CliApplicationController {
                 ? triggerSelectionService.readTriggerOptions(input, output, selectedTrigger)
                 : triggerSelectionService.createDefaultTriggerOptions(selectedTrigger);
 
-        printSection(output, strategyProfile.isTargetSelectionAllowed() ? "Select Target Model" : "Target Model");
-        Class<? extends TargetModel> selectedTargetModel = targetModelSelectionService.selectTargetModel(input, output, strategyProfile);
+        printSection(output, strategyProfile.isTargetSelectionAllowed() ? "Select Target Mode" : "Target Mode");
+        String selectedTargetMode = targetSettingsSelectionService.selectTargetMode(input, output, strategyProfile);
 
-        printSection(output, "Target Model Options");
-        TargetSettings targetSettings = targetModelSelectionService.readTargetModelSettings(
+        printSection(output, "Target Options");
+        TargetSettings targetSettings = targetSettingsSelectionService.readTargetSettings(
                 input,
                 output,
-                selectedTargetModel,
+                selectedTargetMode,
                 strategyProfile
         );
 

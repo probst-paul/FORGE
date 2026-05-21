@@ -20,8 +20,6 @@ classDiagram
     class ContractRolloverCalendar
     class FacadeForgeStrategy
     class FacadeForgeTrigger
-    class FacadeForgeStop
-    class FacadeForgeTarget
     class FacadeForgeEngine
     class FacadeForgeFeature
     class FacadeForgeEvent
@@ -35,7 +33,7 @@ classDiagram
     class InstrumentSelectionService
     class StrategySelectionService
     class TriggerSelectionService
-    class TargetModelSelectionService
+    class TargetSettingsSelectionService
     class RiskSettingsSelectionService
 
     Main --> FacadeForgeCli
@@ -47,7 +45,7 @@ classDiagram
     CliApplicationController --> StrategySelectionService : strategy
     CliApplicationController --> RiskSettingsSelectionService : risk settings
     CliApplicationController --> TriggerSelectionService : trigger
-    CliApplicationController --> TargetModelSelectionService : target settings
+    CliApplicationController --> TargetSettingsSelectionService : target settings
     CliApplicationController --> FacadeForgeConfig : build request
 
     InstrumentSelectionService --> FacadeForgeData
@@ -59,8 +57,6 @@ classDiagram
     ScidDataImportService --> PostgresTradeRepository : persist rows
     StrategySelectionService --> FacadeForgeStrategy
     TriggerSelectionService --> FacadeForgeTrigger
-    FacadeForgeApplication ..> FacadeForgeStop : later manage stops
-    TargetModelSelectionService --> FacadeForgeTarget
 
     ForgeApplicationAccess ..> FacadeForgeEngine : run request
     ForgeApplicationAccess ..> FacadeForgeFeature : later build features
@@ -92,8 +88,7 @@ sequenceDiagram
     participant Risk as RiskSettingsSelectionService
     participant Triggers as TriggerSelectionService
     participant Trigger as FacadeForgeTrigger
-    participant Targets as TargetModelSelectionService
-    participant Target as FacadeForgeTarget
+    participant Targets as TargetSettingsSelectionService
     participant Config as FacadeForgeConfig
 
     Main->>CliFacade: forgeCliAccess().run()
@@ -138,14 +133,14 @@ sequenceDiagram
         Triggers->>Trigger: forgeTriggerAccess().createTriggerOptions(trigger, parameters)
         Triggers-->>Cli: TradeTriggerOptions
 
-        Cli->>Targets: selectTargetModel(input, output, strategy profile)
+        Cli->>Targets: selectTargetMode(input, output, strategy profile)
         Targets->>Target: forgeTargetAccess().getDisplayName(target)
         opt Strategy allows target selection
             Targets->>Input: readInt(selection)
         end
         Targets-->>Cli: selected target class
 
-        Cli->>Targets: readTargetModelSettings(input, selected target, strategy profile)
+        Cli->>Targets: readTargetSettings(input, selected target mode, strategy profile)
         Targets->>Input: read target-specific value with strategy default
         Targets->>Target: forgeTargetAccess().create target settings
         Targets-->>Cli: TargetSettings
@@ -327,10 +322,10 @@ classDiagram
         +String getDisplayName(Class trigger)
     }
 
-    class TargetModelSelectionService {
-        +Class selectTargetModel(UserInput input, UserOutput output)
-        +TargetSettings readTargetModelSettings(UserInput input, Class targetModel)
-        +String getDisplayName(Class targetModel)
+    class TargetSettingsSelectionService {
+        +String selectTargetMode(UserInput input, UserOutput output)
+        +TargetSettings readTargetSettings(UserInput input, String targetMode)
+        +String getDisplayName(String targetMode)
     }
 
     FacadeForgeCli --> ForgeCliAccess
@@ -341,7 +336,7 @@ classDiagram
     CliApplicationController --> StrategySelectionService
     CliApplicationController --> RiskSettingsSelectionService
     CliApplicationController --> TriggerSelectionService
-    CliApplicationController --> TargetModelSelectionService
+    CliApplicationController --> TargetSettingsSelectionService
 ```
 
 ## config Package
@@ -388,7 +383,7 @@ classDiagram
     }
 
     class TargetSettings {
-        -String targetModel
+        -String targetMode
         -Double rewardRiskRatio
         -Integer profitTargetTicks
     }
@@ -784,10 +779,10 @@ classDiagram
         -List~Class~ allowedTriggers
         -Class defaultTrigger
         -boolean triggerSelectionAllowed
-        -List~Class~ allowedTargets
-        -Class defaultTarget
+        -List~String~ allowedTargets
+        -String defaultTarget
         -boolean targetSelectionAllowed
-        +TargetSettings getDefaultTargetSettings(Class targetModel)
+        +TargetSettings getDefaultTargetSettings(String targetMode)
     }
 
     class TradingStrategy {
@@ -840,7 +835,7 @@ classDiagram
     StrategyCatalog --> StrategyConfigurationProfile : creates
     ForgeStrategyAccess --> TradingStrategy : creates
     StrategyConfigurationProfile --> TradeTrigger : allowed/default triggers
-    StrategyConfigurationProfile --> TargetModel : allowed/default targets
+    StrategyConfigurationProfile --> TargetSettings : allowed/default targets
     StrategyConfigurationProfile --> TargetSettings : defaults
     TradingStrategy <|.. RangeBreakoutStrategy
     TradingStrategy <|.. OpeningRangeContinuationStrategy
@@ -904,122 +899,6 @@ classDiagram
     TradeTrigger --> TriggerResult
     PriceCrossoverTrigger --> TriggerDirection
     TriggerResult --> TriggerDirection
-```
-
-## stop Package
-
-```mermaid
-classDiagram
-    direction LR
-
-    class FacadeForgeStop {
-        +FacadeForgeStop getTheInstance()
-        +ForgeStopAccess forgeStopAccess()
-    }
-
-    class ForgeStopAccess {
-        +List~Class~ findAvailableStopModels()
-        +String getDisplayName(Class stopModel)
-        +PriceBasedStop createPriceBasedStop(long stopPriceTicks)
-        +TimeBasedStop createTimeBasedStop(LocalTime exitTime)
-        +StopModel createStopModel(Class stopModel)
-    }
-
-    class StopModelCatalog {
-        +List~Class~ findAvailableStopModels()
-        +String getDisplayName(Class stopModelClass)
-    }
-
-    class StopModel {
-        <<interface>>
-        +String getName()
-        +StopResult evaluateStop(OrderSide side, MarketContext context)
-    }
-
-    class PriceBasedStop {
-        -long stopPriceTicks
-        +StopResult evaluateStop(OrderSide side, MarketContext context)
-    }
-
-    class TimeBasedStop {
-        -LocalTime exitTime
-        +StopResult evaluateStop(OrderSide side, MarketContext context)
-    }
-
-    class StopResult {
-        -boolean stopped
-        -StopReason reason
-        -long exitPriceTicks
-        +StopResult stopped(StopReason reason, long exitPriceTicks)
-        +StopResult notStopped()
-        +boolean isStopped()
-        +StopReason getReason()
-        +long getExitPriceTicks()
-    }
-
-    class StopReason
-
-    FacadeForgeStop --> ForgeStopAccess
-    ForgeStopAccess --> StopModelCatalog
-    ForgeStopAccess --> StopModel : creates
-    StopModel <|.. PriceBasedStop
-    StopModel <|.. TimeBasedStop
-    StopModel --> StopResult
-    StopResult --> StopReason
-```
-
-## target Package
-
-```mermaid
-classDiagram
-    direction LR
-
-    class FacadeForgeTarget {
-        +FacadeForgeTarget getTheInstance()
-        +ForgeTargetAccess forgeTargetAccess()
-    }
-
-    class ForgeTargetAccess {
-        +List~Class~ findAvailableTargetModels()
-        +String getDisplayName(Class targetModel)
-        +TargetSettings createFixedRiskRewardSettings(Class targetModel, double rewardRiskRatio)
-        +TargetSettings createFixedTargetSettings(Class targetModel, int profitTargetTicks)
-        +TargetModel createTargetModel(Class targetModel)
-    }
-
-    class TargetModelCatalog {
-        +List~Class~ findAvailableTargetModels()
-        +String getDisplayName(Class targetModelClass)
-    }
-
-    class TargetModel {
-        <<interface>>
-        +String getName()
-        +TargetResult calculateTarget(OrderSide side, long entryPriceTicks, long stopPriceTicks)
-    }
-
-    class FixedRiskRewardTarget {
-        -double rewardRiskRatio
-    }
-
-    class FixedTarget {
-        -int targetTicks
-    }
-
-    class TargetResult {
-        -long targetPriceTicks
-        -long stopPriceTicks
-        +double getTargetPrice(double tickSize)
-        +double getStopPrice(double tickSize)
-    }
-
-    FacadeForgeTarget --> ForgeTargetAccess
-    ForgeTargetAccess --> TargetModelCatalog
-    ForgeTargetAccess --> TargetModel : creates
-    ForgeTargetAccess --> TargetSettings : creates
-    TargetModel <|.. FixedRiskRewardTarget
-    TargetModel <|.. FixedTarget
-    TargetModel --> TargetResult
 ```
 
 ## engine Package
@@ -1537,11 +1416,11 @@ classDiagram
 
 - **Abstract class:** `Instrument` defines shared instrument behavior while requiring subclasses to provide the instrument type.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument` because futures instruments/contracts are specialized tradable instruments.
-- **Interfaces:** `TradingStrategy`, `TradeTrigger`, `StopModel`, `TargetModel`, and `ExecutionEngine` define interchangeable behavior.
-- **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, `StopModel`, and `TargetModel` without depending on specific implementations.
+- **Interfaces:** `TradingStrategy`, `TradeTrigger`, and `ExecutionEngine` define interchangeable behavior.
+- **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, and `ExecutionEngine` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeTrade`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeTrade`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Integrated file I/O:** `ScidTradeReader.readTrades(...)` performs the core file I/O by opening a SCID file with `FileChannel.open(scidFilePath, StandardOpenOption.READ)`, reading binary records into a `ByteBuffer`, validating the SCID header, and converting complete records into `TradeRow` objects. `ScidDataImportService` integrates that file reader into the import workflow and also uses `Files.size(...)` and `Files.getLastModifiedTime(...)` to capture file metadata for checkpointing.
 - **Exception handling:** `ConsoleUserInput` throws the user-defined `UserQuitException` when the user enters `quit` or console input ends, and `CliApplicationController` catches it to exit cleanly. Validation failures use `IllegalArgumentException` to reject invalid settings, unsupported contracts, and malformed SCID records before processing continues. File and database failures are caught as lower-level exceptions such as `IOException` or `SQLException` and wrapped in `IllegalStateException` with application-level messages.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation.

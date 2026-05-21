@@ -57,7 +57,7 @@ class SettingsValidationTest {
         void createsFixedRiskRewardSettings() {
             TargetSettings settings = TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2.0);
 
-            assertEquals("Fixed Risk/Reward", settings.getTargetModel());
+            assertEquals("Fixed Risk/Reward", settings.getTargetMode());
             assertEquals(2.0, settings.getRewardRiskRatio());
         }
 

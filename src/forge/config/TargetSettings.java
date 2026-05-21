@@ -1,17 +1,20 @@
 package forge.config;
 
 public class TargetSettings {
-    private final String targetModel;
+    public static final String FIXED_RISK_REWARD = "Fixed Risk/Reward";
+    public static final String FIXED_TARGET = "Target";
+
+    private final String targetMode;
     private final Double rewardRiskRatio;
     private final Integer profitTargetTicks;
 
     public TargetSettings(
-            String targetModel,
+            String targetMode,
             Double rewardRiskRatio,
             Integer profitTargetTicks
     ) {
-        if (targetModel == null || targetModel.trim().isEmpty()) {
-            throw new IllegalArgumentException("targetModel is required");
+        if (targetMode == null || targetMode.trim().isEmpty()) {
+            throw new IllegalArgumentException("targetMode is required");
         }
         if (rewardRiskRatio != null && rewardRiskRatio <= 0) {
             throw new IllegalArgumentException("rewardRiskRatio must be greater than zero");
@@ -20,27 +23,35 @@ public class TargetSettings {
             throw new IllegalArgumentException("profitTargetTicks must be greater than zero");
         }
         if (rewardRiskRatio == null && profitTargetTicks == null) {
-            throw new IllegalArgumentException("target model options are required");
+            throw new IllegalArgumentException("target mode options are required");
         }
 
-        this.targetModel = targetModel.trim();
+        this.targetMode = targetMode.trim();
         this.rewardRiskRatio = rewardRiskRatio;
         this.profitTargetTicks = profitTargetTicks;
     }
 
-    public static TargetSettings fixedRiskReward(String targetModel, double rewardRiskRatio) {
-        return new TargetSettings(targetModel, rewardRiskRatio, null);
+    public static TargetSettings fixedRiskReward(String targetMode, double rewardRiskRatio) {
+        return new TargetSettings(targetMode, rewardRiskRatio, null);
     }
 
-    public static TargetSettings fixedTarget(String targetModel, int profitTargetTicks) {
+    public static TargetSettings fixedRiskReward(double rewardRiskRatio) {
+        return fixedRiskReward(FIXED_RISK_REWARD, rewardRiskRatio);
+    }
+
+    public static TargetSettings fixedTarget(String targetMode, int profitTargetTicks) {
         if (profitTargetTicks <= 0) {
             throw new IllegalArgumentException("profitTargetTicks must be greater than zero");
         }
-        return new TargetSettings(targetModel, null, profitTargetTicks);
+        return new TargetSettings(targetMode, null, profitTargetTicks);
     }
 
-    public String getTargetModel() {
-        return targetModel;
+    public static TargetSettings fixedTarget(int profitTargetTicks) {
+        return fixedTarget(FIXED_TARGET, profitTargetTicks);
+    }
+
+    public String getTargetMode() {
+        return targetMode;
     }
 
     public Double getRewardRiskRatio() {
@@ -54,7 +65,7 @@ public class TargetSettings {
     @Override
     public String toString() {
         return "TargetSettings{" +
-                "targetModel='" + targetModel + '\'' +
+                "targetMode='" + targetMode + '\'' +
                 ", rewardRiskRatio=" + rewardRiskRatio +
                 ", profitTargetTicks=" + profitTargetTicks +
                 '}';
