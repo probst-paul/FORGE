@@ -21,6 +21,7 @@ import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.app.EventStatisticsRequest;
+import forge.app.EventStatisticsProgress;
 import forge.event.FirstHourBreachEvent;
 import forge.query.EventStatisticsReport;
 import forge.query.EventStatisticsResult;
@@ -207,9 +208,14 @@ public class CliApplicationController {
 
         printSection(output, "Select Event Statistic");
         String eventName = selectEventStatistic(input, output);
+        boolean[] eventStatisticsProgressFinished = {false};
 
         EventStatisticsReport report = forgeApplication.forgeApplicationAccess().runEventStatistics(
-                new EventStatisticsRequest(selectedContracts.getContractWindows(), eventName)
+                new EventStatisticsRequest(
+                        selectedContracts.getContractWindows(),
+                        eventName,
+                        progress -> printEventStatisticsProgress(output, progress, eventStatisticsProgressFinished)
+                )
         );
 
         output.printBlankLine();
@@ -367,6 +373,27 @@ public class CliApplicationController {
 
     private String renderBacktestProgress(BacktestProgress progress) {
         return "Running backtest [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
+                progress.getCompletionPercent() + "% " +
+                progress.getProcessedTicks() + "/" + progress.getTotalTicks();
+    }
+
+    private void printEventStatisticsProgress(
+            UserOutput output,
+            EventStatisticsProgress progress,
+            boolean[] finished
+    ) {
+        if (finished[0]) {
+            return;
+        }
+        output.printStatusLine(renderEventStatisticsProgress(progress));
+        if (progress.getProcessedTicks() == progress.getTotalTicks()) {
+            output.finishStatusLine();
+            finished[0] = true;
+        }
+    }
+
+    private String renderEventStatisticsProgress(EventStatisticsProgress progress) {
+        return "Running event statistics [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
                 progress.getProcessedTicks() + "/" + progress.getTotalTicks();
     }

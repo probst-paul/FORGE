@@ -1353,6 +1353,7 @@ classDiagram
     class ForgeQueryAccess {
         +List~String~ getSupportedQueryEventNames()
         +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
+        +EventStatisticsReport runEventStatistics(EventStatisticsQueryRequest request)
     }
 
     class QueryService {
@@ -1360,8 +1361,35 @@ classDiagram
         +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
     }
 
+    class EventStatisticsQueryRunner {
+        +EventStatisticsReport run(EventStatisticsQueryRequest request)
+    }
+
+    class QueryTradeTickSource {
+        <<interface>>
+        +TradeBatchReader openTradeBatchReader(List~ContractTradeWindow~ windows, int batchSize)
+        +long countTradeTicks(List~ContractTradeWindow~ windows)
+    }
+
+    class QueryDerivedDataStore {
+        <<interface>>
+        +boolean areSessionRangesBuilt(List~ContractTradeWindow~ windows)
+        +List~SessionRangeFeature~ loadSessionRanges(List~ContractTradeWindow~ windows)
+        +void saveSessionRanges(Collection~SessionRangeFeature~ features)
+        +boolean areMarketEventsBuilt(List~ContractTradeWindow~ windows, String eventName)
+        +List~MarketEvent~ loadMarketEvents(List~ContractTradeWindow~ windows, String eventName)
+        +void saveMarketEvents(Collection~MarketEvent~ events)
+    }
+
     class EventStatisticsQuery {
         -String eventName
+    }
+
+    class EventStatisticsQueryRequest {
+        -List~ContractTradeWindow~ contractWindows
+        -String eventName
+        -int batchSize
+        -EventStatisticsProgressListener progressListener
     }
 
     class EventStatisticsResult {
@@ -1383,6 +1411,13 @@ classDiagram
 
     FacadeForgeQuery --> ForgeQueryAccess
     ForgeQueryAccess --> QueryService
+    ForgeQueryAccess --> EventStatisticsQueryRunner
+    EventStatisticsQueryRunner --> QueryTradeTickSource
+    EventStatisticsQueryRunner --> QueryDerivedDataStore
+    EventStatisticsQueryRunner --> EventStatisticsQueryRequest
+    EventStatisticsQueryRunner --> FeatureBuildService
+    EventStatisticsQueryRunner --> EventBuildService
+    EventStatisticsQueryRunner --> QueryService
     QueryService --> EventStatisticsQuery
     QueryService --> EventStatisticsReport
     QueryService --> EventStatisticsResult

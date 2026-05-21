@@ -70,7 +70,7 @@ Backtest setup no longer asks for a free-form date range. The CLI selects valid 
 
 `BacktestRequest` carries those selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.
 
-Event statistics reuse the same selected contract windows as backtests. `First Hour Breach Frequency` calculates Central Time session ranges, detects the first post-first-hour breach of the first-hour high or low, and reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract.
+Event statistics reuse the same selected contract windows as backtests. `First Hour Breach Frequency` is executed through the query layer with a single-line CLI progress bar. On the first run for a selected contract window, FORGE reads the selected trade ticks, stores derived session ranges and first-hour breach events in PostgreSQL, then reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract. Later runs for the same contract window reuse the stored derived rows instead of scanning the trade ticks again.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
@@ -82,8 +82,6 @@ Strategies own their compatible trigger and target choices. The CLI only asks th
 
 ## Not Yet Implemented
 
-- Database persistence for derived session range features
-- Database persistence for derived market events
 - Additional event detectors beyond first-hour breach
 - Analytics feature calculation beyond placeholder models
 - Full backtest package behavior beyond placeholder position/trade-result models

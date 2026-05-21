@@ -4,12 +4,17 @@ import forge.data.catalog.ContractDataSummary;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.ImportCheckpoint;
 import forge.data.importing.TradeRow;
+import forge.data.market.ContractTradeWindow;
+import forge.event.EventSide;
+import forge.event.MarketEvent;
+import forge.feature.SessionRangeFeature;
 import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyManager;
 
 import java.io.IOException;
 import java.io.StringReader;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,12 +23,20 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public class PostgresTradeRepository {
     private static final String IMPORT_CHECKPOINT_TABLE = "forge_contract_imports";
+    private static final String SESSION_RANGE_TABLE = "forge_session_ranges";
+    private static final String MARKET_EVENT_TABLE = "forge_market_events";
+    private static final String DERIVED_BUILD_TABLE = "forge_derived_builds";
+    private static final String BUILD_TYPE_SESSION_RANGE = "SESSION_RANGE";
+    private static final String BUILD_TYPE_MARKET_EVENT = "MARKET_EVENT";
 
     private final PostgresDatabaseSettings settings;
 
@@ -176,6 +189,65 @@ public class PostgresTradeRepository {
             );
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not prepare PostgreSQL import checkpoint table", exception);
+        }
+    }
+
+    public void ensureDerivedDataTablesExist() {
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        );
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS " + quoteIdentifier(SESSION_RANGE_TABLE) + " (" +
+                            quoteIdentifier("contractSymbol") + " TEXT NOT NULL, " +
+                            quoteIdentifier("sessionDate") + " DATE NOT NULL, " +
+                            quoteIdentifier("featureVersion") + " INT NOT NULL, " +
+                            quoteIdentifier("overnightLowTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("overnightHighTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("firstHourLowTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("firstHourHighTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("rthLowTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("rthHighTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("createdAt") + " TIMESTAMPTZ NOT NULL, " +
+                            "PRIMARY KEY (" + quoteIdentifier("contractSymbol") + ", " +
+                            quoteIdentifier("sessionDate") + ", " +
+                            quoteIdentifier("featureVersion") + ")" +
+                            ")"
+            );
+            statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS " + quoteIdentifier(MARKET_EVENT_TABLE) + " (" +
+                            quoteIdentifier("contractSymbol") + " TEXT NOT NULL, " +
+                            quoteIdentifier("sessionDate") + " DATE NOT NULL, " +
+                            quoteIdentifier("eventName") + " TEXT NOT NULL, " +
+                            quoteIdentifier("eventVersion") + " INT NOT NULL, " +
+                            "side TEXT NOT NULL, " +
+                            quoteIdentifier("eventTime") + " TIMESTAMPTZ NOT NULL, " +
+                            quoteIdentifier("eventPriceTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("createdAt") + " TIMESTAMPTZ NOT NULL, " +
+                            "PRIMARY KEY (" + quoteIdentifier("contractSymbol") + ", " +
+                            quoteIdentifier("sessionDate") + ", " +
+                            quoteIdentifier("eventName") + ", " +
+                            quoteIdentifier("eventVersion") + ")" +
+                            ")"
+            );
+            statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS " + quoteIdentifier(DERIVED_BUILD_TABLE) + " (" +
+                            quoteIdentifier("buildType") + " TEXT NOT NULL, " +
+                            "name TEXT NOT NULL, " +
+                            quoteIdentifier("contractSymbol") + " TEXT NOT NULL, " +
+                            quoteIdentifier("startDate") + " DATE NOT NULL, " +
+                            quoteIdentifier("endDate") + " DATE NOT NULL, " +
+                            quoteIdentifier("builtAt") + " TIMESTAMPTZ NOT NULL, " +
+                            "PRIMARY KEY (" + quoteIdentifier("buildType") + ", name, " +
+                            quoteIdentifier("contractSymbol") + ", " +
+                            quoteIdentifier("startDate") + ", " +
+                            quoteIdentifier("endDate") + ")" +
+                            ")"
+            );
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not prepare PostgreSQL derived data tables", exception);
         }
     }
 
@@ -383,6 +455,226 @@ public class PostgresTradeRepository {
         }
     }
 
+    public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
+        return areDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, windows);
+    }
+
+    public List<SessionRangeFeature> loadSessionRanges(List<ContractTradeWindow> windows) {
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<SessionRangeFeature> features = new ArrayList<>();
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            for (ContractTradeWindow window : windows) {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT " + quoteIdentifier("contractSymbol") + ", " +
+                                quoteIdentifier("sessionDate") + ", " +
+                                quoteIdentifier("overnightLowTicks") + ", " +
+                                quoteIdentifier("overnightHighTicks") + ", " +
+                                quoteIdentifier("firstHourLowTicks") + ", " +
+                                quoteIdentifier("firstHourHighTicks") + ", " +
+                                quoteIdentifier("rthLowTicks") + ", " +
+                                quoteIdentifier("rthHighTicks") +
+                                " FROM " + quoteIdentifier(SESSION_RANGE_TABLE) +
+                                " WHERE " + quoteIdentifier("contractSymbol") + " = ?" +
+                                " AND " + quoteIdentifier("featureVersion") + " = ?" +
+                                " AND " + quoteIdentifier("sessionDate") + " >= ?" +
+                                " AND " + quoteIdentifier("sessionDate") + " <= ?" +
+                                " ORDER BY " + quoteIdentifier("contractSymbol") + ", " + quoteIdentifier("sessionDate")
+                )) {
+                    statement.setString(1, window.getContractSymbol());
+                    statement.setInt(2, SessionRangeFeature.FEATURE_VERSION);
+                    statement.setDate(3, Date.valueOf(window.getStartDate()));
+                    statement.setDate(4, Date.valueOf(window.getEndDate()));
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        while (resultSet.next()) {
+                            features.add(new SessionRangeFeature(
+                                    resultSet.getString(1),
+                                    resultSet.getDate(2).toLocalDate(),
+                                    resultSet.getLong(3),
+                                    resultSet.getLong(4),
+                                    resultSet.getLong(5),
+                                    resultSet.getLong(6),
+                                    resultSet.getLong(7),
+                                    resultSet.getLong(8)
+                            ));
+                        }
+                    }
+                }
+            }
+            return Collections.unmodifiableList(features);
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not load session range features from PostgreSQL", exception);
+        }
+    }
+
+    public void saveSessionRanges(Collection<SessionRangeFeature> sessionRangeFeatures) {
+        ensureDerivedDataTablesExist();
+        if (sessionRangeFeatures == null || sessionRangeFeatures.isEmpty()) {
+            return;
+        }
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        );
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO " + quoteIdentifier(SESSION_RANGE_TABLE) + " (" +
+                             quoteIdentifier("contractSymbol") + ", " +
+                             quoteIdentifier("sessionDate") + ", " +
+                             quoteIdentifier("featureVersion") + ", " +
+                             quoteIdentifier("overnightLowTicks") + ", " +
+                             quoteIdentifier("overnightHighTicks") + ", " +
+                             quoteIdentifier("firstHourLowTicks") + ", " +
+                             quoteIdentifier("firstHourHighTicks") + ", " +
+                             quoteIdentifier("rthLowTicks") + ", " +
+                             quoteIdentifier("rthHighTicks") + ", " +
+                             quoteIdentifier("createdAt") +
+                             ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" +
+                             " ON CONFLICT (" + quoteIdentifier("contractSymbol") + ", " +
+                             quoteIdentifier("sessionDate") + ", " +
+                             quoteIdentifier("featureVersion") + ") DO UPDATE SET " +
+                             quoteIdentifier("overnightLowTicks") + " = EXCLUDED." + quoteIdentifier("overnightLowTicks") + ", " +
+                             quoteIdentifier("overnightHighTicks") + " = EXCLUDED." + quoteIdentifier("overnightHighTicks") + ", " +
+                             quoteIdentifier("firstHourLowTicks") + " = EXCLUDED." + quoteIdentifier("firstHourLowTicks") + ", " +
+                             quoteIdentifier("firstHourHighTicks") + " = EXCLUDED." + quoteIdentifier("firstHourHighTicks") + ", " +
+                             quoteIdentifier("rthLowTicks") + " = EXCLUDED." + quoteIdentifier("rthLowTicks") + ", " +
+                             quoteIdentifier("rthHighTicks") + " = EXCLUDED." + quoteIdentifier("rthHighTicks")
+             )) {
+            for (SessionRangeFeature feature : sessionRangeFeatures) {
+                statement.setString(1, feature.getContractSymbol());
+                statement.setDate(2, Date.valueOf(feature.getSessionDate()));
+                statement.setInt(3, SessionRangeFeature.FEATURE_VERSION);
+                statement.setLong(4, feature.getOvernightLowTicks());
+                statement.setLong(5, feature.getOvernightHighTicks());
+                statement.setLong(6, feature.getFirstHourLowTicks());
+                statement.setLong(7, feature.getFirstHourHighTicks());
+                statement.setLong(8, feature.getRthLowTicks());
+                statement.setLong(9, feature.getRthHighTicks());
+                statement.setTimestamp(10, Timestamp.from(Instant.now()));
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not save session range features to PostgreSQL", exception);
+        }
+    }
+
+    public void markSessionRangesBuilt(List<ContractTradeWindow> windows) {
+        markDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, windows);
+    }
+
+    public boolean areMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+        return areDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
+    }
+
+    public List<MarketEvent> loadMarketEvents(List<ContractTradeWindow> windows, String eventName) {
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<MarketEvent> events = new ArrayList<>();
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            for (ContractTradeWindow window : windows) {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT " + quoteIdentifier("contractSymbol") + ", " +
+                                quoteIdentifier("sessionDate") + ", " +
+                                quoteIdentifier("eventName") + ", " +
+                                quoteIdentifier("eventVersion") + ", " +
+                                "side, " +
+                                quoteIdentifier("eventTime") + ", " +
+                                quoteIdentifier("eventPriceTicks") +
+                                " FROM " + quoteIdentifier(MARKET_EVENT_TABLE) +
+                                " WHERE " + quoteIdentifier("contractSymbol") + " = ?" +
+                                " AND " + quoteIdentifier("eventName") + " = ?" +
+                                " AND " + quoteIdentifier("sessionDate") + " >= ?" +
+                                " AND " + quoteIdentifier("sessionDate") + " <= ?" +
+                                " ORDER BY " + quoteIdentifier("contractSymbol") + ", " + quoteIdentifier("sessionDate")
+                )) {
+                    statement.setString(1, window.getContractSymbol());
+                    statement.setString(2, eventName);
+                    statement.setDate(3, Date.valueOf(window.getStartDate()));
+                    statement.setDate(4, Date.valueOf(window.getEndDate()));
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        while (resultSet.next()) {
+                            events.add(new MarketEvent(
+                                    resultSet.getString(1),
+                                    resultSet.getDate(2).toLocalDate(),
+                                    resultSet.getString(3),
+                                    resultSet.getInt(4),
+                                    EventSide.valueOf(resultSet.getString(5)),
+                                    resultSet.getTimestamp(6).toInstant(),
+                                    resultSet.getLong(7)
+                            ));
+                        }
+                    }
+                }
+            }
+            return Collections.unmodifiableList(events);
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not load market events from PostgreSQL", exception);
+        }
+    }
+
+    public void saveMarketEvents(Collection<MarketEvent> marketEvents) {
+        ensureDerivedDataTablesExist();
+        if (marketEvents == null || marketEvents.isEmpty()) {
+            return;
+        }
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        );
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO " + quoteIdentifier(MARKET_EVENT_TABLE) + " (" +
+                             quoteIdentifier("contractSymbol") + ", " +
+                             quoteIdentifier("sessionDate") + ", " +
+                             quoteIdentifier("eventName") + ", " +
+                             quoteIdentifier("eventVersion") + ", " +
+                             "side, " +
+                             quoteIdentifier("eventTime") + ", " +
+                             quoteIdentifier("eventPriceTicks") + ", " +
+                             quoteIdentifier("createdAt") +
+                             ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)" +
+                             " ON CONFLICT (" + quoteIdentifier("contractSymbol") + ", " +
+                             quoteIdentifier("sessionDate") + ", " +
+                             quoteIdentifier("eventName") + ", " +
+                             quoteIdentifier("eventVersion") + ") DO UPDATE SET " +
+                             "side = EXCLUDED.side, " +
+                             quoteIdentifier("eventTime") + " = EXCLUDED." + quoteIdentifier("eventTime") + ", " +
+                             quoteIdentifier("eventPriceTicks") + " = EXCLUDED." + quoteIdentifier("eventPriceTicks")
+             )) {
+            for (MarketEvent event : marketEvents) {
+                statement.setString(1, event.getContractSymbol());
+                statement.setDate(2, Date.valueOf(event.getSessionDate()));
+                statement.setString(3, event.getEventName());
+                statement.setInt(4, event.getEventVersion());
+                statement.setString(5, event.getSide().name());
+                statement.setTimestamp(6, Timestamp.from(event.getEventTime()));
+                statement.setLong(7, event.getEventPriceTicks());
+                statement.setTimestamp(8, Timestamp.from(Instant.now()));
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not save market events to PostgreSQL", exception);
+        }
+    }
+
+    public void markMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+        markDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
+    }
+
     public String getDatabaseName() {
         return settings.getDatabaseName();
     }
@@ -400,6 +692,92 @@ public class PostgresTradeRepository {
                 }
                 return new ImportCheckpoint(tableName, resultSet.getString(1), resultSet.getLong(2));
             }
+        }
+    }
+
+    private boolean areDerivedRowsBuilt(String buildType, String name, List<ContractTradeWindow> windows) {
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return true;
+        }
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            for (ContractTradeWindow window : windows) {
+                if (!derivedBuildExists(connection, buildType, name, window)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not inspect PostgreSQL derived data build state", exception);
+        }
+    }
+
+    private boolean derivedBuildExists(
+            Connection connection,
+            String buildType,
+            String name,
+            ContractTradeWindow window
+    ) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT 1 FROM " + quoteIdentifier(DERIVED_BUILD_TABLE) +
+                        " WHERE " + quoteIdentifier("buildType") + " = ?" +
+                        " AND name = ?" +
+                        " AND " + quoteIdentifier("contractSymbol") + " = ?" +
+                        " AND " + quoteIdentifier("startDate") + " = ?" +
+                        " AND " + quoteIdentifier("endDate") + " = ?"
+        )) {
+            statement.setString(1, buildType);
+            statement.setString(2, name);
+            statement.setString(3, window.getContractSymbol());
+            statement.setDate(4, Date.valueOf(window.getStartDate()));
+            statement.setDate(5, Date.valueOf(window.getEndDate()));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+    }
+
+    private void markDerivedRowsBuilt(String buildType, String name, List<ContractTradeWindow> windows) {
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return;
+        }
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        );
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO " + quoteIdentifier(DERIVED_BUILD_TABLE) + " (" +
+                             quoteIdentifier("buildType") + ", " +
+                             "name, " +
+                             quoteIdentifier("contractSymbol") + ", " +
+                             quoteIdentifier("startDate") + ", " +
+                             quoteIdentifier("endDate") + ", " +
+                             quoteIdentifier("builtAt") +
+                             ") VALUES (?, ?, ?, ?, ?, ?)" +
+                             " ON CONFLICT (" + quoteIdentifier("buildType") + ", name, " +
+                             quoteIdentifier("contractSymbol") + ", " +
+                             quoteIdentifier("startDate") + ", " +
+                             quoteIdentifier("endDate") + ") DO UPDATE SET " +
+                             quoteIdentifier("builtAt") + " = EXCLUDED." + quoteIdentifier("builtAt")
+             )) {
+            for (ContractTradeWindow window : windows) {
+                statement.setString(1, buildType);
+                statement.setString(2, name);
+                statement.setString(3, window.getContractSymbol());
+                statement.setDate(4, Date.valueOf(window.getStartDate()));
+                statement.setDate(5, Date.valueOf(window.getEndDate()));
+                statement.setTimestamp(6, Timestamp.from(Instant.now()));
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not mark PostgreSQL derived data rows built", exception);
         }
     }
 

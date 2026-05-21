@@ -15,8 +15,11 @@ import forge.data.market.TickDataProvider;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.data.postgres.PostgresTickDataProvider;
 import forge.data.postgres.PostgresTradeRepository;
+import forge.event.MarketEvent;
+import forge.feature.SessionRangeFeature;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 public class FacadeForgeData {
@@ -116,6 +119,38 @@ public class FacadeForgeData {
 
         public long countTradeTicks(List<ContractTradeWindow> windows) {
             return tickDataProvider.countTicks(windows);
+        }
+
+        public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
+            return scidDataImportService.getTradeRepository().areSessionRangesBuilt(windows);
+        }
+
+        public List<SessionRangeFeature> loadSessionRanges(List<ContractTradeWindow> windows) {
+            return scidDataImportService.getTradeRepository().loadSessionRanges(windows);
+        }
+
+        public void saveSessionRanges(Collection<SessionRangeFeature> sessionRangeFeatures) {
+            scidDataImportService.getTradeRepository().saveSessionRanges(sessionRangeFeatures);
+        }
+
+        public void markSessionRangesBuilt(List<ContractTradeWindow> windows) {
+            scidDataImportService.getTradeRepository().markSessionRangesBuilt(windows);
+        }
+
+        public boolean areMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+            return scidDataImportService.getTradeRepository().areMarketEventsBuilt(windows, eventName);
+        }
+
+        public List<MarketEvent> loadMarketEvents(List<ContractTradeWindow> windows, String eventName) {
+            return scidDataImportService.getTradeRepository().loadMarketEvents(windows, eventName);
+        }
+
+        public void saveMarketEvents(Collection<MarketEvent> marketEvents) {
+            scidDataImportService.getTradeRepository().saveMarketEvents(marketEvents);
+        }
+
+        public void markMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+            scidDataImportService.getTradeRepository().markMarketEventsBuilt(windows, eventName);
         }
 
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {

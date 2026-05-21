@@ -79,6 +79,10 @@ public class ScidDataImportService {
         return tradeRepository.planImport(contractSymbol, tableName);
     }
 
+    public PostgresTradeRepository getTradeRepository() {
+        return tradeRepository;
+    }
+
     public DataImportResult importScidFile(
             String scidFilePath,
             boolean rebuildExistingContract,

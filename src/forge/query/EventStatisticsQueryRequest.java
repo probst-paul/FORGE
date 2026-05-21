@@ -1,23 +1,33 @@
-package forge.app;
+package forge.query;
 
+import forge.app.EventStatisticsProgressListener;
 import forge.data.market.ContractTradeWindow;
+import forge.event.FirstHourBreachEvent;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class EventStatisticsRequest {
+public class EventStatisticsQueryRequest {
+    public static final int DEFAULT_BATCH_SIZE = 10_000;
+
     private final List<ContractTradeWindow> contractWindows;
     private final String eventName;
+    private final int batchSize;
     private final EventStatisticsProgressListener progressListener;
 
-    public EventStatisticsRequest(List<ContractTradeWindow> contractWindows, String eventName) {
-        this(contractWindows, eventName, EventStatisticsProgressListener.NO_OP);
+    public EventStatisticsQueryRequest(List<ContractTradeWindow> contractWindows, String eventName) {
+        this(contractWindows, eventName, DEFAULT_BATCH_SIZE);
     }
 
-    public EventStatisticsRequest(
+    public EventStatisticsQueryRequest(List<ContractTradeWindow> contractWindows, String eventName, int batchSize) {
+        this(contractWindows, eventName, batchSize, EventStatisticsProgressListener.NO_OP);
+    }
+
+    public EventStatisticsQueryRequest(
             List<ContractTradeWindow> contractWindows,
             String eventName,
+            int batchSize,
             EventStatisticsProgressListener progressListener
     ) {
         if (contractWindows == null || contractWindows.isEmpty()) {
@@ -25,6 +35,12 @@ public class EventStatisticsRequest {
         }
         if (eventName == null || eventName.trim().isEmpty()) {
             throw new IllegalArgumentException("eventName is required");
+        }
+        if (!FirstHourBreachEvent.EVENT_NAME.equals(eventName.trim())) {
+            throw new IllegalArgumentException("Unsupported event statistics query: " + eventName);
+        }
+        if (batchSize < 1) {
+            throw new IllegalArgumentException("batchSize must be positive");
         }
         if (progressListener == null) {
             throw new IllegalArgumentException("progressListener is required");
@@ -38,6 +54,7 @@ public class EventStatisticsRequest {
         }
         this.contractWindows = Collections.unmodifiableList(normalizedWindows);
         this.eventName = eventName.trim();
+        this.batchSize = batchSize;
         this.progressListener = progressListener;
     }
 
@@ -47,6 +64,10 @@ public class EventStatisticsRequest {
 
     public String getEventName() {
         return eventName;
+    }
+
+    public int getBatchSize() {
+        return batchSize;
     }
 
     public EventStatisticsProgressListener getProgressListener() {
