@@ -18,6 +18,10 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Execution(ExecutionMode.CONCURRENT)
 class BacktestEngineTest {
+    private static final ZoneId CENTRAL_TIME = ZoneId.of("America/Chicago");
+
     @Nested
     class Run {
         @Test
@@ -47,6 +53,28 @@ class BacktestEngineTest {
             assertEquals("ESU25", result.getInstrumentResults().get(0).getContractResults().get(0).getContractSymbol());
             assertEquals(List.of(0L, 2L), progressTicks);
         }
+
+        @Test
+        void currentlyCountsOpeningRangeSignalsWithoutCreatingTrades() {
+            BacktestEngine engine = new BacktestEngine(new InMemoryTickDataProvider(List.of(
+                    tickAtCentral(LocalDate.of(2025, 1, 5), LocalTime.of(17, 0), 100, 1),
+                    tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(8, 0), 90, 2),
+                    tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(8, 30), 92, 3),
+                    tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 29, 59), 98, 4),
+                    tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 30), 98, 5)
+            )));
+
+            BacktestResult result = engine.run(openingRangeRequest());
+
+            assertEquals("OpeningRangeContinuation", result.getStrategyName());
+            assertEquals(5, result.getTicksProcessed());
+            assertEquals(1, result.getOrderSignalsGenerated());
+            assertEquals(1, result.getInstrumentResults().size());
+            assertEquals(1, result.getInstrumentResults().get(0).getOrderSignalsGenerated());
+            assertEquals(1, result.getInstrumentResults().get(0).getContractResults().size());
+            assertEquals(1, result.getInstrumentResults().get(0).getContractResults().get(0).getOrderSignalsGenerated());
+            assertEquals(0, result.getInstrumentResults().get(0).getPerformanceMetrics().getTotalTrades());
+        }
     }
 
     private BacktestRequest request() {
@@ -60,6 +88,17 @@ class BacktestEngineTest {
         );
     }
 
+    private BacktestRequest openingRangeRequest() {
+        return new BacktestRequest(
+                new StrategyOptions("OpeningRangeContinuation"),
+                List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 1, 5), LocalDate.of(2025, 1, 6))),
+                new TradeTriggerOptions("PriceCrossover"),
+                new RiskSettings(500, 1500),
+                TargetSettings.fixedTarget("Target", 1),
+                new OrderSettings(OrderType.MARKET, 1, 0, 0)
+        );
+    }
+
     private TradeTick tick(long scidRecordIndex) {
         return new TradeTick(
                 "ESU25",
@@ -67,6 +106,23 @@ class BacktestEngineTest {
                 24000 + scidRecordIndex,
                 23999 + scidRecordIndex,
                 24001 + scidRecordIndex,
+                1,
+                1,
+                scidRecordIndex
+        );
+    }
+
+    private TradeTick tickAtCentral(LocalDate date, LocalTime time, long priceTicks, long scidRecordIndex) {
+        LocalDateTime utcDateTime = LocalDateTime.of(date, time)
+                .atZone(CENTRAL_TIME)
+                .withZoneSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+        return new TradeTick(
+                "ESU25",
+                utcDateTime.toInstant(ZoneOffset.UTC),
+                priceTicks,
+                priceTicks - 1,
+                priceTicks + 1,
                 1,
                 1,
                 scidRecordIndex

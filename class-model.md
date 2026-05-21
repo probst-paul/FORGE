@@ -23,6 +23,9 @@ classDiagram
     class FacadeForgeStop
     class FacadeForgeTarget
     class FacadeForgeEngine
+    class FacadeForgeFeature
+    class FacadeForgeEvent
+    class FacadeForgeQuery
     class FacadeForgeReporting
     class FacadeForgeExecution
     class FacadeForgeAnalytics
@@ -59,10 +62,15 @@ classDiagram
     TargetModelSelectionService --> FacadeForgeTarget
 
     ForgeApplicationAccess ..> FacadeForgeEngine : run request
+    ForgeApplicationAccess ..> FacadeForgeFeature : later build features
+    ForgeApplicationAccess ..> FacadeForgeEvent : later build events
+    ForgeApplicationAccess ..> FacadeForgeQuery : later run statistics
     ForgeApplicationAccess ..> FacadeForgeExecution : later execute orders
     ForgeApplicationAccess ..> FacadeForgeReporting : later summarize result
     ForgeApplicationAccess ..> FacadeForgeAnalytics : later derive features
     ForgeApplicationAccess ..> FacadeForgeBacktest : later track positions
+    FacadeForgeFeature ..> FacadeForgeEvent : features feed events
+    FacadeForgeEvent ..> FacadeForgeQuery : events feed statistics
 ```
 
 ## Backtest Setup Interaction
@@ -1184,6 +1192,180 @@ classDiagram
     FeatureSet --> MarketFeature
 ```
 
+## feature Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeFeature {
+        +FacadeForgeFeature getTheInstance()
+        +ForgeFeatureAccess forgeFeatureAccess()
+    }
+
+    class ForgeFeatureAccess {
+        +List~String~ getSupportedFeatureNames()
+        +List~SessionRangeFeature~ calculateSessionRanges(Collection~TradeTick~ ticks)
+    }
+
+    class FeatureDefinition {
+        <<interface>>
+        +String getName()
+        +int getVersion()
+    }
+
+    class FeatureResult {
+        -String featureName
+        -int featureVersion
+    }
+
+    class FeatureCalculator {
+        <<interface>>
+        +FeatureDefinition getDefinition()
+    }
+
+    class FeatureBuildService {
+        +List~String~ getSupportedFeatureNames()
+        +List~SessionRangeFeature~ calculateSessionRanges(Collection~TradeTick~ ticks)
+    }
+
+    class TradingDayClassifier {
+        +TradingDayContext classify(Instant tradeDateTime)
+    }
+
+    class TradingDayContext {
+        -LocalDate tradingDay
+        -TradingSession session
+        +boolean isOvernight()
+        +boolean isFirstHour()
+        +boolean isRth()
+    }
+
+    class TradingSession {
+        <<enumeration>>
+        OVERNIGHT
+        FIRST_HOUR
+        RTH
+    }
+
+    class SessionRangeFeatureCalculator {
+        +List~SessionRangeFeature~ calculate(Collection~TradeTick~ ticks)
+    }
+
+    class SessionRangeFeature {
+        -String contractSymbol
+        -LocalDate sessionDate
+        -long overnightLowTicks
+        -long overnightHighTicks
+        -long firstHourLowTicks
+        -long firstHourHighTicks
+        -long rthLowTicks
+        -long rthHighTicks
+    }
+
+    FacadeForgeFeature --> ForgeFeatureAccess
+    ForgeFeatureAccess --> FeatureBuildService
+    FeatureCalculator --> FeatureDefinition
+    FeatureBuildService --> SessionRangeFeatureCalculator
+    SessionRangeFeatureCalculator --> TradingDayClassifier
+    TradingDayClassifier --> TradingDayContext
+    TradingDayContext --> TradingSession
+    SessionRangeFeatureCalculator --> SessionRangeFeature
+    SessionRangeFeature --|> FeatureResult
+```
+
+## event Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeEvent {
+        +FacadeForgeEvent getTheInstance()
+        +ForgeEventAccess forgeEventAccess()
+    }
+
+    class ForgeEventAccess {
+        +List~String~ getSupportedEventNames()
+    }
+
+    class EventDefinition {
+        <<interface>>
+        +String getName()
+        +int getVersion()
+    }
+
+    class EventDetector {
+        <<interface>>
+        +EventDefinition getDefinition()
+    }
+
+    class EventBuildService {
+        +List~String~ getSupportedEventNames()
+    }
+
+    class FirstHourBreachEvent {
+        +String getName()
+        +int getVersion()
+    }
+
+    class MarketEvent {
+        -String contractSymbol
+        -LocalDate sessionDate
+        -String eventName
+        -EventSide side
+        -Instant eventTime
+        -long eventPriceTicks
+    }
+
+    class EventSide
+
+    FacadeForgeEvent --> ForgeEventAccess
+    ForgeEventAccess --> EventBuildService
+    EventDetector --> EventDefinition
+    FirstHourBreachEvent ..|> EventDefinition
+    MarketEvent --> EventSide
+```
+
+## query Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeQuery {
+        +FacadeForgeQuery getTheInstance()
+        +ForgeQueryAccess forgeQueryAccess()
+    }
+
+    class ForgeQueryAccess {
+        +List~String~ getSupportedQueryEventNames()
+    }
+
+    class QueryService {
+        +List~String~ getSupportedQueryEventNames()
+    }
+
+    class EventStatisticsQuery {
+        -String eventName
+    }
+
+    class EventStatisticsResult {
+        -String eventName
+        -long sessionsAnalyzed
+        -long longEventCount
+        -long shortEventCount
+        +long getTotalEventCount()
+        +long getNoEventCount()
+        +double getEventRate()
+    }
+
+    FacadeForgeQuery --> ForgeQueryAccess
+    ForgeQueryAccess --> QueryService
+    QueryService --> EventStatisticsQuery
+    QueryService --> EventStatisticsResult
+```
+
 ## backtest Package
 
 ```mermaid
@@ -1226,7 +1408,7 @@ classDiagram
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, `StopModel`, and `TargetModel` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Integrated file I/O:** `ScidTradeReader.readTrades(...)` performs the core file I/O by opening a SCID file with `FileChannel.open(scidFilePath, StandardOpenOption.READ)`, reading binary records into a `ByteBuffer`, validating the SCID header, and converting complete records into `TradeRow` objects. `ScidDataImportService` integrates that file reader into the import workflow and also uses `Files.size(...)` and `Files.getLastModifiedTime(...)` to capture file metadata for checkpointing.
 - **Exception handling:** `ConsoleUserInput` throws the user-defined `UserQuitException` when the user enters `quit` or console input ends, and `CliApplicationController` catches it to exit cleanly. Validation failures use `IllegalArgumentException` to reject invalid settings, unsupported contracts, and malformed SCID records before processing continues. File and database failures are caught as lower-level exceptions such as `IOException` or `SQLException` and wrapped in `IllegalStateException` with application-level messages.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation.

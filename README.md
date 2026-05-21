@@ -73,7 +73,9 @@ Strategies own their compatible trigger and target choices. The CLI only asks th
 
 ## Not Yet Implemented
 
-- Derived market analytics
+- Database persistence for derived session range features
+- Full event detection beyond current event scaffolding
+- Event statistics execution beyond current query scaffolding
 - Analytics feature calculation beyond placeholder models
 - Full backtest package behavior beyond placeholder position/trade-result models
 - Execution package behavior beyond basic order request modeling
@@ -99,8 +101,11 @@ src/forge/data/rollover   Contract rollover calendars and rules
 src/forge/analytics  Placeholder analytics feature models
 src/forge/backtest   Placeholder backtest position/trade-result models
 src/forge/engine     Market context and simple batch-driven backtest engine
+src/forge/event      Event-driven architecture scaffolding
 src/forge/execution  Basic order request/enums; execution simulation is not implemented yet
+src/forge/feature    Derived feature architecture and session range calculation
 src/forge/model      Instrument and futures contract models
+src/forge/query      Event statistics query scaffolding
 src/forge/strategy   Strategy interface, catalog, and range breakout strategy
 src/forge/strategy/support  Reusable strategy helper services and value objects
 src/forge/stop       Stop model interface, catalog, and stop result model
