@@ -1,5 +1,7 @@
 package forge.execution;
 
+import java.time.Instant;
+
 public class FacadeForgeExecution {
     private static final FacadeForgeExecution THE_INSTANCE = new FacadeForgeExecution();
 
@@ -26,8 +28,26 @@ public class FacadeForgeExecution {
             return new Order();
         }
 
-        public Fill createFill() {
-            return new Fill();
+        public Fill createFill(
+                String instrumentSymbol,
+                String contractSymbol,
+                OrderSide side,
+                OrderType orderType,
+                int quantity,
+                Instant fillTime,
+                long fillPriceTicks,
+                long scidRecordIndex
+        ) {
+            return new Fill(
+                    instrumentSymbol,
+                    contractSymbol,
+                    side,
+                    orderType,
+                    quantity,
+                    fillTime,
+                    fillPriceTicks,
+                    scidRecordIndex
+            );
         }
     }
 }

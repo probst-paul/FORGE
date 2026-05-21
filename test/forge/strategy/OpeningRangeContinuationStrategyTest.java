@@ -3,6 +3,7 @@ package forge.strategy;
 import forge.engine.MarketContext;
 import forge.execution.OrderRequest;
 import forge.execution.OrderSide;
+import forge.trade.TradePlan;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -76,7 +77,7 @@ class OpeningRangeContinuationStrategyTest {
             assertTrue(decision.isPresent());
             assertEquals(OrderSide.BUY, decision.get().getSide());
             assertEquals(2, decision.get().getQuantity());
-            OpeningRangeContinuationStrategy.TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
             assertEquals(OrderSide.BUY, plan.getSide());
             assertEquals(100, plan.getTargetPriceTicks());
             assertEquals(92, plan.getStopPriceTicks());
@@ -94,7 +95,7 @@ class OpeningRangeContinuationStrategyTest {
 
             assertTrue(decision.isPresent());
             assertEquals(OrderSide.SELL, decision.get().getSide());
-            OpeningRangeContinuationStrategy.TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
             assertEquals(OrderSide.SELL, plan.getSide());
             assertEquals(90, plan.getTargetPriceTicks());
             assertEquals(98, plan.getStopPriceTicks());
@@ -115,7 +116,7 @@ class OpeningRangeContinuationStrategyTest {
             Optional<OrderRequest> decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false));
 
             assertTrue(decision.isPresent());
-            OpeningRangeContinuationStrategy.TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
             assertEquals(OrderSide.BUY, plan.getSide());
             assertEquals(110, plan.getTargetPriceTicks());
             assertEquals(92, plan.getStopPriceTicks());
@@ -135,7 +136,7 @@ class OpeningRangeContinuationStrategyTest {
             Optional<OrderRequest> decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false));
 
             assertTrue(decision.isPresent());
-            OpeningRangeContinuationStrategy.TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
             assertEquals(OrderSide.SELL, plan.getSide());
             assertEquals(80, plan.getTargetPriceTicks());
             assertEquals(100, plan.getStopPriceTicks());

@@ -2,6 +2,7 @@ package forge.strategy;
 
 import forge.engine.MarketContext;
 import forge.execution.OrderRequest;
+import forge.trade.TradePlan;
 
 import java.util.Optional;
 
@@ -12,5 +13,9 @@ public interface TradingStrategy {
 
     default void onBacktestStart() {
         // Optional lifecycle hook for strategies that maintain state.
+    }
+
+    default Optional<TradePlan> getLastTradePlan() {
+        return Optional.empty();
     }
 }

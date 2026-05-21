@@ -26,6 +26,7 @@ classDiagram
     class FacadeForgeFeature
     class FacadeForgeEvent
     class FacadeForgeQuery
+    class FacadeForgeTrade
     class FacadeForgeReporting
     class FacadeForgeExecution
     class FacadeForgeAnalytics
@@ -65,10 +66,11 @@ classDiagram
     ForgeApplicationAccess ..> FacadeForgeFeature : later build features
     ForgeApplicationAccess ..> FacadeForgeEvent : later build events
     ForgeApplicationAccess ..> FacadeForgeQuery : later run statistics
+    ForgeApplicationAccess ..> FacadeForgeTrade : lifecycle support
     ForgeApplicationAccess ..> FacadeForgeExecution : later execute orders
     ForgeApplicationAccess ..> FacadeForgeReporting : later summarize result
     ForgeApplicationAccess ..> FacadeForgeAnalytics : later derive features
-    ForgeApplicationAccess ..> FacadeForgeBacktest : later track positions
+    ForgeApplicationAccess ..> FacadeForgeBacktest : result models
     FacadeForgeFeature ..> FacadeForgeEvent : features feed events
     FacadeForgeEvent ..> FacadeForgeQuery : events feed statistics
 ```
@@ -1061,7 +1063,64 @@ classDiagram
     BacktestEngine --> BacktestProgressListener : reports progress
     BacktestEngine --> TradeBatchReader : reads batches
     BacktestEngine --> TradingStrategy : evaluates
+    BacktestEngine --> ExecutionEngine : creates fills
+    BacktestEngine --> FacadeForgeTrade : creates lifecycle engines
     BacktestEngine --> BacktestResult : creates
+```
+
+## trade Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeTrade {
+        +FacadeForgeTrade getTheInstance()
+        +ForgeTradeAccess forgeTradeAccess()
+    }
+
+    class ForgeTradeAccess {
+        +TradeLifecycleEngine createTradeLifecycleEngine()
+        +TradePlan createTradePlan(OrderSide side, long targetPriceTicks, long stopPriceTicks, LocalTime timeStop, ZoneId timeZone)
+    }
+
+    class TradeLifecycleEngine {
+        +boolean hasOpenPosition()
+        +void openPosition(Fill entryFill, TradePlan plan, FuturesInstrumentSpec instrumentSpec)
+        +Optional~TradeResult~ onTick(TradeTick tick)
+        +Optional~TradeResult~ closeOpenPositionAtEnd()
+    }
+
+    class Position {
+        -String instrumentSymbol
+        -String contractSymbol
+        -OrderSide side
+        -Instant entryTime
+        -long entryPriceTicks
+        -int quantity
+        -long maxFavorableExcursionTicks
+        -long maxAdverseExcursionTicks
+        +void updateExcursion(long priceTicks)
+        +TradeResult close(Instant exitTime, long exitPriceTicks, String exitReason)
+    }
+
+    class TradePlan {
+        -OrderSide side
+        -long targetPriceTicks
+        -long stopPriceTicks
+        -LocalTime timeStop
+        -ZoneId timeZone
+    }
+
+    FacadeForgeTrade --> ForgeTradeAccess
+    ForgeTradeAccess --> TradeLifecycleEngine : creates
+    ForgeTradeAccess --> TradePlan : creates
+    TradeLifecycleEngine --> Position
+    TradeLifecycleEngine --> Fill
+    TradeLifecycleEngine --> TradePlan
+    TradeLifecycleEngine --> TradeTick
+    TradeLifecycleEngine --> TradeResult
+    Position --> TradeResult
 ```
 
 ## execution Package
@@ -1079,17 +1138,29 @@ classDiagram
         +ExecutionEngine createSimpleExecutionEngine()
         +OrderRequest createMarketOrderRequest(String instrumentSymbol, OrderSide side, int quantity)
         +Order createOrder()
-        +Fill createFill()
+        +Fill createFill(String instrumentSymbol, String contractSymbol, OrderSide side, OrderType orderType, int quantity, Instant fillTime, long fillPriceTicks, long scidRecordIndex)
     }
 
     class ExecutionEngine {
         <<interface>>
+        +Optional~Fill~ execute(OrderRequest orderRequest, TradeTick currentTick)
     }
 
-    class SimpleExecutionEngine
+    class SimpleExecutionEngine {
+        +Optional~Fill~ execute(OrderRequest orderRequest, TradeTick currentTick)
+    }
     class OrderRequest
     class Order
-    class Fill
+    class Fill {
+        -String instrumentSymbol
+        -String contractSymbol
+        -OrderSide side
+        -OrderType orderType
+        -int quantity
+        -Instant fillTime
+        -long fillPriceTicks
+        -long scidRecordIndex
+    }
     class OrderSide
     class OrderType
 
@@ -1099,10 +1170,14 @@ classDiagram
     ForgeExecutionAccess --> Order : creates
     ForgeExecutionAccess --> Fill : creates
     ExecutionEngine <|.. SimpleExecutionEngine
+    SimpleExecutionEngine --> Fill : current tick price
+    SimpleExecutionEngine --> TradeTick : reads current tick
     OrderRequest --> OrderSide
+    OrderRequest --> OrderType
     Order --> OrderType
     Order --> OrderSide
-    Fill --> Order
+    Fill --> OrderSide
+    Fill --> OrderType
 ```
 
 ## reporting Package
@@ -1466,7 +1541,7 @@ classDiagram
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, `StopModel`, and `TargetModel` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeStop`, `FacadeForgeTarget`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeTrade`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Integrated file I/O:** `ScidTradeReader.readTrades(...)` performs the core file I/O by opening a SCID file with `FileChannel.open(scidFilePath, StandardOpenOption.READ)`, reading binary records into a `ByteBuffer`, validating the SCID header, and converting complete records into `TradeRow` objects. `ScidDataImportService` integrates that file reader into the import workflow and also uses `Files.size(...)` and `Files.getLastModifiedTime(...)` to capture file metadata for checkpointing.
 - **Exception handling:** `ConsoleUserInput` throws the user-defined `UserQuitException` when the user enters `quit` or console input ends, and `CliApplicationController` catches it to exit cleanly. Validation failures use `IllegalArgumentException` to reject invalid settings, unsupported contracts, and malformed SCID records before processing continues. File and database failures are caught as lower-level exceptions such as `IOException` or `SQLException` and wrapped in `IllegalStateException` with application-level messages.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation.

@@ -14,6 +14,8 @@ It is not yet a complete historical market replay or backtesting engine.
 - Database-derived instrument/date catalog based on imported contract tables
 - Date-based front-month rollover windows for imported equity index and CL futures
 - Batch-driven backtest replay over selected contract windows, with CLI progress reporting
+- Position-based trade lifecycle for strategies that emit a trade plan, including target, stop, time-stop, P/L, MFE, and MAE tracking
+- MVP execution engine that fills generated orders at the current tick price
 - Futures contract model with symbol code, tick size, tick dollar amount, and expiration date
 - Static futures instrument definitions for ES, NQ, YM, RTY, and CL
 - Abstract `Instrument` base class with concrete futures instrument and futures contract models
@@ -29,7 +31,8 @@ It is not yet a complete historical market replay or backtesting engine.
 - Target model interface with:
   - `FixedRiskRewardTarget`
   - `FixedTarget`
-- Basic `OrderRequest` modeling
+- Basic `OrderRequest` and `Fill` modeling
+- Completed-trade reporting metrics by instrument and contract
 - JUnit 5 tests for implemented behavior
 - Mermaid class and sequence diagrams:
   - `class-model.md`
@@ -80,17 +83,17 @@ Strategies own their compatible trigger and target choices. The CLI only asks th
 
 `OpeningRangeContinuationStrategy` uses Central Time sessions. It builds the overnight range from `17:00` through `08:29:59`, builds the RTH first-hour range from `08:30` through `09:29:59`, and only arms if the first-hour range remains inside the overnight range. Trades are allowed from `09:30` through `10:29:59`, one trade per day. By default, a long entry crosses the first-hour high, targets the overnight high, stops at the first-hour low, and time-stops at `10:30`; a short entry mirrors that logic at the first-hour low, overnight low, and first-hour high. The strategy can also be configured to use a risk/reward exit style, which keeps the same first-hour stop and calculates the target from entry risk in ticks.
 
+The MVP execution layer fills generated orders at the current tick price. This is intentionally simple so the trade lifecycle can create real completed trades now; future execution work will add realistic market, limit, stop, slippage, and partial-fill behavior.
+
 ## Not Yet Implemented
 
 - Additional event detectors beyond first-hour breach
 - Analytics feature calculation beyond placeholder models
-- Full backtest package behavior beyond placeholder position/trade-result models
-- Execution package behavior beyond basic order request modeling
+- Full multi-position and scale-in/scale-out trade lifecycle behavior
+- Realistic market, limit, stop, and slippage execution simulation
 - Full trade trigger evaluation against market data
 - CLI stop selection and stop evaluation inside the backtest engine
-- Order execution simulation
-- Completed trade result calculation
-- Non-placeholder completed-trade performance reporting
+- Partial fills and advanced order execution simulation
 
 ## Project Structure
 
@@ -109,7 +112,7 @@ src/forge/analytics  Placeholder analytics feature models
 src/forge/backtest   Placeholder backtest position/trade-result models
 src/forge/engine     Market context and simple batch-driven backtest engine
 src/forge/event      Event-driven architecture scaffolding
-src/forge/execution  Basic order request/enums; execution simulation is not implemented yet
+src/forge/execution  Order request/fill models and MVP current-tick execution engine
 src/forge/feature    Derived feature architecture and session range calculation
 src/forge/model      Instrument and futures contract models
 src/forge/query      Event statistics query scaffolding
@@ -117,8 +120,9 @@ src/forge/strategy   Strategy interface, catalog, and range breakout strategy
 src/forge/strategy/support  Reusable strategy helper services and value objects
 src/forge/stop       Stop model interface, catalog, and stop result model
 src/forge/target     Target model interface, implementations, and results
+src/forge/trade      Position-based trade lifecycle, trade plans, and lifecycle facade
 src/forge/trigger    Trigger interface, catalog, and trigger result model
-src/forge/reporting  Placeholder reporting/metrics models
+src/forge/reporting  Backtest result and performance metric models
 test/forge           JUnit 5 tests
 ```
 
@@ -305,4 +309,4 @@ mvn test
 
 FORGE is in early architectural development. The current implementation now includes SCID-to-PostgreSQL ingestion, rollover-aware catalog availability, and exact tick-based price storage, but it is still not a complete backtesting system.
 
-The `analytics`, `backtest`, `engine`, `execution`, and `reporting` packages are largely placeholders or partial foundations. They exist to preserve the package/facade architecture while the real market replay, execution simulation, analytics, and reporting behavior are still being designed and implemented.
+The `analytics`, `backtest`, `engine`, and `execution` packages are still partial foundations. They exist to preserve the package/facade architecture while deeper analytics, richer execution simulation, and scale-in/scale-out trade lifecycle behavior are still being designed and implemented.

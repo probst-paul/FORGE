@@ -3,6 +3,7 @@ package forge.strategy;
 import forge.engine.MarketContext;
 import forge.execution.OrderRequest;
 import forge.execution.OrderSide;
+import forge.trade.TradePlan;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -120,7 +121,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     ) {
         session.tradeTaken = true;
         long targetPriceTicks = calculateTargetPriceTicks(side, marketContext.getLastPriceTicks(), stopPriceTicks, session);
-        lastTradePlan = new TradePlan(side, targetPriceTicks, stopPriceTicks, TRADE_END_EXCLUSIVE);
+        lastTradePlan = new TradePlan(side, targetPriceTicks, stopPriceTicks, TRADE_END_EXCLUSIVE, CENTRAL_TIME);
         return Optional.of(OrderRequest.market(marketContext.getInstrumentSymbol(), side, quantity));
     }
 
@@ -175,36 +176,6 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     public enum ExitStyle {
         RANGE,
         RISK_REWARD
-    }
-
-    public static class TradePlan {
-        private final OrderSide side;
-        private final long targetPriceTicks;
-        private final long stopPriceTicks;
-        private final LocalTime timeStop;
-
-        private TradePlan(OrderSide side, long targetPriceTicks, long stopPriceTicks, LocalTime timeStop) {
-            this.side = side;
-            this.targetPriceTicks = targetPriceTicks;
-            this.stopPriceTicks = stopPriceTicks;
-            this.timeStop = timeStop;
-        }
-
-        public OrderSide getSide() {
-            return side;
-        }
-
-        public long getTargetPriceTicks() {
-            return targetPriceTicks;
-        }
-
-        public long getStopPriceTicks() {
-            return stopPriceTicks;
-        }
-
-        public LocalTime getTimeStop() {
-            return timeStop;
-        }
     }
 
     private static class SessionState {

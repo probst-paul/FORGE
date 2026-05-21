@@ -55,25 +55,27 @@ class BacktestEngineTest {
         }
 
         @Test
-        void currentlyCountsOpeningRangeSignalsWithoutCreatingTrades() {
+        void createsTradeFromOpeningRangeSignalAndTradePlan() {
             BacktestEngine engine = new BacktestEngine(new InMemoryTickDataProvider(List.of(
                     tickAtCentral(LocalDate.of(2025, 1, 5), LocalTime.of(17, 0), 100, 1),
                     tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(8, 0), 90, 2),
                     tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(8, 30), 92, 3),
                     tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 29, 59), 98, 4),
-                    tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 30), 98, 5)
+                    tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 30), 98, 5),
+                    tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 31), 100, 6)
             )));
 
             BacktestResult result = engine.run(openingRangeRequest());
 
             assertEquals("OpeningRangeContinuation", result.getStrategyName());
-            assertEquals(5, result.getTicksProcessed());
+            assertEquals(6, result.getTicksProcessed());
             assertEquals(1, result.getOrderSignalsGenerated());
             assertEquals(1, result.getInstrumentResults().size());
             assertEquals(1, result.getInstrumentResults().get(0).getOrderSignalsGenerated());
             assertEquals(1, result.getInstrumentResults().get(0).getContractResults().size());
             assertEquals(1, result.getInstrumentResults().get(0).getContractResults().get(0).getOrderSignalsGenerated());
-            assertEquals(0, result.getInstrumentResults().get(0).getPerformanceMetrics().getTotalTrades());
+            assertEquals(1, result.getInstrumentResults().get(0).getPerformanceMetrics().getTotalTrades());
+            assertEquals(25.0, result.getInstrumentResults().get(0).getPerformanceMetrics().getNetProfitLoss());
         }
     }
 
