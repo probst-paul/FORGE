@@ -51,6 +51,13 @@ Select Action
 │  ├─ Build BacktestRequest
 │  ├─ Run backtest with progress
 │  └─ Press Enter or type anything to return to Select Action
+├─ Run Event Statistics
+│  ├─ Select Instrument(s)
+│  │  ├─ Choose an instrument's All Available front-month contracts
+│  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
+│  ├─ Select Event Statistic
+│  ├─ Calculate session ranges and first-hour breach events
+│  └─ Display event counts by instrument and contract
 ├─ Import Data
 │  └─ Prepare PostgreSQL database/table for the selected SCID file
 └─ Configure Database
@@ -63,6 +70,8 @@ Backtest setup no longer asks for a free-form date range. The CLI selects valid 
 
 `BacktestRequest` carries those selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.
 
+Event statistics reuse the same selected contract windows as backtests. `First Hour Breach Frequency` calculates Central Time session ranges, detects the first post-first-hour breach of the first-hour high or low, and reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract.
+
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
 Strategies own their compatible trigger and target choices. The CLI only asks the user to select a trigger or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default trigger and target settings; for example, `RangeBreakoutStrategy` defaults to `OrderFlowExhaustionTrigger`, also allows `PriceCrossoverTrigger`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
@@ -74,8 +83,8 @@ Strategies own their compatible trigger and target choices. The CLI only asks th
 ## Not Yet Implemented
 
 - Database persistence for derived session range features
-- Full event detection beyond current event scaffolding
-- Event statistics execution beyond current query scaffolding
+- Database persistence for derived market events
+- Additional event detectors beyond first-hour breach
 - Analytics feature calculation beyond placeholder models
 - Full backtest package behavior beyond placeholder position/trade-result models
 - Execution package behavior beyond basic order request modeling

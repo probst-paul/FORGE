@@ -20,6 +20,10 @@ import forge.data.FacadeForgeData;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
+import forge.app.EventStatisticsRequest;
+import forge.event.FirstHourBreachEvent;
+import forge.query.EventStatisticsReport;
+import forge.query.EventStatisticsResult;
 import forge.reporting.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.StrategyConfigurationProfile;
@@ -96,8 +100,9 @@ public class CliApplicationController {
     private boolean selectAction(UserInput input, UserOutput output) {
         printSection(output, "Select Action");
         output.printLine("1. Run Backtest");
-        output.printLine("2. Import Data");
-        output.printLine("3. Configure Database");
+        output.printLine("2. Run Event Statistics");
+        output.printLine("3. Import Data");
+        output.printLine("4. Configure Database");
 
         while (true) {
             int selectedAction = input.readInt("Select action (or enter 'quit' to exit program)");
@@ -107,17 +112,22 @@ public class CliApplicationController {
                 return true;
             }
             if (selectedAction == 2) {
-                runCliAction("import data", output, () -> runDataImport(input, output));
+                runCliAction("run event statistics", output, () -> runEventStatistics(input, output));
                 output.printBlankLine();
                 return true;
             }
             if (selectedAction == 3) {
+                runCliAction("import data", output, () -> runDataImport(input, output));
+                output.printBlankLine();
+                return true;
+            }
+            if (selectedAction == 4) {
                 runCliAction("configure database", output, () -> configureDatabase(input, output));
                 output.printBlankLine();
                 return true;
             }
 
-            output.printLine("Please select 1, 2, or 3, or enter 'quit' to exit program.");
+            output.printLine("Please select 1, 2, 3, or 4, or enter 'quit' to exit program.");
         }
     }
 
@@ -189,6 +199,62 @@ public class CliApplicationController {
                 targetSettings,
                 forgeConfig.forgeConfigAccess().defaultOrderSettings()
         );
+    }
+
+    private void runEventStatistics(UserInput input, UserOutput output) {
+        printSection(output, "Select Instrument(s)");
+        SelectedBacktestContracts selectedContracts = instrumentSelectionService.selectContracts(input, output);
+
+        printSection(output, "Select Event Statistic");
+        String eventName = selectEventStatistic(input, output);
+
+        EventStatisticsReport report = forgeApplication.forgeApplicationAccess().runEventStatistics(
+                new EventStatisticsRequest(selectedContracts.getContractWindows(), eventName)
+        );
+
+        output.printBlankLine();
+        output.printLine("Event statistics complete:");
+        output.printLine("Event: " + report.getEventName());
+        printEventStatisticsResults(output, "Instrument Summary", report.getInstrumentResults());
+        printEventStatisticsResults(output, "Contract Summary", report.getContractResults());
+        output.printBlankLine();
+        input.readString("Press Enter or type anything to return to Select Action");
+    }
+
+    private String selectEventStatistic(UserInput input, UserOutput output) {
+        output.printLine("Available event statistics:");
+        output.printLine("1. First Hour Breach Frequency");
+
+        while (true) {
+            int selectedIndex = input.readInt("Select event statistic");
+            if (selectedIndex == 1) {
+                return FirstHourBreachEvent.EVENT_NAME;
+            }
+            output.printLine("Selected event statistic is not available. Please select 1, or enter 'quit' to exit program.");
+        }
+    }
+
+    private void printEventStatisticsResults(
+            UserOutput output,
+            String title,
+            java.util.List<EventStatisticsResult> results
+    ) {
+        output.printBlankLine();
+        output.printLine(title);
+        output.printLine(SECTION_SEPARATOR);
+        if (results.isEmpty()) {
+            output.printLine("No complete sessions were available.");
+            return;
+        }
+        for (EventStatisticsResult result : results) {
+            output.printLine(result.getScopeName());
+            output.printLine("Sessions Analyzed: " + result.getSessionsAnalyzed());
+            output.printLine("Long Breaches: " + result.getLongEventCount());
+            output.printLine("Short Breaches: " + result.getShortEventCount());
+            output.printLine("No Breach: " + result.getNoEventCount());
+            output.printLine(String.format("Breach Rate: %.2f%%", result.getEventRate() * 100.0));
+            output.printBlankLine();
+        }
     }
 
     private void runDataImport(UserInput input, UserOutput output) {

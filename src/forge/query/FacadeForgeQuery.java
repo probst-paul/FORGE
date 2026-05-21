@@ -1,5 +1,9 @@
 package forge.query;
 
+import forge.event.MarketEvent;
+import forge.feature.SessionRangeFeature;
+
+import java.util.Collection;
 import java.util.List;
 
 public class FacadeForgeQuery {
@@ -30,6 +34,14 @@ public class FacadeForgeQuery {
     public class ForgeQueryAccess {
         public List<String> getSupportedQueryEventNames() {
             return queryService.getSupportedQueryEventNames();
+        }
+
+        public EventStatisticsReport summarizeEventStatistics(
+                EventStatisticsQuery query,
+                Collection<SessionRangeFeature> sessionRangeFeatures,
+                Collection<MarketEvent> events
+        ) {
+            return queryService.summarizeEventStatistics(query, sessionRangeFeatures, events);
         }
     }
 }

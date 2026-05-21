@@ -5,7 +5,13 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
+
+import forge.data.market.TradeTick;
+import forge.feature.SessionRangeFeature;
+import forge.feature.TradingDayClassifier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -66,6 +72,76 @@ class EventScaffoldTest {
                     Instant.parse("2025-08-01T14:30:00Z"),
                     0
             ));
+        }
+    }
+
+    @Nested
+    class FirstHourBreachDetection {
+        @Test
+        void detectsFirstBreachAfterFirstHour() {
+            SessionRangeFeature feature = new SessionRangeFeature(
+                    "ESU25",
+                    LocalDate.of(2025, 8, 1),
+                    100,
+                    120,
+                    105,
+                    115,
+                    95,
+                    125
+            );
+            FirstHourBreachEventDetector detector = new FirstHourBreachEventDetector();
+
+            List<MarketEvent> events = detector.detect(List.of(feature), List.of(
+                    tick(LocalDate.of(2025, 8, 1), LocalTime.of(8, 45), 115, 1),
+                    tick(LocalDate.of(2025, 8, 1), LocalTime.of(9, 31), 114, 2),
+                    tick(LocalDate.of(2025, 8, 1), LocalTime.of(9, 45), 116, 3),
+                    tick(LocalDate.of(2025, 8, 1), LocalTime.of(10, 0), 104, 4)
+            ));
+
+            assertEquals(1, events.size());
+            assertEquals(EventSide.LONG, events.get(0).getSide());
+            assertEquals(116, events.get(0).getEventPriceTicks());
+        }
+
+        @Test
+        void facadeDetectsFirstHourBreachEvents() {
+            SessionRangeFeature feature = new SessionRangeFeature(
+                    "ESU25",
+                    LocalDate.of(2025, 8, 1),
+                    100,
+                    120,
+                    105,
+                    115,
+                    95,
+                    125
+            );
+
+            List<MarketEvent> events = FacadeForgeEvent.getTheInstance()
+                    .forgeEventAccess()
+                    .detectFirstHourBreachEvents(List.of(feature), List.of(
+                            tick(LocalDate.of(2025, 8, 1), LocalTime.of(9, 45), 104, 1)
+                    ));
+
+            assertEquals(1, events.size());
+            assertEquals(EventSide.SHORT, events.get(0).getSide());
+        }
+
+        private TradeTick tick(LocalDate centralDate, LocalTime centralTime, long priceTicks, long scidRecordIndex) {
+            Instant instant = ZonedDateTime.of(
+                    centralDate,
+                    centralTime,
+                    TradingDayClassifier.CENTRAL_TIME
+            ).toInstant();
+            return new TradeTick(
+                    "ESU25",
+                    instant,
+                    priceTicks,
+                    priceTicks - 1,
+                    priceTicks + 1,
+                    1,
+                    1,
+                    scidRecordIndex
+            );
         }
     }
 }

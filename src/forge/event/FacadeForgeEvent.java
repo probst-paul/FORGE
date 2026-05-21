@@ -1,5 +1,9 @@
 package forge.event;
 
+import forge.data.market.TradeTick;
+import forge.feature.SessionRangeFeature;
+
+import java.util.Collection;
 import java.util.List;
 
 public class FacadeForgeEvent {
@@ -30,6 +34,13 @@ public class FacadeForgeEvent {
     public class ForgeEventAccess {
         public List<String> getSupportedEventNames() {
             return eventBuildService.getSupportedEventNames();
+        }
+
+        public List<MarketEvent> detectFirstHourBreachEvents(
+                Collection<SessionRangeFeature> sessionRangeFeatures,
+                Collection<TradeTick> ticks
+        ) {
+            return eventBuildService.detectFirstHourBreachEvents(sessionRangeFeatures, ticks);
         }
     }
 }

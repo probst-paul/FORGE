@@ -1287,6 +1287,7 @@ classDiagram
 
     class ForgeEventAccess {
         +List~String~ getSupportedEventNames()
+        +List~MarketEvent~ detectFirstHourBreachEvents(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
     }
 
     class EventDefinition {
@@ -1302,6 +1303,12 @@ classDiagram
 
     class EventBuildService {
         +List~String~ getSupportedEventNames()
+        +List~MarketEvent~ detectFirstHourBreachEvents(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
+    }
+
+    class FirstHourBreachEventDetector {
+        +EventDefinition getDefinition()
+        +List~MarketEvent~ detect(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
     }
 
     class FirstHourBreachEvent {
@@ -1322,7 +1329,12 @@ classDiagram
 
     FacadeForgeEvent --> ForgeEventAccess
     ForgeEventAccess --> EventBuildService
+    EventBuildService --> FirstHourBreachEventDetector
     EventDetector --> EventDefinition
+    FirstHourBreachEventDetector ..|> EventDetector
+    FirstHourBreachEventDetector --> SessionRangeFeature
+    FirstHourBreachEventDetector --> TradeTick
+    FirstHourBreachEventDetector --> MarketEvent
     FirstHourBreachEvent ..|> EventDefinition
     MarketEvent --> EventSide
 ```
@@ -1340,10 +1352,12 @@ classDiagram
 
     class ForgeQueryAccess {
         +List~String~ getSupportedQueryEventNames()
+        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
     }
 
     class QueryService {
         +List~String~ getSupportedQueryEventNames()
+        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
     }
 
     class EventStatisticsQuery {
@@ -1351,6 +1365,7 @@ classDiagram
     }
 
     class EventStatisticsResult {
+        -String scopeName
         -String eventName
         -long sessionsAnalyzed
         -long longEventCount
@@ -1360,10 +1375,18 @@ classDiagram
         +double getEventRate()
     }
 
+    class EventStatisticsReport {
+        -String eventName
+        -List~EventStatisticsResult~ instrumentResults
+        -List~EventStatisticsResult~ contractResults
+    }
+
     FacadeForgeQuery --> ForgeQueryAccess
     ForgeQueryAccess --> QueryService
     QueryService --> EventStatisticsQuery
+    QueryService --> EventStatisticsReport
     QueryService --> EventStatisticsResult
+    EventStatisticsReport --> EventStatisticsResult
 ```
 
 ## backtest Package
