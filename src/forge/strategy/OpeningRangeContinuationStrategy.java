@@ -1,23 +1,23 @@
 package forge.strategy;
 
-import forge.engine.MarketContext;
+import forge.event.EventSide;
+import forge.event.FirstHourBreachEvent;
+import forge.event.MarketEvent;
 import forge.execution.OrderRequest;
 import forge.execution.OrderSide;
+import forge.feature.SessionRangeFeature;
+import forge.feature.TpoPeriod;
+import forge.feature.TradingSession;
 import forge.trade.TradePlan;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 public class OpeningRangeContinuationStrategy implements TradingStrategy {
     private static final ZoneId CENTRAL_TIME = ZoneId.of("America/Chicago");
-    private static final LocalTime OVERNIGHT_START = LocalTime.of(17, 0);
-    private static final LocalTime RTH_START = LocalTime.of(8, 30);
     private static final LocalTime TRADE_START = LocalTime.of(9, 30);
     private static final LocalTime TRADE_END_EXCLUSIVE = LocalTime.of(10, 30);
     private static final int DEFAULT_QUANTITY = 1;
@@ -26,8 +26,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     private final int quantity;
     private final ExitStyle exitStyle;
     private final double rewardRiskRatio;
-    private final Map<LocalDate, SessionState> sessions = new HashMap<>();
-    private TradePlan lastTradePlan;
+    private final Map<SessionKey, Boolean> tradeTakenBySession = new HashMap<>();
 
     public OpeningRangeContinuationStrategy() {
         this(DEFAULT_QUANTITY);
@@ -58,43 +57,58 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     }
 
     @Override
-    public Optional<OrderRequest> evaluate(MarketContext marketContext) {
-        LocalDateTime centralDateTime = toCentralTime(marketContext.getTimestamp());
-        LocalDate sessionDate = sessionDateFor(centralDateTime);
-        SessionState session = sessions.computeIfAbsent(sessionDate, ignored -> new SessionState());
-        LocalTime time = centralDateTime.toLocalTime();
-        long priceTicks = marketContext.getLastPriceTicks();
+    public StrategyRequirements getRequirements() {
+        return StrategyRequirements.builder()
+                .requireFeature(SessionRangeFeature.FEATURE_NAME)
+                .requireEvent(FirstHourBreachEvent.EVENT_NAME)
+                .evaluateDuring(TradingSession.RTH)
+                .evaluateDuring(TpoPeriod.C)
+                .evaluateDuring(TpoPeriod.D)
+                .build();
+    }
 
-        if (isOvernight(time)) {
-            session.overnightRange.include(priceTicks);
-            return Optional.empty();
+    @Override
+    public StrategyDecision evaluate(StrategyContext strategyContext) {
+        if (strategyContext == null) {
+            throw new NullPointerException("strategyContext is required");
         }
-        if (isFirstHour(time)) {
-            session.firstHourRange.include(priceTicks);
-            return Optional.empty();
+        if (strategyContext.hasOpenPosition()) {
+            return StrategyDecision.noAction();
         }
-        if (!isTradeWindow(time) || marketContext.hasOpenPosition() || session.tradeTaken) {
-            return Optional.empty();
+        SessionRangeFeature feature = strategyContext.getSessionRangeFeature().orElse(null);
+        if (feature == null || !isSetupValid(feature)) {
+            return StrategyDecision.noAction();
         }
-        if (!session.isSetupValid()) {
-            return Optional.empty();
+        SessionKey sessionKey = new SessionKey(feature.getContractSymbol(), feature.getSessionDate());
+        if (tradeTakenBySession.containsKey(sessionKey)) {
+            return StrategyDecision.noAction();
+        }
+        MarketEvent breachEvent = firstHourBreachEvent(strategyContext);
+        if (breachEvent == null || !isTradeWindow(breachEvent)) {
+            return StrategyDecision.noAction();
         }
 
-        long firstHourHigh = session.firstHourRange.getHighPriceTicks();
-        long firstHourLow = session.firstHourRange.getLowPriceTicks();
-        if (priceTicks >= firstHourHigh) {
-            return enterTrade(marketContext, session, OrderSide.BUY, firstHourLow);
-        }
-        if (priceTicks <= firstHourLow) {
-            return enterTrade(marketContext, session, OrderSide.SELL, firstHourHigh);
-        }
-        return Optional.empty();
+        OrderSide side = breachEvent.getSide() == EventSide.LONG ? OrderSide.BUY : OrderSide.SELL;
+        long stopPriceTicks = side == OrderSide.BUY
+                ? feature.getFirstHourLowTicks()
+                : feature.getFirstHourHighTicks();
+        long targetPriceTicks = calculateTargetPriceTicks(
+                side,
+                strategyContext.getMarketContext().getLastPriceTicks(),
+                stopPriceTicks,
+                feature
+        );
+        tradeTakenBySession.put(sessionKey, Boolean.TRUE);
+        TradePlan tradePlan = new TradePlan(side, targetPriceTicks, stopPriceTicks, TRADE_END_EXCLUSIVE, CENTRAL_TIME);
+        return StrategyDecision.trade(
+                OrderRequest.market(strategyContext.getMarketContext().getInstrumentSymbol(), side, quantity),
+                tradePlan
+        );
     }
 
     @Override
     public void onBacktestStart() {
-        sessions.clear();
-        lastTradePlan = null;
+        tradeTakenBySession.clear();
     }
 
     public int getQuantity() {
@@ -109,32 +123,16 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
         return rewardRiskRatio;
     }
 
-    public Optional<TradePlan> getLastTradePlan() {
-        return Optional.ofNullable(lastTradePlan);
-    }
-
-    private Optional<OrderRequest> enterTrade(
-            MarketContext marketContext,
-            SessionState session,
-            OrderSide side,
-            long stopPriceTicks
-    ) {
-        session.tradeTaken = true;
-        long targetPriceTicks = calculateTargetPriceTicks(side, marketContext.getLastPriceTicks(), stopPriceTicks, session);
-        lastTradePlan = new TradePlan(side, targetPriceTicks, stopPriceTicks, TRADE_END_EXCLUSIVE, CENTRAL_TIME);
-        return Optional.of(OrderRequest.market(marketContext.getInstrumentSymbol(), side, quantity));
-    }
-
     private long calculateTargetPriceTicks(
             OrderSide side,
             long entryPriceTicks,
             long stopPriceTicks,
-            SessionState session
+            SessionRangeFeature feature
     ) {
         if (exitStyle == ExitStyle.RANGE) {
             return side == OrderSide.BUY
-                    ? session.overnightRange.getHighPriceTicks()
-                    : session.overnightRange.getLowPriceTicks();
+                    ? feature.getOvernightHighTicks()
+                    : feature.getOvernightLowTicks();
         }
 
         long riskTicks = Math.abs(entryPriceTicks - stopPriceTicks);
@@ -147,30 +145,26 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
                 : entryPriceTicks - rewardTicks;
     }
 
-    private LocalDateTime toCentralTime(LocalDateTime utcDateTime) {
-        return utcDateTime
-                .atZone(ZoneOffset.UTC)
-                .withZoneSameInstant(CENTRAL_TIME)
-                .toLocalDateTime();
-    }
-
-    private LocalDate sessionDateFor(LocalDateTime centralDateTime) {
-        if (!centralDateTime.toLocalTime().isBefore(OVERNIGHT_START)) {
-            return centralDateTime.toLocalDate().plusDays(1);
-        }
-        return centralDateTime.toLocalDate();
-    }
-
-    private boolean isOvernight(LocalTime time) {
-        return !time.isBefore(OVERNIGHT_START) || time.isBefore(RTH_START);
-    }
-
-    private boolean isFirstHour(LocalTime time) {
-        return !time.isBefore(RTH_START) && time.isBefore(TRADE_START);
-    }
-
-    private boolean isTradeWindow(LocalTime time) {
+    private boolean isTradeWindow(MarketEvent event) {
+        LocalTime time = event.getEventTime().atZone(CENTRAL_TIME).toLocalTime();
         return !time.isBefore(TRADE_START) && time.isBefore(TRADE_END_EXCLUSIVE);
+    }
+
+    private boolean isSetupValid(SessionRangeFeature feature) {
+        return feature.getFirstHourHighTicks() <= feature.getOvernightHighTicks()
+                && feature.getFirstHourLowTicks() >= feature.getOvernightLowTicks();
+    }
+
+    private MarketEvent firstHourBreachEvent(StrategyContext context) {
+        for (MarketEvent event : context.getCurrentEvents()) {
+            if (FirstHourBreachEvent.EVENT_NAME.equals(event.getEventName())
+                    && event.getEventTime().equals(context.getCurrentTick().getTradeDateTime())
+                    && event.getContractSymbol().equals(context.getCurrentTick().getContractSymbol())
+                    && (event.getSide() == EventSide.LONG || event.getSide() == EventSide.SHORT)) {
+                return event;
+            }
+        }
+        return null;
     }
 
     public enum ExitStyle {
@@ -178,48 +172,32 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
         RISK_REWARD
     }
 
-    private static class SessionState {
-        private final RangeBuilder overnightRange = new RangeBuilder();
-        private final RangeBuilder firstHourRange = new RangeBuilder();
-        private boolean tradeTaken;
+    private static class SessionKey {
+        private final String contractSymbol;
+        private final LocalDate sessionDate;
 
-        private boolean isSetupValid() {
-            return overnightRange.hasPrices()
-                    && firstHourRange.hasPrices()
-                    && firstHourRange.getHighPriceTicks() <= overnightRange.getHighPriceTicks()
-                    && firstHourRange.getLowPriceTicks() >= overnightRange.getLowPriceTicks();
-        }
-    }
-
-    private static class RangeBuilder {
-        private Long lowPriceTicks;
-        private Long highPriceTicks;
-
-        private void include(long priceTicks) {
-            if (lowPriceTicks == null || priceTicks < lowPriceTicks) {
-                lowPriceTicks = priceTicks;
-            }
-            if (highPriceTicks == null || priceTicks > highPriceTicks) {
-                highPriceTicks = priceTicks;
-            }
+        private SessionKey(String contractSymbol, LocalDate sessionDate) {
+            this.contractSymbol = contractSymbol;
+            this.sessionDate = sessionDate;
         }
 
-        private boolean hasPrices() {
-            return lowPriceTicks != null;
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof SessionKey)) {
+                return false;
+            }
+            SessionKey that = (SessionKey) other;
+            return contractSymbol.equals(that.contractSymbol) && sessionDate.equals(that.sessionDate);
         }
 
-        private long getLowPriceTicks() {
-            if (lowPriceTicks == null) {
-                throw new IllegalStateException("range has no prices");
-            }
-            return lowPriceTicks;
-        }
-
-        private long getHighPriceTicks() {
-            if (highPriceTicks == null) {
-                throw new IllegalStateException("range has no prices");
-            }
-            return highPriceTicks;
+        @Override
+        public int hashCode() {
+            int result = contractSymbol.hashCode();
+            result = 31 * result + sessionDate.hashCode();
+            return result;
         }
     }
 }

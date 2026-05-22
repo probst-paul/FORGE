@@ -1,18 +1,28 @@
 package forge.strategy;
 
+import forge.data.market.TradeTick;
 import forge.engine.MarketContext;
+import forge.event.EventSide;
+import forge.event.FirstHourBreachEvent;
+import forge.event.MarketEvent;
 import forge.execution.OrderRequest;
 import forge.execution.OrderSide;
+import forge.feature.SessionRangeFeature;
+import forge.feature.TpoPeriodClassifier;
+import forge.feature.TradingDayClassifier;
+import forge.feature.TpoPeriod;
+import forge.feature.TradingSession;
 import forge.trade.TradePlan;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpeningRangeContinuationStrategyTest {
     private static final ZoneId CENTRAL_TIME = ZoneId.of("America/Chicago");
+    private static final LocalDate SESSION_DATE = LocalDate.of(2025, 1, 6);
 
     @Nested
     class Constructor {
@@ -64,20 +75,32 @@ class OpeningRangeContinuationStrategyTest {
     }
 
     @Nested
+    class Requirements {
+        @Test
+        void requiresSessionRangesFirstHourBreachesAndRthTpoPeriods() {
+            StrategyRequirements requirements = new OpeningRangeContinuationStrategy().getRequirements();
+
+            assertTrue(requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME));
+            assertTrue(requirements.requiresEvent(FirstHourBreachEvent.EVENT_NAME));
+            assertTrue(requirements.getEvaluationSessions().contains(TradingSession.RTH));
+            assertTrue(requirements.getEvaluationTpoPeriods().contains(TpoPeriod.C));
+            assertTrue(requirements.getEvaluationTpoPeriods().contains(TpoPeriod.D));
+        }
+    }
+
+    @Nested
     class Evaluate {
         @Test
         void entersLongWhenFirstHourHighIsCrossedAfterInsideFirstHourRange() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy(2);
 
-            buildOvernightRange(strategy, 90, 100);
-            buildFirstHourRange(strategy, 92, 98);
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG));
 
-            Optional<OrderRequest> decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false));
-
-            assertTrue(decision.isPresent());
-            assertEquals(OrderSide.BUY, decision.get().getSide());
-            assertEquals(2, decision.get().getQuantity());
-            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            assertTrue(decision.hasOrderRequest());
+            OrderRequest orderRequest = decision.getOrderRequest().orElseThrow();
+            assertEquals(OrderSide.BUY, orderRequest.getSide());
+            assertEquals(2, orderRequest.getQuantity());
+            TradePlan plan = decision.getTradePlan().orElseThrow();
             assertEquals(OrderSide.BUY, plan.getSide());
             assertEquals(100, plan.getTargetPriceTicks());
             assertEquals(92, plan.getStopPriceTicks());
@@ -88,14 +111,11 @@ class OpeningRangeContinuationStrategyTest {
         void entersShortWhenFirstHourLowIsCrossedAfterInsideFirstHourRange() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            buildOvernightRange(strategy, 90, 100);
-            buildFirstHourRange(strategy, 92, 98);
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false, EventSide.SHORT));
 
-            Optional<OrderRequest> decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false));
-
-            assertTrue(decision.isPresent());
-            assertEquals(OrderSide.SELL, decision.get().getSide());
-            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            assertTrue(decision.hasOrderRequest());
+            assertEquals(OrderSide.SELL, decision.getOrderRequest().orElseThrow().getSide());
+            TradePlan plan = decision.getTradePlan().orElseThrow();
             assertEquals(OrderSide.SELL, plan.getSide());
             assertEquals(90, plan.getTargetPriceTicks());
             assertEquals(98, plan.getStopPriceTicks());
@@ -110,13 +130,10 @@ class OpeningRangeContinuationStrategyTest {
                     2.0
             );
 
-            buildOvernightRange(strategy, 90, 110);
-            buildFirstHourRange(strategy, 92, 98);
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG));
 
-            Optional<OrderRequest> decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false));
-
-            assertTrue(decision.isPresent());
-            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            assertTrue(decision.hasOrderRequest());
+            TradePlan plan = decision.getTradePlan().orElseThrow();
             assertEquals(OrderSide.BUY, plan.getSide());
             assertEquals(110, plan.getTargetPriceTicks());
             assertEquals(92, plan.getStopPriceTicks());
@@ -130,13 +147,16 @@ class OpeningRangeContinuationStrategyTest {
                     1.5
             );
 
-            buildOvernightRange(strategy, 80, 110);
-            buildFirstHourRange(strategy, 92, 100);
+            StrategyDecision decision = strategy.evaluate(context(
+                    LocalTime.of(9, 30),
+                    92,
+                    false,
+                    EventSide.SHORT,
+                    feature(80, 110, 92, 100)
+            ));
 
-            Optional<OrderRequest> decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false));
-
-            assertTrue(decision.isPresent());
-            TradePlan plan = strategy.getLastTradePlan().orElseThrow();
+            assertTrue(decision.hasOrderRequest());
+            TradePlan plan = decision.getTradePlan().orElseThrow();
             assertEquals(OrderSide.SELL, plan.getSide());
             assertEquals(80, plan.getTargetPriceTicks());
             assertEquals(100, plan.getStopPriceTicks());
@@ -146,79 +166,128 @@ class OpeningRangeContinuationStrategyTest {
         void doesNotTradeWhenFirstHourRangeExceedsOvernightRange() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            buildOvernightRange(strategy, 90, 100);
-            buildFirstHourRange(strategy, 92, 101);
+            StrategyDecision decision = strategy.evaluate(context(
+                    LocalTime.of(9, 30),
+                    101,
+                    false,
+                    EventSide.LONG,
+                    feature(90, 100, 92, 101)
+            ));
 
-            Optional<OrderRequest> decision = strategy.evaluate(context(LocalTime.of(9, 30), 101, false));
-
-            assertFalse(decision.isPresent());
+            assertFalse(decision.hasOrderRequest());
         }
 
         @Test
         void onlyAllowsOneTradePerSessionDate() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            buildOvernightRange(strategy, 90, 100);
-            buildFirstHourRange(strategy, 92, 98);
-
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false)).isPresent());
-            assertFalse(strategy.evaluate(context(LocalTime.of(9, 31), 92, false)).isPresent());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG)).hasOrderRequest());
+            assertFalse(strategy.evaluate(context(LocalTime.of(9, 31), 92, false, EventSide.SHORT)).hasOrderRequest());
         }
 
         @Test
         void onlyTradesDuringAllowedWindow() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            buildOvernightRange(strategy, 90, 100);
-            buildFirstHourRange(strategy, 92, 98);
-
-            assertFalse(strategy.evaluate(context(LocalTime.of(10, 30), 98, false)).isPresent());
+            assertFalse(strategy.evaluate(context(LocalTime.of(10, 30), 98, false, EventSide.LONG)).hasOrderRequest());
         }
 
         @Test
         void doesNotTradeWhenPositionIsAlreadyOpen() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            buildOvernightRange(strategy, 90, 100);
-            buildFirstHourRange(strategy, 92, 98);
+            assertFalse(strategy.evaluate(context(LocalTime.of(9, 30), 98, true, EventSide.LONG)).hasOrderRequest());
+        }
 
-            assertFalse(strategy.evaluate(context(LocalTime.of(9, 30), 98, true)).isPresent());
+        @Test
+        void doesNotTradeWithoutCurrentBreachEvent() {
+            OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
+
+            assertFalse(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, null)).hasOrderRequest());
         }
 
         @Test
         void clearsStateOnBacktestStart() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            buildOvernightRange(strategy, 90, 100);
-            buildFirstHourRange(strategy, 92, 98);
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false)).isPresent());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG)).hasOrderRequest());
 
             strategy.onBacktestStart();
 
-            assertFalse(strategy.getLastTradePlan().isPresent());
-            assertFalse(strategy.evaluate(context(LocalTime.of(9, 31), 98, false)).isPresent());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 31), 98, false, EventSide.LONG)).hasOrderRequest());
         }
     }
 
-    private void buildOvernightRange(OpeningRangeContinuationStrategy strategy, long lowTicks, long highTicks) {
-        strategy.evaluate(context(LocalDate.of(2025, 1, 5), LocalTime.of(17, 0), highTicks, false));
-        strategy.evaluate(context(LocalTime.of(8, 0), lowTicks, false));
+    private StrategyContext context(
+            LocalTime centralTime,
+            long priceTicks,
+            boolean hasOpenPosition,
+            EventSide eventSide
+    ) {
+        return context(centralTime, priceTicks, hasOpenPosition, eventSide, feature(90, 100, 92, 98));
     }
 
-    private void buildFirstHourRange(OpeningRangeContinuationStrategy strategy, long lowTicks, long highTicks) {
-        strategy.evaluate(context(LocalTime.of(8, 30), lowTicks, false));
-        strategy.evaluate(context(LocalTime.of(9, 29, 59), highTicks, false));
+    private StrategyContext context(
+            LocalTime centralTime,
+            long priceTicks,
+            boolean hasOpenPosition,
+            EventSide eventSide,
+            SessionRangeFeature feature
+    ) {
+        Instant instant = instantAtCentral(SESSION_DATE, centralTime);
+        MarketContext marketContext = new MarketContext(
+                "ES",
+                LocalDateTime.ofInstant(instant, ZoneOffset.UTC),
+                priceTicks,
+                0.25,
+                12.50,
+                hasOpenPosition
+        );
+        TradeTick tick = new TradeTick("ESU25", instant, priceTicks, priceTicks - 1, priceTicks + 1, 1, 1, 1);
+        return new StrategyContext(
+                marketContext,
+                tick,
+                new TradingDayClassifier().classify(instant),
+                new TpoPeriodClassifier().classify(instant),
+                feature,
+                eventSide == null ? List.of() : List.of(event(instant, priceTicks, eventSide))
+        );
     }
 
-    private MarketContext context(LocalTime centralTime, long priceTicks, boolean hasOpenPosition) {
-        return context(LocalDate.of(2025, 1, 6), centralTime, priceTicks, hasOpenPosition);
+    private SessionRangeFeature feature(
+            long overnightLowTicks,
+            long overnightHighTicks,
+            long firstHourLowTicks,
+            long firstHourHighTicks
+    ) {
+        return new SessionRangeFeature(
+                "ESU25",
+                SESSION_DATE,
+                overnightLowTicks,
+                overnightHighTicks,
+                firstHourLowTicks,
+                firstHourHighTicks,
+                firstHourLowTicks,
+                firstHourHighTicks
+        );
     }
 
-    private MarketContext context(LocalDate centralDate, LocalTime centralTime, long priceTicks, boolean hasOpenPosition) {
-        LocalDateTime utcDateTime = LocalDateTime.of(centralDate, centralTime)
+    private MarketEvent event(Instant instant, long priceTicks, EventSide side) {
+        return new MarketEvent(
+                "ESU25",
+                SESSION_DATE,
+                FirstHourBreachEvent.EVENT_NAME,
+                FirstHourBreachEvent.EVENT_VERSION,
+                side,
+                instant,
+                priceTicks
+        );
+    }
+
+    private Instant instantAtCentral(LocalDate date, LocalTime time) {
+        return LocalDateTime.of(date, time)
                 .atZone(CENTRAL_TIME)
                 .withZoneSameInstant(ZoneOffset.UTC)
-                .toLocalDateTime();
-        return new MarketContext("ES", utcDateTime, priceTicks, 0.25, 12.50, hasOpenPosition);
+                .toInstant();
     }
 }

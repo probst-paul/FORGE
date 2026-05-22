@@ -59,8 +59,8 @@ classDiagram
     TriggerSelectionService --> FacadeForgeTrigger
 
     ForgeApplicationAccess ..> FacadeForgeEngine : run request
-    ForgeApplicationAccess ..> FacadeForgeFeature : later build features
-    ForgeApplicationAccess ..> FacadeForgeEvent : later build events
+    FacadeForgeEngine ..> FacadeForgeFeature : build features
+    FacadeForgeEngine ..> FacadeForgeEvent : build events
     ForgeApplicationAccess ..> FacadeForgeQuery : later run statistics
     ForgeApplicationAccess ..> FacadeForgeTrade : lifecycle support
     ForgeApplicationAccess ..> FacadeForgeExecution : later execute orders
@@ -788,8 +788,38 @@ classDiagram
     class TradingStrategy {
         <<interface>>
         +String getName()
-        +Optional~OrderRequest~ evaluate(MarketContext context)
+        +StrategyDecision evaluate(StrategyContext context)
+        +StrategyRequirements getRequirements()
         +void onBacktestStart()
+    }
+
+    class StrategyRequirements {
+        -Set~String~ requiredFeatureNames
+        -Set~String~ requiredEventNames
+        -Set~TradingSession~ evaluationSessions
+        -Set~TpoPeriod~ evaluationTpoPeriods
+        +boolean shouldEvaluate(StrategyContext context)
+        +boolean requiresFeature(String featureName)
+        +boolean requiresEvent(String eventName)
+    }
+
+    class StrategyContext {
+        -MarketContext marketContext
+        -TradeTick currentTick
+        -TradingDayContext tradingDayContext
+        -TpoPeriod tpoPeriod
+        -SessionRangeFeature sessionRangeFeature
+        -List~MarketEvent~ currentEvents
+    }
+
+    class StrategyDecision {
+        -OrderRequest orderRequest
+        -TradePlan tradePlan
+        +StrategyDecision noAction()
+        +StrategyDecision signal(OrderRequest orderRequest)
+        +StrategyDecision trade(OrderRequest orderRequest, TradePlan tradePlan)
+        +Optional~OrderRequest~ getOrderRequest()
+        +Optional~TradePlan~ getTradePlan()
     }
 
     class RangeBreakoutStrategy {
@@ -802,10 +832,8 @@ classDiagram
         -int quantity
         -ExitStyle exitStyle
         -double rewardRiskRatio
-        -Map sessions
-        -TradePlan lastTradePlan
-        +Optional~OrderRequest~ evaluate(MarketContext context)
-        +Optional~TradePlan~ getLastTradePlan()
+        -Map tradeTakenBySession
+        +StrategyDecision evaluate(StrategyContext context)
     }
 
     class ExitStyle
@@ -839,7 +867,21 @@ classDiagram
     StrategyConfigurationProfile --> TargetSettings : defaults
     TradingStrategy <|.. RangeBreakoutStrategy
     TradingStrategy <|.. OpeningRangeContinuationStrategy
-    OpeningRangeContinuationStrategy --> TradePlan : stores active plan
+    TradingStrategy --> StrategyContext : evaluates
+    TradingStrategy --> StrategyDecision : returns
+    TradingStrategy --> StrategyRequirements : declares
+    StrategyRequirements --> TradingSession : filters
+    StrategyRequirements --> TpoPeriod : filters
+    StrategyContext --> MarketContext
+    StrategyContext --> TradeTick
+    StrategyContext --> TradingDayContext
+    StrategyContext --> TpoPeriod
+    StrategyContext --> SessionRangeFeature
+    StrategyContext --> MarketEvent
+    StrategyDecision --> OrderRequest
+    StrategyDecision --> TradePlan
+    OpeningRangeContinuationStrategy --> MarketEvent : consumes breach events
+    OpeningRangeContinuationStrategy --> SessionRangeFeature : consumes ranges
     OpeningRangeContinuationStrategy --> ExitStyle
     TimeframeRangeCalculator --> TradeTick : scans
     TimeframeRangeCalculator --> PriceRange : returns
@@ -941,7 +983,13 @@ classDiagram
     BacktestEngine --> BacktestRequest
     BacktestEngine --> BacktestProgressListener : reports progress
     BacktestEngine --> TradeBatchReader : reads batches
+    BacktestEngine --> FeatureBuildService : derives features
+    BacktestEngine --> EventBuildService : derives events
+    BacktestEngine --> TpoPeriodClassifier : classifies periods
+    BacktestEngine --> StrategyRequirements : plans evaluation
+    BacktestEngine --> StrategyContext : builds
     BacktestEngine --> TradingStrategy : evaluates
+    BacktestEngine --> StrategyDecision : consumes
     BacktestEngine --> ExecutionEngine : creates fills
     BacktestEngine --> FacadeForgeTrade : creates lifecycle engines
     BacktestEngine --> BacktestResult : creates
@@ -1195,6 +1243,32 @@ classDiagram
         +boolean isRth()
     }
 
+    class TpoPeriodClassifier {
+        +TpoPeriod classify(Instant tradeDateTime)
+    }
+
+    class TpoPeriod {
+        <<enumeration>>
+        A
+        B
+        C
+        D
+        E
+        F
+        G
+        H
+        I
+        J
+        K
+        L
+        M
+        N
+        O
+        P
+        Q
+        OUTSIDE_RTH
+    }
+
     class TradingSession {
         <<enumeration>>
         OVERNIGHT
@@ -1224,6 +1298,7 @@ classDiagram
     SessionRangeFeatureCalculator --> TradingDayClassifier
     TradingDayClassifier --> TradingDayContext
     TradingDayContext --> TradingSession
+    TpoPeriodClassifier --> TpoPeriod
     SessionRangeFeatureCalculator --> SessionRangeFeature
     SessionRangeFeature --|> FeatureResult
 ```

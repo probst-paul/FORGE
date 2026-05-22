@@ -9,10 +9,17 @@ import forge.data.market.ContractTradeWindow;
 import forge.data.market.TickDataProvider;
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
+import forge.event.EventBuildService;
+import forge.event.MarketEvent;
 import forge.execution.ExecutionEngine;
 import forge.execution.FacadeForgeExecution;
 import forge.execution.Fill;
 import forge.execution.OrderRequest;
+import forge.feature.FeatureBuildService;
+import forge.feature.SessionRangeFeature;
+import forge.feature.TpoPeriodClassifier;
+import forge.feature.TradingDayClassifier;
+import forge.feature.TradingDayContext;
 import forge.model.FuturesInstrumentSpec;
 import forge.model.FuturesInstrumentSpecProvider;
 import forge.model.StaticFuturesInstrumentSpecProvider;
@@ -20,6 +27,9 @@ import forge.reporting.BacktestResult;
 import forge.reporting.ContractBacktestResult;
 import forge.reporting.InstrumentBacktestResult;
 import forge.strategy.StrategyCatalog;
+import forge.strategy.StrategyContext;
+import forge.strategy.StrategyDecision;
+import forge.strategy.StrategyRequirements;
 import forge.strategy.TradingStrategy;
 import forge.trade.FacadeForgeTrade;
 import forge.trade.TradeLifecycleEngine;
@@ -44,6 +54,10 @@ public class BacktestEngine {
     private final ContractNameResolver contractNameResolver;
     private final FuturesInstrumentSpecProvider futuresInstrumentSpecProvider;
     private final ExecutionEngine executionEngine;
+    private final FeatureBuildService featureBuildService;
+    private final EventBuildService eventBuildService;
+    private final TradingDayClassifier tradingDayClassifier;
+    private final TpoPeriodClassifier tpoPeriodClassifier;
 
     public BacktestEngine() {
         this(
@@ -65,7 +79,11 @@ public class BacktestEngine {
                 new StrategyCatalog(),
                 new ContractNameResolver(),
                 new StaticFuturesInstrumentSpecProvider(),
-                FacadeForgeExecution.getTheInstance().forgeExecutionAccess().createSimpleExecutionEngine()
+                FacadeForgeExecution.getTheInstance().forgeExecutionAccess().createSimpleExecutionEngine(),
+                new FeatureBuildService(),
+                new EventBuildService(),
+                new TradingDayClassifier(),
+                new TpoPeriodClassifier()
         );
     }
 
@@ -87,7 +105,11 @@ public class BacktestEngine {
                 new StrategyCatalog(),
                 new ContractNameResolver(),
                 new StaticFuturesInstrumentSpecProvider(),
-                FacadeForgeExecution.getTheInstance().forgeExecutionAccess().createSimpleExecutionEngine()
+                FacadeForgeExecution.getTheInstance().forgeExecutionAccess().createSimpleExecutionEngine(),
+                new FeatureBuildService(),
+                new EventBuildService(),
+                new TradingDayClassifier(),
+                new TpoPeriodClassifier()
         );
     }
 
@@ -98,11 +120,39 @@ public class BacktestEngine {
             FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
             ExecutionEngine executionEngine
     ) {
+        this(
+                tradeBatchReaderFactory,
+                strategyCatalog,
+                contractNameResolver,
+                futuresInstrumentSpecProvider,
+                executionEngine,
+                new FeatureBuildService(),
+                new EventBuildService(),
+                new TradingDayClassifier(),
+                new TpoPeriodClassifier()
+        );
+    }
+
+    BacktestEngine(
+            TradeBatchReaderFactory tradeBatchReaderFactory,
+            StrategyCatalog strategyCatalog,
+            ContractNameResolver contractNameResolver,
+            FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
+            ExecutionEngine executionEngine,
+            FeatureBuildService featureBuildService,
+            EventBuildService eventBuildService,
+            TradingDayClassifier tradingDayClassifier,
+            TpoPeriodClassifier tpoPeriodClassifier
+    ) {
         this.tradeBatchReaderFactory = Objects.requireNonNull(tradeBatchReaderFactory, "tradeBatchReaderFactory is required");
         this.strategyCatalog = Objects.requireNonNull(strategyCatalog, "strategyCatalog is required");
         this.contractNameResolver = Objects.requireNonNull(contractNameResolver, "contractNameResolver is required");
         this.futuresInstrumentSpecProvider = Objects.requireNonNull(futuresInstrumentSpecProvider, "futuresInstrumentSpecProvider is required");
         this.executionEngine = Objects.requireNonNull(executionEngine, "executionEngine is required");
+        this.featureBuildService = Objects.requireNonNull(featureBuildService, "featureBuildService is required");
+        this.eventBuildService = Objects.requireNonNull(eventBuildService, "eventBuildService is required");
+        this.tradingDayClassifier = Objects.requireNonNull(tradingDayClassifier, "tradingDayClassifier is required");
+        this.tpoPeriodClassifier = Objects.requireNonNull(tpoPeriodClassifier, "tpoPeriodClassifier is required");
     }
 
     public BacktestResult run(BacktestRequest request) {
@@ -113,51 +163,61 @@ public class BacktestEngine {
         Objects.requireNonNull(request, "request is required");
         BacktestProgressListener listener = progressListener == null ? BacktestProgressListener.NO_OP : progressListener;
         TradingStrategy strategy = createStrategy(request.getStrategyOptions().getStrategyName());
+        StrategyRequirements requirements = strategy.getRequirements();
         strategy.onBacktestStart();
-        TradeBatchReader reader = tradeBatchReaderFactory.openReader(request.getContractWindows(), DEFAULT_BATCH_SIZE);
         long totalTicks = tradeBatchReaderFactory.countTicks(request.getContractWindows());
-        long processedTicks = 0;
         listener.onProgress(new BacktestProgress(0, totalTicks));
+        List<TradeTick> ticks = readTicks(request, listener, totalTicks);
+        List<SessionRangeFeature> sessionRangeFeatures = buildSessionRangeFeatures(requirements, ticks);
+        List<MarketEvent> marketEvents = buildMarketEvents(requirements, sessionRangeFeatures, ticks);
+        Map<SessionKey, SessionRangeFeature> featuresBySession = indexFeatures(sessionRangeFeatures);
+        Map<SessionKey, List<MarketEvent>> eventsBySession = indexEvents(marketEvents);
         Map<String, FuturesInstrumentSpec> specsByInstrument = new HashMap<>();
         Map<String, ContractRunAccumulator> contractAccumulators = initializeContractAccumulators(request);
         Map<String, TradeLifecycleEngine> lifecycleEngines = initializeLifecycleEngines(request);
 
-        while (true) {
-            List<TradeTick> batch = reader.readNextBatch();
-            if (batch.isEmpty()) {
-                break;
+        for (TradeTick tick : ticks) {
+            ContractRunAccumulator accumulator = contractAccumulators.computeIfAbsent(
+                    tick.getContractSymbol(),
+                    contractSymbol -> new ContractRunAccumulator(
+                            contractNameResolver.resolveInstrumentSymbol(contractSymbol),
+                            contractSymbol
+                    )
+            );
+            TradeLifecycleEngine lifecycleEngine = lifecycleEngines.computeIfAbsent(
+                    tick.getContractSymbol(),
+                    ignored -> createTradeLifecycleEngine()
+            );
+            lifecycleEngine.onTick(tick).ifPresent(accumulator::addTrade);
+            TradingDayContext tradingDayContext = tradingDayClassifier.classify(tick.getTradeDateTime());
+            SessionKey sessionKey = new SessionKey(tick.getContractSymbol(), tradingDayContext.getTradingDay());
+            MarketContext marketContext = toMarketContext(tick, specsByInstrument, lifecycleEngine.hasOpenPosition());
+            StrategyContext strategyContext = new StrategyContext(
+                    marketContext,
+                    tick,
+                    tradingDayContext,
+                    tpoPeriodClassifier.classify(tick.getTradeDateTime()),
+                    featuresBySession.get(sessionKey),
+                    eventsForTick(tick, eventsBySession.get(sessionKey))
+            );
+            accumulator.incrementTicksProcessed();
+            if (!requirements.shouldEvaluate(strategyContext)) {
+                continue;
             }
-            for (TradeTick tick : batch) {
-                ContractRunAccumulator accumulator = contractAccumulators.computeIfAbsent(
-                        tick.getContractSymbol(),
-                        contractSymbol -> new ContractRunAccumulator(
-                                contractNameResolver.resolveInstrumentSymbol(contractSymbol),
-                                contractSymbol
-                        )
-                );
-                TradeLifecycleEngine lifecycleEngine = lifecycleEngines.computeIfAbsent(
-                        tick.getContractSymbol(),
-                        ignored -> createTradeLifecycleEngine()
-                );
-                lifecycleEngine.onTick(tick).ifPresent(accumulator::addTrade);
-                MarketContext marketContext = toMarketContext(tick, specsByInstrument, lifecycleEngine.hasOpenPosition());
-                accumulator.incrementTicksProcessed();
-                Optional<OrderRequest> orderRequest = strategy.evaluate(marketContext);
-                if (orderRequest.isPresent()) {
-                    accumulator.incrementOrderSignalsGenerated();
-                    Optional<TradePlan> tradePlan = strategy.getLastTradePlan();
-                    if (tradePlan.isPresent() && !lifecycleEngine.hasOpenPosition()) {
-                        Optional<Fill> fill = executionEngine.execute(orderRequest.get(), tick);
-                        fill.ifPresent(entryFill -> lifecycleEngine.openPosition(
-                                entryFill,
-                                tradePlan.get(),
-                                specFor(tick, specsByInstrument)
-                        ));
-                    }
+            StrategyDecision decision = strategy.evaluate(strategyContext);
+            Optional<OrderRequest> orderRequest = decision.getOrderRequest();
+            if (orderRequest.isPresent()) {
+                accumulator.incrementOrderSignalsGenerated();
+                Optional<TradePlan> tradePlan = decision.getTradePlan();
+                if (tradePlan.isPresent() && !lifecycleEngine.hasOpenPosition()) {
+                    Optional<Fill> fill = executionEngine.execute(orderRequest.get(), tick);
+                    fill.ifPresent(entryFill -> lifecycleEngine.openPosition(
+                            entryFill,
+                            tradePlan.get(),
+                            specFor(tick, specsByInstrument)
+                    ));
                 }
             }
-            processedTicks += batch.size();
-            listener.onProgress(new BacktestProgress(Math.min(processedTicks, totalTicks), totalTicks));
         }
 
         for (Map.Entry<String, TradeLifecycleEngine> entry : lifecycleEngines.entrySet()) {
@@ -171,6 +231,83 @@ public class BacktestEngine {
                 request.getStrategyOptions().getStrategyName(),
                 toInstrumentResults(contractAccumulators)
         );
+    }
+
+    private List<SessionRangeFeature> buildSessionRangeFeatures(
+            StrategyRequirements requirements,
+            List<TradeTick> ticks
+    ) {
+        if (requirements.getRequiredFeatureNames().isEmpty() && requirements.getRequiredEventNames().isEmpty()) {
+            return List.of();
+        }
+        if (requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME)
+                || requirements.requiresEvent(forge.event.FirstHourBreachEvent.EVENT_NAME)) {
+            return featureBuildService.calculateSessionRanges(ticks);
+        }
+        return List.of();
+    }
+
+    private List<MarketEvent> buildMarketEvents(
+            StrategyRequirements requirements,
+            List<SessionRangeFeature> sessionRangeFeatures,
+            List<TradeTick> ticks
+    ) {
+        if (requirements.requiresEvent(forge.event.FirstHourBreachEvent.EVENT_NAME)) {
+            return eventBuildService.detectFirstHourBreachEvents(sessionRangeFeatures, ticks);
+        }
+        return List.of();
+    }
+
+    private List<TradeTick> readTicks(
+            BacktestRequest request,
+            BacktestProgressListener listener,
+            long totalTicks
+    ) {
+        List<TradeTick> ticks = new ArrayList<>();
+        long processedTicks = 0;
+        TradeBatchReader reader = tradeBatchReaderFactory.openReader(request.getContractWindows(), DEFAULT_BATCH_SIZE);
+        while (true) {
+            List<TradeTick> batch = reader.readNextBatch();
+            if (batch.isEmpty()) {
+                break;
+            }
+            ticks.addAll(batch);
+            processedTicks += batch.size();
+            listener.onProgress(new BacktestProgress(Math.min(processedTicks, totalTicks), totalTicks));
+        }
+        return ticks;
+    }
+
+    private Map<SessionKey, SessionRangeFeature> indexFeatures(List<SessionRangeFeature> features) {
+        Map<SessionKey, SessionRangeFeature> featuresBySession = new HashMap<>();
+        for (SessionRangeFeature feature : features) {
+            featuresBySession.put(new SessionKey(feature.getContractSymbol(), feature.getSessionDate()), feature);
+        }
+        return featuresBySession;
+    }
+
+    private Map<SessionKey, List<MarketEvent>> indexEvents(List<MarketEvent> events) {
+        Map<SessionKey, List<MarketEvent>> eventsBySession = new HashMap<>();
+        for (MarketEvent event : events) {
+            eventsBySession
+                    .computeIfAbsent(new SessionKey(event.getContractSymbol(), event.getSessionDate()), ignored -> new ArrayList<>())
+                    .add(event);
+        }
+        return eventsBySession;
+    }
+
+    private List<MarketEvent> eventsForTick(TradeTick tick, List<MarketEvent> sessionEvents) {
+        if (sessionEvents == null || sessionEvents.isEmpty()) {
+            return List.of();
+        }
+        List<MarketEvent> events = new ArrayList<>();
+        for (MarketEvent event : sessionEvents) {
+            if (event.getEventTime().equals(tick.getTradeDateTime())
+                    && event.getEventPriceTicks() == tick.getPriceTicks()) {
+                events.add(event);
+            }
+        }
+        return events;
     }
 
     private Map<String, ContractRunAccumulator> initializeContractAccumulators(BacktestRequest request) {
@@ -270,6 +407,35 @@ public class BacktestEngine {
         TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize);
 
         long countTicks(List<ContractTradeWindow> windows);
+    }
+
+    private static class SessionKey {
+        private final String contractSymbol;
+        private final java.time.LocalDate sessionDate;
+
+        private SessionKey(String contractSymbol, java.time.LocalDate sessionDate) {
+            this.contractSymbol = contractSymbol;
+            this.sessionDate = sessionDate;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof SessionKey)) {
+                return false;
+            }
+            SessionKey that = (SessionKey) other;
+            return contractSymbol.equals(that.contractSymbol) && sessionDate.equals(that.sessionDate);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = contractSymbol.hashCode();
+            result = 31 * result + sessionDate.hashCode();
+            return result;
+        }
     }
 
     private static class ContractRunAccumulator {

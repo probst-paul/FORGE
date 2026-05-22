@@ -1,10 +1,7 @@
 package forge.strategy;
 
-import forge.engine.MarketContext;
 import forge.execution.OrderRequest;
 import forge.execution.OrderSide;
-
-import java.util.Optional;
 
 public class RangeBreakoutStrategy implements TradingStrategy {
     private final double rangeHigh;
@@ -40,18 +37,29 @@ public class RangeBreakoutStrategy implements TradingStrategy {
     }
 
     @Override
-    public Optional<OrderRequest> evaluate(MarketContext marketContext) {
-        if (rangeHigh == 0 || rangeLow == 0 || marketContext.hasOpenPosition()) {
-            return Optional.empty();
+    public StrategyDecision evaluate(StrategyContext strategyContext) {
+        if (strategyContext == null) {
+            throw new NullPointerException("strategyContext is required");
+        }
+        if (rangeHigh == 0 || rangeLow == 0 || strategyContext.hasOpenPosition()) {
+            return StrategyDecision.noAction();
         }
 
-        if (marketContext.getLastPrice() > rangeHigh) {
-            return Optional.of(OrderRequest.market(marketContext.getInstrumentSymbol(), OrderSide.BUY, quantity));
+        if (strategyContext.getMarketContext().getLastPrice() > rangeHigh) {
+            return StrategyDecision.signal(OrderRequest.market(
+                    strategyContext.getMarketContext().getInstrumentSymbol(),
+                    OrderSide.BUY,
+                    quantity
+            ));
         }
-        if (marketContext.getLastPrice() < rangeLow) {
-            return Optional.of(OrderRequest.market(marketContext.getInstrumentSymbol(), OrderSide.SELL, quantity));
+        if (strategyContext.getMarketContext().getLastPrice() < rangeLow) {
+            return StrategyDecision.signal(OrderRequest.market(
+                    strategyContext.getMarketContext().getInstrumentSymbol(),
+                    OrderSide.SELL,
+                    quantity
+            ));
         }
-        return Optional.empty();
+        return StrategyDecision.noAction();
     }
 
     public double getRangeHigh() {
