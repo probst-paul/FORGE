@@ -58,6 +58,16 @@ public class StrategyCatalog {
         return simpleName;
     }
 
+    public String getDescription(Class<? extends TradingStrategy> strategyClass) {
+        if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {
+            return "Looks for the first RTH breach of the first-hour range after that range stays inside the overnight range.";
+        }
+        if (RangeBreakoutStrategy.class.equals(strategyClass)) {
+            return "Looks for price to break beyond a configured high/low range and emits a directional order signal.";
+        }
+        return "Custom trading strategy.";
+    }
+
     public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategyClass) {
         if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {
             List<Class<? extends TradeTrigger>> allowedTriggers = List.of(PriceCrossoverTrigger.class);

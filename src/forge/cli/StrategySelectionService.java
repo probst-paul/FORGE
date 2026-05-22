@@ -23,7 +23,9 @@ public class StrategySelectionService {
 
         output.printLine("Available strategies:");
         for (int i = 0; i < strategies.size(); i++) {
-            output.printLine((i + 1) + ". " + facadeStrategy.forgeStrategyAccess().getDisplayName(strategies.get(i)));
+            Class<? extends TradingStrategy> strategy = strategies.get(i);
+            output.printLine((i + 1) + ". " + facadeStrategy.forgeStrategyAccess().getDisplayName(strategy));
+            output.printLine("   " + facadeStrategy.forgeStrategyAccess().getDescription(strategy));
         }
 
         while (true) {
@@ -37,6 +39,10 @@ public class StrategySelectionService {
 
     public String getDisplayName(Class<? extends TradingStrategy> strategy) {
         return facadeStrategy.forgeStrategyAccess().getDisplayName(strategy);
+    }
+
+    public String getDescription(Class<? extends TradingStrategy> strategy) {
+        return facadeStrategy.forgeStrategyAccess().getDescription(strategy);
     }
 
     public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategy) {

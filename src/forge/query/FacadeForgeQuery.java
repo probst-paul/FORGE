@@ -158,6 +158,14 @@ public class FacadeForgeQuery {
             return queryService.getSupportedQueryEventNames();
         }
 
+        public String getEventStatisticDisplayName(String eventName) {
+            return queryService.getEventStatisticDisplayName(eventName);
+        }
+
+        public String getEventStatisticDescription(String eventName) {
+            return queryService.getEventStatisticDescription(eventName);
+        }
+
         public EventStatisticsReport summarizeEventStatistics(
                 EventStatisticsQuery query,
                 Collection<SessionRangeFeature> sessionRangeFeatures,

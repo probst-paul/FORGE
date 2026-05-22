@@ -22,9 +22,9 @@ import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.app.EventStatisticsRequest;
 import forge.app.EventStatisticsProgress;
-import forge.event.FirstHourBreachEvent;
 import forge.query.EventStatisticsReport;
 import forge.query.EventStatisticsResult;
+import forge.query.FacadeForgeQuery;
 import forge.reporting.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.StrategyConfigurationProfile;
@@ -158,6 +158,7 @@ public class CliApplicationController {
         output.printBlankLine();
         output.printLine("Backtest complete:");
         output.printLine(result.toString());
+        printBacktestEmptyResultGuidance(output, result);
         output.printBlankLine();
         input.readString("Press Enter or type anything to return to Select Action");
     }
@@ -221,20 +222,72 @@ public class CliApplicationController {
         output.printLine("Event: " + report.getEventName());
         printEventStatisticsResults(output, "Instrument Summary", report.getInstrumentResults());
         printEventStatisticsResults(output, "Contract Summary", report.getContractResults());
+        printEventStatisticsEmptyResultGuidance(output, report);
         output.printBlankLine();
         input.readString("Press Enter or type anything to return to Select Action");
     }
 
     private String selectEventStatistic(UserInput input, UserOutput output) {
+        java.util.List<String> eventNames = FacadeForgeQuery.getTheInstance()
+                .forgeQueryAccess()
+                .getSupportedQueryEventNames();
+        if (eventNames.isEmpty()) {
+            throw new IllegalStateException("No event statistics are available");
+        }
+
         output.printLine("Available event statistics:");
-        output.printLine("1. First Hour Breach Frequency");
+        for (int i = 0; i < eventNames.size(); i++) {
+            String eventName = eventNames.get(i);
+            output.printLine((i + 1) + ". " + FacadeForgeQuery.getTheInstance()
+                    .forgeQueryAccess()
+                    .getEventStatisticDisplayName(eventName));
+            output.printLine("   " + FacadeForgeQuery.getTheInstance()
+                    .forgeQueryAccess()
+                    .getEventStatisticDescription(eventName));
+        }
 
         while (true) {
-            int selectedIndex = input.readInt("Select event statistic");
-            if (selectedIndex == 1) {
-                return FirstHourBreachEvent.EVENT_NAME;
+            int selectedIndex = input.readInt("Select event statistic") - 1;
+            if (selectedIndex >= 0 && selectedIndex < eventNames.size()) {
+                return eventNames.get(selectedIndex);
             }
-            output.printLine("Selected event statistic is not available. Please select 1, or enter 'quit' to exit program.");
+            output.printLine("Selected event statistic is not available. Please select an available statistic, or enter 'quit' to exit program.");
+        }
+    }
+
+    private void printBacktestEmptyResultGuidance(UserOutput output, BacktestResult result) {
+        if (result.getTicksProcessed() == 0) {
+            output.printBlankLine();
+            output.printLine("No strategy-usable ticks were available for the selected contract windows.");
+            output.printLine("Check that the selected contracts have imported front-month data and strategy-usable trades.");
+            return;
+        }
+        if (result.getOrderSignalsGenerated() == 0) {
+            output.printBlankLine();
+            output.printLine("No order signals were generated.");
+            output.printLine("The selected strategy may have filtered out the available ticks by session/TPO period, or its required setup did not occur.");
+            return;
+        }
+        if (totalTrades(result) == 0) {
+            output.printBlankLine();
+            output.printLine("Order signals were generated, but no completed trades were recorded.");
+            output.printLine("The current MVP engine only records trades when a strategy decision includes a trade plan and the lifecycle can open and close the position.");
+        }
+    }
+
+    private long totalTrades(BacktestResult result) {
+        long trades = 0;
+        for (forge.reporting.InstrumentBacktestResult instrumentResult : result.getInstrumentResults()) {
+            trades += instrumentResult.getPerformanceMetrics().getTotalTrades();
+        }
+        return trades;
+    }
+
+    private void printEventStatisticsEmptyResultGuidance(UserOutput output, EventStatisticsReport report) {
+        if (report.getInstrumentResults().isEmpty() && report.getContractResults().isEmpty()) {
+            output.printBlankLine();
+            output.printLine("No complete sessions were available for this statistic.");
+            output.printLine("Import enough data to cover the required overnight, first-hour, and RTH windows for the selected contracts.");
         }
     }
 

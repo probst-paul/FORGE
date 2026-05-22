@@ -31,6 +31,20 @@ public class QueryService {
         return List.of(FirstHourBreachEvent.EVENT_NAME);
     }
 
+    public String getEventStatisticDisplayName(String eventName) {
+        if (FirstHourBreachEvent.EVENT_NAME.equals(eventName)) {
+            return "First Hour Breach Frequency";
+        }
+        throw new IllegalArgumentException("Unsupported event statistics query: " + eventName);
+    }
+
+    public String getEventStatisticDescription(String eventName) {
+        if (FirstHourBreachEvent.EVENT_NAME.equals(eventName)) {
+            return "Counts how often price breaches the first-hour RTH high or low after the first hour completes.";
+        }
+        throw new IllegalArgumentException("Unsupported event statistics query: " + eventName);
+    }
+
     public EventStatisticsReport summarizeEventStatistics(
             EventStatisticsQuery query,
             Collection<SessionRangeFeature> sessionRangeFeatures,

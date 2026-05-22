@@ -36,6 +36,10 @@ public class FacadeForgeStrategy {
             return strategyCatalog.getDisplayName(strategy);
         }
 
+        public String getDescription(Class<? extends TradingStrategy> strategy) {
+            return strategyCatalog.getDescription(strategy);
+        }
+
         public StrategyOptions createStrategyOptions(Class<? extends TradingStrategy> strategy) {
             return new StrategyOptions(getDisplayName(strategy));
         }

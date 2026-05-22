@@ -24,6 +24,7 @@ It is not yet a complete historical market replay or backtesting engine.
   - `OpeningRangeContinuationStrategy`
 - Feature/event-driven strategy context and strategy decisions
 - Strategy requirements for declaring required features/events plus session and TPO-period evaluation filters
+- CLI strategy and event-statistic descriptions plus empty-result guidance
 - Trade trigger interface with:
   - `OrderFlowExhaustionTrigger`
   - `PriceCrossoverTrigger`
@@ -75,6 +76,8 @@ Event statistics reuse the same selected contract windows as backtests. `First H
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
 Strategies own their compatible trigger and target choices. The CLI only asks the user to select a trigger or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default trigger and target settings; for example, `RangeBreakoutStrategy` defaults to `OrderFlowExhaustionTrigger`, also allows `PriceCrossoverTrigger`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
+
+The CLI displays a short description beside each trading strategy and event statistic so users can choose by intent rather than by internal feature/event requirements. When a backtest or statistic has no usable ticks, no generated signals, no completed trades, or no complete event sessions, the CLI prints a short explanation and returns to `Select Action`.
 
 `PriceCrossoverTrigger` is configured in ticks. For a long trigger, the condition is true when the current trade price reaches or exceeds the threshold. For a short trigger, the condition is true when the current trade price reaches or falls below the threshold.
 

@@ -39,6 +39,15 @@ class StrategyCatalogTest {
     }
 
     @Nested
+    class GetDescription {
+        @Test
+        void returnsShortUserFacingStrategyDescriptions() {
+            assertTrue(catalog.getDescription(RangeBreakoutStrategy.class).contains("break"));
+            assertTrue(catalog.getDescription(OpeningRangeContinuationStrategy.class).contains("first-hour"));
+        }
+    }
+
+    @Nested
     class GetConfigurationProfile {
         @Test
         void rangeBreakoutDefinesCompatibleTriggerAndTargets() {

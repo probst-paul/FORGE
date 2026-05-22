@@ -764,6 +764,7 @@ classDiagram
     class ForgeStrategyAccess {
         +List~Class~ findAvailableStrategies()
         +String getDisplayName(Class strategy)
+        +String getDescription(Class strategy)
         +StrategyOptions createStrategyOptions(Class strategy)
         +StrategyConfigurationProfile getConfigurationProfile(Class strategy)
         +TradingStrategy createStrategy(Class strategy)
@@ -772,6 +773,7 @@ classDiagram
     class StrategyCatalog {
         +List~Class~ findAvailableStrategies()
         +String getDisplayName(Class strategyClass)
+        +String getDescription(Class strategyClass)
         +StrategyConfigurationProfile getConfigurationProfile(Class strategyClass)
     }
 
@@ -1381,12 +1383,16 @@ classDiagram
 
     class ForgeQueryAccess {
         +List~String~ getSupportedQueryEventNames()
+        +String getEventStatisticDisplayName(String eventName)
+        +String getEventStatisticDescription(String eventName)
         +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
         +EventStatisticsReport runEventStatistics(EventStatisticsQueryRequest request)
     }
 
     class QueryService {
         +List~String~ getSupportedQueryEventNames()
+        +String getEventStatisticDisplayName(String eventName)
+        +String getEventStatisticDescription(String eventName)
         +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
     }
 

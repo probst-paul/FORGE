@@ -34,6 +34,14 @@ class QueryScaffoldTest {
 
             assertSame(facade, FacadeForgeQuery.getTheInstance());
             assertEquals(List.of(FirstHourBreachEvent.EVENT_NAME), facade.forgeQueryAccess().getSupportedQueryEventNames());
+            assertEquals(
+                    "First Hour Breach Frequency",
+                    facade.forgeQueryAccess().getEventStatisticDisplayName(FirstHourBreachEvent.EVENT_NAME)
+            );
+            assertEquals(
+                    "Counts how often price breaches the first-hour RTH high or low after the first hour completes.",
+                    facade.forgeQueryAccess().getEventStatisticDescription(FirstHourBreachEvent.EVENT_NAME)
+            );
         }
     }
 

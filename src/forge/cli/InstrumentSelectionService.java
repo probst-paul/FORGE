@@ -23,10 +23,10 @@ public class InstrumentSelectionService {
         List<AvailableInstrumentData> instruments = facadeData.forgeDataAccess().getAvailableInstruments();
         List<AvailableContractData> contracts = facadeData.forgeDataAccess().getAvailableContracts();
         if (instruments.isEmpty()) {
-            throw new IllegalStateException("No instrument data is available");
+            throw new IllegalStateException("No imported instruments are available. Import SCID data first, then run this action again");
         }
         if (contracts.isEmpty()) {
-            throw new IllegalStateException("No valid front-month contract data is available");
+            throw new IllegalStateException("No valid front-month contract windows are available. Import contract data that overlaps a supported rollover window");
         }
 
         output.printLine("Available instruments:");
@@ -43,6 +43,9 @@ public class InstrumentSelectionService {
                 List<AvailableContractData> selectedContracts = contracts.stream()
                         .filter(contract -> contract.getInstrumentSymbol().equals(selectedInstrumentSymbol))
                         .collect(Collectors.toList());
+                if (selectedContracts.isEmpty()) {
+                    throw new IllegalStateException("No valid front-month contract windows are available for " + selectedInstrumentSymbol);
+                }
                 return toSelectedBacktestContracts(selectedContracts);
             }
             if (selectedIndex == customContractsOption) {
