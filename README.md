@@ -12,6 +12,7 @@ It is not yet a complete historical market replay or backtesting engine.
 - Command-line import flow for preparing PostgreSQL contract tables from SCID file names
 - Maven build with JUnit 5 and PostgreSQL JDBC dependencies
 - Database-derived instrument/date catalog based on imported contract tables
+- Presentation-neutral database build/refresh workflow for derived session ranges and first-hour breach events
 - Date-based front-month rollover windows for imported equity index and CL futures
 - Batch-driven backtest replay over selected contract windows, with CLI progress reporting
 - Position-based trade lifecycle for strategies that emit a trade plan, including target, stop, time-stop, P/L, MFE, and MAE tracking
@@ -61,6 +62,14 @@ Select Action
 │  └─ Display event counts by instrument and contract
 ├─ Import Data
 │  └─ Prepare PostgreSQL database/table for the selected SCID file
+├─ Build/Refresh Derived Data
+│  ├─ Select Instrument(s)
+│  │  ├─ Choose an instrument's All Available front-month contracts
+│  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
+│  ├─ Select derived data to build
+│  ├─ Choose whether to rebuild existing derived rows
+│  ├─ Review the build plan
+│  └─ Build selected derived data with a single-line status bar
 └─ Configure Database
    └─ Set PostgreSQL host, port, database, maintenance database, username, and password
 ```
@@ -72,6 +81,8 @@ Backtest setup no longer asks for a free-form date range. The CLI selects valid 
 `BacktestRequest` carries those selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.
 
 Event statistics reuse the same selected contract windows as backtests. `First Hour Breach Frequency` is executed through the query layer with a single-line CLI progress bar. On the first run for a selected contract window, FORGE reads the selected trade ticks, stores derived session ranges and first-hour breach events in PostgreSQL, then reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract. Later runs for the same contract window reuse the stored derived rows instead of scanning the trade ticks again.
+
+The CLI also exposes `Build/Refresh Derived Data`, which runs the same reusable database build workflow without requiring a new SCID file. It uses selected contract windows, derived-data choices such as session ranges and first-hour breach events, and a rebuild flag to create a `DatabaseBuildRequest`. FORGE previews the work with a `DatabaseBuildPlan`, runs selected build work with a single-line status bar, and returns a `DatabaseBuildResult`. This is the same backend shape a future GUI can drive with checkboxes.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
@@ -104,6 +115,7 @@ src/forge/app        Application facade, requests, console input/output abstract
 src/forge/cli        CLI controller and selection services
 src/forge/config     Backtest configuration objects
 src/forge/data       Data facade
+src/forge/data/build      Derived data build/refresh requests, plans, results, and service
 src/forge/data/catalog    Database-derived instrument/date catalog
 src/forge/data/contract   Futures contract parsing helpers
 src/forge/data/importing  SCID import services, import DTOs, and trade rows

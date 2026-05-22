@@ -1,6 +1,13 @@
 package forge.data;
 
 import forge.app.ImportProgressListener;
+import forge.data.build.DataBuildProgressListener;
+import forge.data.build.DatabaseBuildPlan;
+import forge.data.build.DatabaseBuildRequest;
+import forge.data.build.DatabaseBuildResult;
+import forge.data.build.DerivedDataBuildService;
+import forge.data.build.DerivedDataBuildStore;
+import forge.data.build.DerivedDataBuildTradeSource;
 import forge.data.catalog.InstrumentDataCatalog;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableDateRange;
@@ -28,6 +35,7 @@ public class FacadeForgeData {
     private InstrumentDataCatalog instrumentDataCatalog;
     private ScidDataImportService scidDataImportService;
     private TickDataProvider tickDataProvider;
+    private DerivedDataBuildService derivedDataBuildService;
     private final ForgeDataAccess access = new ForgeDataAccess();
 
     public static FacadeForgeData getTheInstance() {
@@ -78,6 +86,7 @@ public class FacadeForgeData {
         this.instrumentDataCatalog = instrumentDataCatalog;
         this.scidDataImportService = scidDataImportService;
         this.tickDataProvider = tickDataProvider;
+        this.derivedDataBuildService = createDerivedDataBuildService(tickDataProvider, scidDataImportService.getTradeRepository());
     }
 
     public ForgeDataAccess forgeDataAccess() {
@@ -119,6 +128,17 @@ public class FacadeForgeData {
 
         public long countTradeTicks(List<ContractTradeWindow> windows) {
             return tickDataProvider.countTicks(windows);
+        }
+
+        public DatabaseBuildPlan planDatabaseBuild(DatabaseBuildRequest request) {
+            return derivedDataBuildService.planBuild(request);
+        }
+
+        public DatabaseBuildResult runDatabaseBuild(
+                DatabaseBuildRequest request,
+                DataBuildProgressListener progressListener
+        ) {
+            return derivedDataBuildService.runBuild(request, progressListener);
         }
 
         public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
@@ -164,6 +184,79 @@ public class FacadeForgeData {
                     tradeRepository
             );
             tickDataProvider = new PostgresTickDataProvider(databaseSettings);
+            derivedDataBuildService = createDerivedDataBuildService(tickDataProvider, tradeRepository);
         }
+    }
+
+    private DerivedDataBuildService createDerivedDataBuildService(
+            TickDataProvider tickDataProvider,
+            PostgresTradeRepository tradeRepository
+    ) {
+        return new DerivedDataBuildService(
+                new DerivedDataBuildTradeSource() {
+                    @Override
+                    public TradeBatchReader openTradeBatchReader(List<ContractTradeWindow> windows, int batchSize) {
+                        return tickDataProvider.openReader(windows, batchSize);
+                    }
+
+                    @Override
+                    public long countTradeTicks(List<ContractTradeWindow> windows) {
+                        return tickDataProvider.countTicks(windows);
+                    }
+                },
+                new DerivedDataBuildStore() {
+                    @Override
+                    public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
+                        return tradeRepository.areSessionRangesBuilt(windows);
+                    }
+
+                    @Override
+                    public List<SessionRangeFeature> loadSessionRanges(List<ContractTradeWindow> windows) {
+                        return tradeRepository.loadSessionRanges(windows);
+                    }
+
+                    @Override
+                    public void saveSessionRanges(Collection<SessionRangeFeature> sessionRangeFeatures) {
+                        tradeRepository.saveSessionRanges(sessionRangeFeatures);
+                    }
+
+                    @Override
+                    public void markSessionRangesBuilt(List<ContractTradeWindow> windows) {
+                        tradeRepository.markSessionRangesBuilt(windows);
+                    }
+
+                    @Override
+                    public void clearSessionRanges(List<ContractTradeWindow> windows) {
+                        tradeRepository.clearSessionRanges(windows);
+                    }
+
+                    @Override
+                    public boolean areMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+                        return tradeRepository.areMarketEventsBuilt(windows, eventName);
+                    }
+
+                    @Override
+                    public List<MarketEvent> loadMarketEvents(List<ContractTradeWindow> windows, String eventName) {
+                        return tradeRepository.loadMarketEvents(windows, eventName);
+                    }
+
+                    @Override
+                    public void saveMarketEvents(Collection<MarketEvent> marketEvents) {
+                        tradeRepository.saveMarketEvents(marketEvents);
+                    }
+
+                    @Override
+                    public void markMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+                        tradeRepository.markMarketEventsBuilt(windows, eventName);
+                    }
+
+                    @Override
+                    public void clearMarketEvents(List<ContractTradeWindow> windows, String eventName) {
+                        tradeRepository.clearMarketEvents(windows, eventName);
+                    }
+                },
+                new forge.feature.FeatureBuildService(),
+                new forge.event.EventBuildService()
+        );
     }
 }

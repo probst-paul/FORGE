@@ -17,6 +17,11 @@ import forge.config.TargetSettings;
 import forge.config.TradeTriggerOptions;
 import forge.app.DataImportRequest;
 import forge.data.FacadeForgeData;
+import forge.data.build.DataBuildProgress;
+import forge.data.build.DatabaseBuildPlan;
+import forge.data.build.DatabaseBuildRequest;
+import forge.data.build.DatabaseBuildResult;
+import forge.data.build.DerivedDataBuildOption;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
@@ -34,7 +39,9 @@ import forge.trigger.TradeTrigger;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.Scanner;
+import java.util.Set;
 
 public class CliApplicationController {
     private static final String TITLE_SEPARATOR = "========================================================";
@@ -101,7 +108,8 @@ public class CliApplicationController {
         output.printLine("1. Run Backtest");
         output.printLine("2. Run Event Statistics");
         output.printLine("3. Import Data");
-        output.printLine("4. Configure Database");
+        output.printLine("4. Build/Refresh Derived Data");
+        output.printLine("5. Configure Database");
 
         while (true) {
             int selectedAction = input.readInt("Select action (or enter 'quit' to exit program)");
@@ -121,12 +129,17 @@ public class CliApplicationController {
                 return true;
             }
             if (selectedAction == 4) {
+                runCliAction("build derived data", output, () -> runDerivedDataBuild(input, output));
+                output.printBlankLine();
+                return true;
+            }
+            if (selectedAction == 5) {
                 runCliAction("configure database", output, () -> configureDatabase(input, output));
                 output.printBlankLine();
                 return true;
             }
 
-            output.printLine("Please select 1, 2, 3, or 4, or enter 'quit' to exit program.");
+            output.printLine("Please select 1, 2, 3, 4, or 5, or enter 'quit' to exit program.");
         }
     }
 
@@ -320,7 +333,11 @@ public class CliApplicationController {
         DataImportPlan plan;
         while (true) {
             try {
-                scidFilePath = input.readString("SCID data file path");
+                scidFilePath = input.readString("SCID data file path (leave blank to return to Select Action)");
+                if (scidFilePath.trim().isEmpty()) {
+                    output.printLine("Import canceled. Returning to Select Action.");
+                    return;
+                }
                 DataImportRequest planRequest = new DataImportRequest(scidFilePath);
                 plan = forgeApplication.forgeApplicationAccess().planDataImport(planRequest);
                 break;
@@ -360,6 +377,101 @@ public class CliApplicationController {
         if (result.getNullSideRowsImported() > 0) {
             output.printLine("Null-side rows are stored but should be excluded from strategy calculations.");
         }
+    }
+
+    private void runDerivedDataBuild(UserInput input, UserOutput output) {
+        printSection(output, "Build/Refresh Derived Data");
+        SelectedBacktestContracts selectedContracts = instrumentSelectionService.selectContracts(input, output);
+
+        printSection(output, "Select Derived Data");
+        Set<DerivedDataBuildOption> selectedOptions = selectDerivedDataBuildOptions(input, output);
+        boolean rebuildExisting = confirmRebuildDerivedData(input, output);
+
+        DatabaseBuildRequest request = new DatabaseBuildRequest(
+                selectedContracts.getContractWindows(),
+                selectedOptions,
+                rebuildExisting
+        );
+        DatabaseBuildPlan plan = FacadeForgeData.getTheInstance().forgeDataAccess().planDatabaseBuild(request);
+        printDatabaseBuildPlan(output, plan);
+
+        if (!plan.hasWorkToRun()) {
+            output.printBlankLine();
+            output.printLine("No derived data rebuild is needed for the selected contracts.");
+            output.printLine("Choose rebuild existing data if you want to force a refresh.");
+            return;
+        }
+
+        boolean[] dataBuildProgressFinished = {false};
+        DatabaseBuildResult result = FacadeForgeData.getTheInstance().forgeDataAccess().runDatabaseBuild(
+                request,
+                progress -> printDataBuildProgress(output, progress, dataBuildProgressFinished)
+        );
+
+        output.printBlankLine();
+        output.printLine("Derived data build complete:");
+        output.printLine("Ticks read: " + result.getTicksRead());
+        output.printLine("Session ranges built: " + result.getSessionRangesBuilt());
+        output.printLine("Market events built: " + result.getMarketEventsBuilt());
+        output.printLine("Build time: " + formatDuration(result.getElapsedTime()));
+    }
+
+    private Set<DerivedDataBuildOption> selectDerivedDataBuildOptions(UserInput input, UserOutput output) {
+        output.printLine("Available derived data:");
+        output.printLine("1. Session ranges");
+        output.printLine("2. First-hour breach events");
+        output.printLine("3. All available derived data");
+
+        while (true) {
+            int selectedIndex = input.readInt("Select derived data option");
+            if (selectedIndex == 1) {
+                return EnumSet.of(DerivedDataBuildOption.SESSION_RANGES);
+            }
+            if (selectedIndex == 2) {
+                return EnumSet.of(DerivedDataBuildOption.FIRST_HOUR_BREACH_EVENTS);
+            }
+            if (selectedIndex == 3) {
+                return EnumSet.allOf(DerivedDataBuildOption.class);
+            }
+            output.printLine("Selected derived data option is not available. Please select 1, 2, or 3, or enter 'quit' to exit program.");
+        }
+    }
+
+    private boolean confirmRebuildDerivedData(UserInput input, UserOutput output) {
+        while (true) {
+            String confirmation = input.readString("Rebuild existing derived data if present? (y/n)");
+            String normalizedConfirmation = confirmation.trim().toLowerCase();
+            if ("y".equals(normalizedConfirmation)) {
+                return true;
+            }
+            if ("n".equals(normalizedConfirmation)) {
+                return false;
+            }
+            output.printLine("Please type y to rebuild existing derived data, n to keep existing derived data, or enter 'quit' to exit program.");
+        }
+    }
+
+    private void printDatabaseBuildPlan(UserOutput output, DatabaseBuildPlan plan) {
+        output.printBlankLine();
+        output.printLine("Derived data build plan:");
+        output.printLine("Contracts: " + plan.getContractWindows().size());
+        output.printLine("Ticks available: " + plan.getTotalTicks());
+        output.printLine("Rebuild existing: " + (plan.isRebuildExisting() ? "yes" : "no"));
+        output.printLine("Session ranges: " + describeBuildPlanItem(
+                plan.isSessionRangesAlreadyBuilt(),
+                plan.willBuildSessionRanges()
+        ));
+        output.printLine("First-hour breach events: " + describeBuildPlanItem(
+                plan.isFirstHourBreachEventsAlreadyBuilt(),
+                plan.willBuildFirstHourBreachEvents()
+        ));
+    }
+
+    private String describeBuildPlanItem(boolean alreadyBuilt, boolean willBuild) {
+        if (willBuild) {
+            return alreadyBuilt ? "rebuild" : "build";
+        }
+        return alreadyBuilt ? "already built" : "not selected";
     }
 
     private boolean confirmWipeAndRebuild(UserInput input, UserOutput output, DataImportPlan plan) {
@@ -445,6 +557,27 @@ public class CliApplicationController {
 
     private String renderEventStatisticsProgress(EventStatisticsProgress progress) {
         return "Running event statistics [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
+                progress.getCompletionPercent() + "% " +
+                progress.getProcessedTicks() + "/" + progress.getTotalTicks();
+    }
+
+    private void printDataBuildProgress(
+            UserOutput output,
+            DataBuildProgress progress,
+            boolean[] finished
+    ) {
+        if (finished[0]) {
+            return;
+        }
+        output.printStatusLine(renderDataBuildProgress(progress));
+        if (progress.getProcessedTicks() == progress.getTotalTicks()) {
+            output.finishStatusLine();
+            finished[0] = true;
+        }
+    }
+
+    private String renderDataBuildProgress(DataBuildProgress progress) {
+        return "Building derived data [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
                 progress.getProcessedTicks() + "/" + progress.getTotalTicks();
     }

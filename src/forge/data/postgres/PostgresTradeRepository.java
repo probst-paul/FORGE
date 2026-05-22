@@ -569,6 +569,25 @@ public class PostgresTradeRepository {
         markDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, windows);
     }
 
+    public void clearSessionRanges(List<ContractTradeWindow> windows) {
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return;
+        }
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            for (ContractTradeWindow window : windows) {
+                deleteSessionRanges(connection, window);
+                deleteDerivedBuild(connection, BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, window);
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not clear PostgreSQL session range features", exception);
+        }
+    }
+
     public boolean areMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
         return areDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
@@ -675,6 +694,25 @@ public class PostgresTradeRepository {
         markDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
 
+    public void clearMarketEvents(List<ContractTradeWindow> windows, String eventName) {
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return;
+        }
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            for (ContractTradeWindow window : windows) {
+                deleteMarketEvents(connection, eventName, window);
+                deleteDerivedBuild(connection, BUILD_TYPE_MARKET_EVENT, eventName, window);
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not clear PostgreSQL market events", exception);
+        }
+    }
+
     public String getDatabaseName() {
         return settings.getDatabaseName();
     }
@@ -738,6 +776,65 @@ public class PostgresTradeRepository {
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next();
             }
+        }
+    }
+
+    private void deleteSessionRanges(Connection connection, ContractTradeWindow window) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM " + quoteIdentifier(SESSION_RANGE_TABLE) +
+                        " WHERE " + quoteIdentifier("contractSymbol") + " = ?" +
+                        " AND " + quoteIdentifier("featureVersion") + " = ?" +
+                        " AND " + quoteIdentifier("sessionDate") + " >= ?" +
+                        " AND " + quoteIdentifier("sessionDate") + " <= ?"
+        )) {
+            statement.setString(1, window.getContractSymbol());
+            statement.setInt(2, SessionRangeFeature.FEATURE_VERSION);
+            statement.setDate(3, Date.valueOf(window.getStartDate()));
+            statement.setDate(4, Date.valueOf(window.getEndDate()));
+            statement.executeUpdate();
+        }
+    }
+
+    private void deleteMarketEvents(
+            Connection connection,
+            String eventName,
+            ContractTradeWindow window
+    ) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM " + quoteIdentifier(MARKET_EVENT_TABLE) +
+                        " WHERE " + quoteIdentifier("contractSymbol") + " = ?" +
+                        " AND " + quoteIdentifier("eventName") + " = ?" +
+                        " AND " + quoteIdentifier("sessionDate") + " >= ?" +
+                        " AND " + quoteIdentifier("sessionDate") + " <= ?"
+        )) {
+            statement.setString(1, window.getContractSymbol());
+            statement.setString(2, eventName);
+            statement.setDate(3, Date.valueOf(window.getStartDate()));
+            statement.setDate(4, Date.valueOf(window.getEndDate()));
+            statement.executeUpdate();
+        }
+    }
+
+    private void deleteDerivedBuild(
+            Connection connection,
+            String buildType,
+            String name,
+            ContractTradeWindow window
+    ) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM " + quoteIdentifier(DERIVED_BUILD_TABLE) +
+                        " WHERE " + quoteIdentifier("buildType") + " = ?" +
+                        " AND name = ?" +
+                        " AND " + quoteIdentifier("contractSymbol") + " = ?" +
+                        " AND " + quoteIdentifier("startDate") + " = ?" +
+                        " AND " + quoteIdentifier("endDate") + " = ?"
+        )) {
+            statement.setString(1, buildType);
+            statement.setString(2, name);
+            statement.setString(3, window.getContractSymbol());
+            statement.setDate(4, Date.valueOf(window.getStartDate()));
+            statement.setDate(5, Date.valueOf(window.getEndDate()));
+            statement.executeUpdate();
         }
     }
 

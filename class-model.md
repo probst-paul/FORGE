@@ -16,6 +16,7 @@ classDiagram
     class InstrumentDataCatalog
     class ContractNameResolver
     class ScidDataImportService
+    class DerivedDataBuildService
     class PostgresTradeRepository
     class ContractRolloverCalendar
     class FacadeForgeStrategy
@@ -47,10 +48,12 @@ classDiagram
     CliApplicationController --> TriggerSelectionService : trigger
     CliApplicationController --> TargetSettingsSelectionService : target settings
     CliApplicationController --> FacadeForgeConfig : build request
+    CliApplicationController --> FacadeForgeData : derived data build
 
     InstrumentSelectionService --> FacadeForgeData
     FacadeForgeData --> InstrumentDataCatalog : catalog access
     FacadeForgeData --> ScidDataImportService : import access
+    FacadeForgeData --> DerivedDataBuildService : build access
     InstrumentDataCatalog --> PostgresTradeRepository : imported tables
     InstrumentDataCatalog --> ContractRolloverCalendar : active windows
     ScidDataImportService --> ContractNameResolver : contract root
@@ -71,7 +74,7 @@ classDiagram
     FacadeForgeEvent ..> FacadeForgeQuery : events feed statistics
 ```
 
-## Backtest Setup Interaction
+## CLI Interaction Overview
 
 ```mermaid
 sequenceDiagram
@@ -85,16 +88,12 @@ sequenceDiagram
     participant Data as FacadeForgeData
     participant Strategies as StrategySelectionService
     participant Strategy as FacadeForgeStrategy
-    participant Risk as RiskSettingsSelectionService
-    participant Triggers as TriggerSelectionService
-    participant Trigger as FacadeForgeTrigger
-    participant Targets as TargetSettingsSelectionService
     participant Config as FacadeForgeConfig
 
     Main->>CliFacade: forgeCliAccess().run()
     CliFacade->>Cli: run(input, output)
     Cli->>Output: print title
-    Cli->>Output: print Run Backtest / Import Data choices
+    Cli->>Output: print Run Backtest / Event Statistics / Import Data / Build Derived Data / Configure Database choices
     Cli->>Input: readInt(action)
 
     alt Run Backtest
@@ -114,42 +113,31 @@ sequenceDiagram
         Strategies->>Strategy: forgeStrategyAccess().getConfigurationProfile(strategy)
         Strategy-->>Strategies: StrategyConfigurationProfile
         Strategies-->>Cli: strategy trigger/target profile
-
-        Cli->>Risk: readRiskSettings(input)
-        Risk->>Input: readDouble(risk per trade)
-        Risk->>Input: readDouble(max daily loss)
-        Risk-->>Cli: RiskSettings
-
-        Cli->>Triggers: selectTrigger(input, output, strategy profile)
-        Triggers->>Trigger: forgeTriggerAccess().getDisplayName(trigger)
-        opt Strategy allows trigger selection
-            Triggers->>Input: readInt(selection)
-        end
-        Triggers-->>Cli: selected trigger class
-        Cli->>Triggers: readTriggerOptions(input, output, selected trigger)
-        opt Selected trigger requires parameters
-            Triggers->>Input: read direction and threshold ticks
-        end
-        Triggers->>Trigger: forgeTriggerAccess().createTriggerOptions(trigger, parameters)
-        Triggers-->>Cli: TradeTriggerOptions
-
-        Cli->>Targets: selectTargetMode(input, output, strategy profile)
-        Targets->>Target: forgeTargetAccess().getDisplayName(target)
-        opt Strategy allows target selection
-            Targets->>Input: readInt(selection)
-        end
-        Targets-->>Cli: selected target class
-
-        Cli->>Targets: readTargetSettings(input, selected target mode, strategy profile)
-        Targets->>Input: read target-specific value with strategy default
-        Targets->>Target: forgeTargetAccess().create target settings
-        Targets-->>Cli: TargetSettings
-
+        Cli->>Input: read risk, trigger, and target settings
         Cli->>Config: forgeConfigAccess().createBacktestRequest(...)
         Config-->>Cli: BacktestRequest
         Cli->>App: forgeApplicationAccess().runBacktest(request, progress listener)
         App-->>Cli: BacktestResult
         Cli->>Output: print backtest progress/result
+    else Build/Refresh Derived Data
+        Cli->>Instruments: selectContracts(input, output)
+        Instruments->>Data: forgeDataAccess().getAvailableInstruments()
+        Instruments->>Data: forgeDataAccess().getAvailableContracts()
+        Instruments-->>Cli: selected contract windows
+        Cli->>Input: readInt(derived data option)
+        Cli->>Input: readString(rebuild existing)
+        Cli->>Data: forgeDataAccess().planDatabaseBuild(request)
+        Data-->>Cli: DatabaseBuildPlan
+        Cli->>Data: forgeDataAccess().runDatabaseBuild(request, listener)
+        Data-->>Cli: DatabaseBuildResult
+        Cli->>Output: print build progress/result
+    else Run Event Statistics
+        Cli->>Instruments: selectContracts(input, output)
+        Instruments-->>Cli: selected contract windows
+        Cli->>Input: readInt(event statistic)
+        Cli->>App: forgeApplicationAccess().runEventStatistics(request)
+        App-->>Cli: EventStatisticsReport
+        Cli->>Output: print statistic progress/result
     else Import Data
         Cli->>Input: readString(SCID data file path)
         Cli->>App: forgeApplicationAccess().planDataImport(request)
@@ -428,11 +416,14 @@ classDiagram
         +DataImportResult importScidFile(String scidFilePath, boolean rebuildExistingContract, ImportProgressListener listener)
         +TradeBatchReader openTradeBatchReader(List~ContractTradeWindow~ windows, int batchSize)
         +long countTradeTicks(List~ContractTradeWindow~ windows)
+        +DatabaseBuildPlan planDatabaseBuild(DatabaseBuildRequest request)
+        +DatabaseBuildResult runDatabaseBuild(DatabaseBuildRequest request, DataBuildProgressListener listener)
         +void configurePostgresDatabase(PostgresDatabaseSettings settings)
     }
 
     class InstrumentDataCatalog
     class ScidDataImportService
+    class DerivedDataBuildService
     class PostgresTradeRepository
     class PostgresTickDataProvider
     class PostgresDatabaseSettings
@@ -443,6 +434,7 @@ classDiagram
     FacadeForgeData --> ForgeDataAccess
     ForgeDataAccess --> InstrumentDataCatalog : catalog
     ForgeDataAccess --> ScidDataImportService : import
+    ForgeDataAccess --> DerivedDataBuildService : derived build
     ForgeDataAccess --> PostgresTickDataProvider : tick batches/counts
     ForgeDataAccess --> PostgresDatabaseSettings : configure
     ScidDataImportService --> PostgresTradeRepository
@@ -450,6 +442,79 @@ classDiagram
     PostgresTickDataProvider --> TradeBatchReader : creates
     ForgeDataAccess --> DataImportPlan
     ForgeDataAccess --> DataImportResult
+```
+
+## data.build Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class DatabaseBuildRequest {
+        -List~ContractTradeWindow~ contractWindows
+        -Set~DerivedDataBuildOption~ options
+        -boolean rebuildExisting
+        -int batchSize
+    }
+
+    class DatabaseBuildPlan {
+        -long totalTicks
+        -boolean sessionRangesAlreadyBuilt
+        -boolean firstHourBreachEventsAlreadyBuilt
+        -boolean willBuildSessionRanges
+        -boolean willBuildFirstHourBreachEvents
+        +boolean hasWorkToRun()
+    }
+
+    class DatabaseBuildResult {
+        -long ticksRead
+        -long sessionRangesBuilt
+        -long marketEventsBuilt
+        -Duration elapsedTime
+    }
+
+    class DerivedDataBuildService {
+        +DatabaseBuildPlan planBuild(DatabaseBuildRequest request)
+        +DatabaseBuildResult runBuild(DatabaseBuildRequest request, DataBuildProgressListener listener)
+    }
+
+    class DerivedDataBuildOption {
+        <<enumeration>>
+        SESSION_RANGES
+        FIRST_HOUR_BREACH_EVENTS
+    }
+
+    class DerivedDataBuildTradeSource {
+        <<interface>>
+        +TradeBatchReader openTradeBatchReader(List~ContractTradeWindow~ windows, int batchSize)
+        +long countTradeTicks(List~ContractTradeWindow~ windows)
+    }
+
+    class DerivedDataBuildStore {
+        <<interface>>
+        +boolean areSessionRangesBuilt(List~ContractTradeWindow~ windows)
+        +void saveSessionRanges(Collection~SessionRangeFeature~ features)
+        +void clearSessionRanges(List~ContractTradeWindow~ windows)
+        +boolean areMarketEventsBuilt(List~ContractTradeWindow~ windows, String eventName)
+        +void saveMarketEvents(Collection~MarketEvent~ events)
+        +void clearMarketEvents(List~ContractTradeWindow~ windows, String eventName)
+    }
+
+    class DataBuildProgress
+    class DataBuildProgressListener
+
+    DerivedDataBuildService --> DatabaseBuildRequest
+    DerivedDataBuildService --> DatabaseBuildPlan
+    DerivedDataBuildService --> DatabaseBuildResult
+    DerivedDataBuildService --> DerivedDataBuildTradeSource
+    DerivedDataBuildService --> DerivedDataBuildStore
+    DerivedDataBuildService --> FeatureBuildService
+    DerivedDataBuildService --> EventBuildService
+    DatabaseBuildRequest --> DerivedDataBuildOption
+    DatabaseBuildPlan --> DerivedDataBuildOption
+    DatabaseBuildResult --> DatabaseBuildPlan
+    DerivedDataBuildService --> DataBuildProgressListener : reports
+    DataBuildProgressListener --> DataBuildProgress
 ```
 
 ## data.catalog and model Packages
