@@ -1,6 +1,6 @@
 package forge.trade;
 
-import forge.backtest.TradeResult;
+import forge.trade.TradeResult;
 import forge.data.market.TradeTick;
 import forge.execution.Fill;
 import forge.execution.OrderSide;

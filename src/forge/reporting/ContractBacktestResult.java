@@ -1,6 +1,6 @@
 package forge.reporting;
 
-import forge.backtest.TradeResult;
+import forge.trade.TradeResult;
 
 import java.util.ArrayList;
 import java.util.Collections;

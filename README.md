@@ -122,8 +122,6 @@ src/forge/data/importing  SCID import services, import DTOs, and trade rows
 src/forge/data/market     Market data provider abstractions and trade batch models
 src/forge/data/postgres   PostgreSQL settings, import repository, and tick data provider
 src/forge/data/rollover   Contract rollover calendars and rules
-src/forge/analytics  Placeholder analytics feature models
-src/forge/backtest   Placeholder backtest position/trade-result models
 src/forge/engine     Market context and simple batch-driven backtest engine
 src/forge/event      Market event definitions, detection, and event facade
 src/forge/execution  Order request/fill models and MVP current-tick execution engine
@@ -132,7 +130,7 @@ src/forge/model      Instrument and futures contract models
 src/forge/query      Event statistics query scaffolding
 src/forge/strategy   Strategy interface, catalog, context/decision models, and strategies
 src/forge/strategy/support  Reusable strategy helper services and value objects
-src/forge/trade      Position-based trade lifecycle, trade plans, and lifecycle facade
+src/forge/trade      Position-based trade lifecycle, trade plans, trade results, and lifecycle facade
 src/forge/trigger    Trigger interface, catalog, and trigger result model
 src/forge/reporting  Backtest result and performance metric models
 test/forge           JUnit 5 tests
@@ -321,4 +319,4 @@ mvn test
 
 FORGE is in early architectural development. The current implementation now includes SCID-to-PostgreSQL ingestion, rollover-aware catalog availability, and exact tick-based price storage, but it is still not a complete backtesting system.
 
-The `analytics`, `backtest`, `engine`, and `execution` packages are still partial foundations. They exist to preserve the package/facade architecture while deeper analytics, richer execution simulation, and scale-in/scale-out trade lifecycle behavior are still being designed and implemented.
+The `engine` and `execution` packages are still partial foundations. They exist to preserve the package/facade architecture while richer execution simulation, deeper replay behavior, and scale-in/scale-out trade lifecycle behavior are still being designed and implemented.

@@ -1,6 +1,6 @@
 package forge.reporting;
 
-import forge.backtest.TradeResult;
+import forge.trade.TradeResult;
 import forge.execution.OrderSide;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

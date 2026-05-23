@@ -28,8 +28,6 @@ classDiagram
     class FacadeForgeTrade
     class FacadeForgeReporting
     class FacadeForgeExecution
-    class FacadeForgeAnalytics
-    class FacadeForgeBacktest
     class ForgeApplicationAccess
     class InstrumentSelectionService
     class StrategySelectionService
@@ -68,8 +66,6 @@ classDiagram
     ForgeApplicationAccess ..> FacadeForgeTrade : lifecycle support
     ForgeApplicationAccess ..> FacadeForgeExecution : later execute orders
     ForgeApplicationAccess ..> FacadeForgeReporting : later summarize result
-    ForgeApplicationAccess ..> FacadeForgeAnalytics : later derive features
-    ForgeApplicationAccess ..> FacadeForgeBacktest : result models
     FacadeForgeFeature ..> FacadeForgeEvent : features feed events
     FacadeForgeEvent ..> FacadeForgeQuery : events feed statistics
 ```
@@ -1106,6 +1102,17 @@ classDiagram
         -ZoneId timeZone
     }
 
+    class TradeResult {
+        -String instrumentSymbol
+        -String contractSymbol
+        -OrderSide side
+        -Instant entryTime
+        -long entryPriceTicks
+        -Instant exitTime
+        -long exitPriceTicks
+        -double grossDollars
+    }
+
     FacadeForgeTrade --> ForgeTradeAccess
     ForgeTradeAccess --> TradeLifecycleEngine : creates
     ForgeTradeAccess --> TradePlan : creates
@@ -1232,33 +1239,6 @@ classDiagram
     InstrumentBacktestResult --> PerformanceMetrics
     ContractBacktestResult --> PerformanceMetrics
     ContractBacktestResult --> TradeResult
-```
-
-## analytics Package
-
-```mermaid
-classDiagram
-    direction LR
-
-    class FacadeForgeAnalytics {
-        +FacadeForgeAnalytics getTheInstance()
-        +ForgeAnalyticsAccess forgeAnalyticsAccess()
-    }
-
-    class ForgeAnalyticsAccess {
-        +FeatureSet createFeatureSet()
-        +MarketFeature createMarketFeature()
-    }
-
-    class FeatureCalculator
-    class FeatureSet
-    class MarketFeature
-
-    FacadeForgeAnalytics --> ForgeAnalyticsAccess
-    ForgeAnalyticsAccess --> FeatureSet : creates
-    ForgeAnalyticsAccess --> MarketFeature : creates
-    FeatureCalculator --> FeatureSet
-    FeatureSet --> MarketFeature
 ```
 
 ## feature Package
@@ -1524,40 +1504,6 @@ classDiagram
     EventStatisticsReport --> EventStatisticsResult
 ```
 
-## backtest Package
-
-```mermaid
-classDiagram
-    direction LR
-
-    class FacadeForgeBacktest {
-        +FacadeForgeBacktest getTheInstance()
-        +ForgeBacktestAccess forgeBacktestAccess()
-    }
-
-    class ForgeBacktestAccess {
-        +Position createPosition()
-        +TradeResult createTradeResult()
-    }
-
-    class Position
-    class TradeResult {
-        -String instrumentSymbol
-        -String contractSymbol
-        -OrderSide side
-        -Instant entryTime
-        -long entryPriceTicks
-        -Instant exitTime
-        -long exitPriceTicks
-        -double grossDollars
-    }
-
-    FacadeForgeBacktest --> ForgeBacktestAccess
-    ForgeBacktestAccess --> Position : creates
-    ForgeBacktestAccess --> TradeResult : creates
-    Position --> TradeResult
-```
-
 ## Technique Mapping
 
 - **Abstract class:** `Instrument` defines shared instrument behavior while requiring subclasses to provide the instrument type.
@@ -1566,7 +1512,7 @@ classDiagram
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, and `ExecutionEngine` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeTrade`, `FacadeForgeExecution`, `FacadeForgeReporting`, `FacadeForgeAnalytics`, and `FacadeForgeBacktest` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeTrade`, `FacadeForgeExecution`, and `FacadeForgeReporting` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Integrated file I/O:** `ScidTradeReader.readTrades(...)` performs the core file I/O by opening a SCID file with `FileChannel.open(scidFilePath, StandardOpenOption.READ)`, reading binary records into a `ByteBuffer`, validating the SCID header, and converting complete records into `TradeRow` objects. `ScidDataImportService` integrates that file reader into the import workflow and also uses `Files.size(...)` and `Files.getLastModifiedTime(...)` to capture file metadata for checkpointing.
 - **Exception handling:** `ConsoleUserInput` throws the user-defined `UserQuitException` when the user enters `quit` or console input ends, and `CliApplicationController` catches it to exit cleanly. Validation failures use `IllegalArgumentException` to reject invalid settings, unsupported contracts, and malformed SCID records before processing continues. File and database failures are caught as lower-level exceptions such as `IOException` or `SQLException` and wrapped in `IllegalStateException` with application-level messages.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation.

@@ -1,4 +1,4 @@
-package forge.backtest;
+package forge.trade;
 
 import forge.execution.OrderSide;
 

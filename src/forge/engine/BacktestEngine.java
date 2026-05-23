@@ -34,6 +34,7 @@ import forge.strategy.TradingStrategy;
 import forge.trade.FacadeForgeTrade;
 import forge.trade.TradeLifecycleEngine;
 import forge.trade.TradePlan;
+import forge.trade.TradeResult;
 
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDateTime;
@@ -443,7 +444,7 @@ public class BacktestEngine {
         private final String contractSymbol;
         private long ticksProcessed;
         private long orderSignalsGenerated;
-        private final List<forge.backtest.TradeResult> trades = new ArrayList<>();
+        private final List<TradeResult> trades = new ArrayList<>();
 
         private ContractRunAccumulator(String instrumentSymbol, String contractSymbol) {
             this.instrumentSymbol = instrumentSymbol;
@@ -458,7 +459,7 @@ public class BacktestEngine {
             orderSignalsGenerated++;
         }
 
-        private void addTrade(forge.backtest.TradeResult trade) {
+        private void addTrade(TradeResult trade) {
             trades.add(trade);
         }
 
