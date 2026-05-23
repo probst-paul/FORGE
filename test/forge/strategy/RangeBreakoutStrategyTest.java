@@ -1,8 +1,8 @@
 package forge.strategy;
 
 import forge.engine.MarketContext;
-import forge.execution.OrderRequest;
-import forge.execution.OrderSide;
+import forge.trade.OrderRequest;
+import forge.trade.OrderSide;
 import forge.data.market.TradeTick;
 import forge.feature.TpoPeriodClassifier;
 import forge.feature.TradingDayClassifier;

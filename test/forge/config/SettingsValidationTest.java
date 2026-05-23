@@ -1,6 +1,6 @@
 package forge.config;
 
-import forge.execution.OrderType;
+import forge.trade.OrderType;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -29,13 +29,13 @@ class SettingsValidationTest {
     }
 
     @Nested
-    class TradeTriggerOptionsValidation {
+    class MarketConditionOptionsValidation {
         @Test
         void preservesParametersAsReadOnlyMap() {
             Map<String, String> parameters = new LinkedHashMap<>();
             parameters.put("imbalanceRatio", "2.5");
 
-            TradeTriggerOptions options = new TradeTriggerOptions("OrderFlowExhaustion", parameters);
+            MarketConditionOptions options = new MarketConditionOptions("OrderFlowExhaustion", parameters);
 
             assertEquals("2.5", options.getParameters().get("imbalanceRatio"));
             assertThrows(UnsupportedOperationException.class, () -> options.getParameters().put("x", "y"));

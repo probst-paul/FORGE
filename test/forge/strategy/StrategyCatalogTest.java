@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import forge.trigger.OrderFlowExhaustionTrigger;
-import forge.trigger.PriceCrossoverTrigger;
+import forge.condition.OrderFlowExhaustionCondition;
+import forge.condition.PriceCrossoverCondition;
 
 import java.util.List;
 
@@ -50,13 +50,13 @@ class StrategyCatalogTest {
     @Nested
     class GetConfigurationProfile {
         @Test
-        void rangeBreakoutDefinesCompatibleTriggerAndTargets() {
+        void rangeBreakoutDefinesCompatibleConditionAndTargets() {
             StrategyConfigurationProfile profile = catalog.getConfigurationProfile(RangeBreakoutStrategy.class);
 
             assertEquals(RangeBreakoutStrategy.class, profile.getStrategyClass());
-            assertEquals(List.of(OrderFlowExhaustionTrigger.class, PriceCrossoverTrigger.class), profile.getAllowedTriggers());
-            assertEquals(OrderFlowExhaustionTrigger.class, profile.getDefaultTrigger());
-            assertTrue(profile.isTriggerSelectionAllowed());
+            assertEquals(List.of(OrderFlowExhaustionCondition.class, PriceCrossoverCondition.class), profile.getAllowedConditions());
+            assertEquals(OrderFlowExhaustionCondition.class, profile.getDefaultCondition());
+            assertTrue(profile.isConditionSelectionAllowed());
             assertEquals(List.of(TargetSettings.FIXED_RISK_REWARD, TargetSettings.FIXED_TARGET), profile.getAllowedTargets());
             assertEquals(TargetSettings.FIXED_RISK_REWARD, profile.getDefaultTarget());
             assertTrue(profile.isTargetSelectionAllowed());
@@ -65,13 +65,13 @@ class StrategyCatalogTest {
         }
 
         @Test
-        void openingRangeContinuationDefinesInternalTriggerAndTargetProfile() {
+        void openingRangeContinuationDefinesInternalConditionAndTargetProfile() {
             StrategyConfigurationProfile profile = catalog.getConfigurationProfile(OpeningRangeContinuationStrategy.class);
 
             assertEquals(OpeningRangeContinuationStrategy.class, profile.getStrategyClass());
-            assertEquals(List.of(PriceCrossoverTrigger.class), profile.getAllowedTriggers());
-            assertEquals(PriceCrossoverTrigger.class, profile.getDefaultTrigger());
-            assertFalse(profile.isTriggerSelectionAllowed());
+            assertEquals(List.of(PriceCrossoverCondition.class), profile.getAllowedConditions());
+            assertEquals(PriceCrossoverCondition.class, profile.getDefaultCondition());
+            assertFalse(profile.isConditionSelectionAllowed());
             assertEquals(List.of(TargetSettings.FIXED_TARGET), profile.getAllowedTargets());
             assertEquals(TargetSettings.FIXED_TARGET, profile.getDefaultTarget());
             assertFalse(profile.isTargetSelectionAllowed());

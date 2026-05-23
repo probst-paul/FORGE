@@ -5,8 +5,8 @@ import forge.data.importing.DataImportPlan;
 import forge.data.importing.ImportCheckpoint;
 import forge.data.importing.TradeRow;
 import forge.data.market.ContractTradeWindow;
-import forge.event.EventSide;
-import forge.event.MarketEvent;
+import forge.condition.ConditionSide;
+import forge.condition.MarketConditionOccurrence;
 import forge.feature.SessionRangeFeature;
 import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyManager;
@@ -588,16 +588,16 @@ public class PostgresTradeRepository {
         }
     }
 
-    public boolean areMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+    public boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
         return areDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
 
-    public List<MarketEvent> loadMarketEvents(List<ContractTradeWindow> windows, String eventName) {
+    public List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return Collections.emptyList();
         }
-        List<MarketEvent> events = new ArrayList<>();
+        List<MarketConditionOccurrence> events = new ArrayList<>();
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -625,12 +625,12 @@ public class PostgresTradeRepository {
                     statement.setDate(4, Date.valueOf(window.getEndDate()));
                     try (ResultSet resultSet = statement.executeQuery()) {
                         while (resultSet.next()) {
-                            events.add(new MarketEvent(
+                            events.add(new MarketConditionOccurrence(
                                     resultSet.getString(1),
                                     resultSet.getDate(2).toLocalDate(),
                                     resultSet.getString(3),
                                     resultSet.getInt(4),
-                                    EventSide.valueOf(resultSet.getString(5)),
+                                    ConditionSide.valueOf(resultSet.getString(5)),
                                     resultSet.getTimestamp(6).toInstant(),
                                     resultSet.getLong(7)
                             ));
@@ -644,7 +644,7 @@ public class PostgresTradeRepository {
         }
     }
 
-    public void saveMarketEvents(Collection<MarketEvent> marketEvents) {
+    public void saveMarketConditionOccurrences(Collection<MarketConditionOccurrence> marketEvents) {
         ensureDerivedDataTablesExist();
         if (marketEvents == null || marketEvents.isEmpty()) {
             return;
@@ -673,7 +673,7 @@ public class PostgresTradeRepository {
                              quoteIdentifier("eventTime") + " = EXCLUDED." + quoteIdentifier("eventTime") + ", " +
                              quoteIdentifier("eventPriceTicks") + " = EXCLUDED." + quoteIdentifier("eventPriceTicks")
              )) {
-            for (MarketEvent event : marketEvents) {
+            for (MarketConditionOccurrence event : marketEvents) {
                 statement.setString(1, event.getContractSymbol());
                 statement.setDate(2, Date.valueOf(event.getSessionDate()));
                 statement.setString(3, event.getEventName());
@@ -690,11 +690,11 @@ public class PostgresTradeRepository {
         }
     }
 
-    public void markMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName) {
+    public void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
         markDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
 
-    public void clearMarketEvents(List<ContractTradeWindow> windows, String eventName) {
+    public void clearMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return;
@@ -705,7 +705,7 @@ public class PostgresTradeRepository {
                 settings.getPassword()
         )) {
             for (ContractTradeWindow window : windows) {
-                deleteMarketEvents(connection, eventName, window);
+                deleteMarketConditionOccurrences(connection, eventName, window);
                 deleteDerivedBuild(connection, BUILD_TYPE_MARKET_EVENT, eventName, window);
             }
         } catch (SQLException exception) {
@@ -795,7 +795,7 @@ public class PostgresTradeRepository {
         }
     }
 
-    private void deleteMarketEvents(
+    private void deleteMarketConditionOccurrences(
             Connection connection,
             String eventName,
             ContractTradeWindow window

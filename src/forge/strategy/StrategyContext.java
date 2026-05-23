@@ -2,7 +2,7 @@ package forge.strategy;
 
 import forge.data.market.TradeTick;
 import forge.engine.MarketContext;
-import forge.event.MarketEvent;
+import forge.condition.MarketConditionOccurrence;
 import forge.feature.SessionRangeFeature;
 import forge.feature.TpoPeriod;
 import forge.feature.TradingDayContext;
@@ -19,7 +19,7 @@ public class StrategyContext {
     private final TradingDayContext tradingDayContext;
     private final TpoPeriod tpoPeriod;
     private final SessionRangeFeature sessionRangeFeature;
-    private final List<MarketEvent> currentEvents;
+    private final List<MarketConditionOccurrence> currentEvents;
 
     public StrategyContext(
             MarketContext marketContext,
@@ -27,7 +27,7 @@ public class StrategyContext {
             TradingDayContext tradingDayContext,
             TpoPeriod tpoPeriod,
             SessionRangeFeature sessionRangeFeature,
-            List<MarketEvent> currentEvents
+            List<MarketConditionOccurrence> currentEvents
     ) {
         this.marketContext = Objects.requireNonNull(marketContext, "marketContext is required");
         this.currentTick = Objects.requireNonNull(currentTick, "currentTick is required");
@@ -57,7 +57,7 @@ public class StrategyContext {
         return Optional.ofNullable(sessionRangeFeature);
     }
 
-    public List<MarketEvent> getCurrentEvents() {
+    public List<MarketConditionOccurrence> getCurrentEvents() {
         return currentEvents;
     }
 
@@ -65,12 +65,12 @@ public class StrategyContext {
         return marketContext.hasOpenPosition();
     }
 
-    private List<MarketEvent> normalizeEvents(List<MarketEvent> events) {
+    private List<MarketConditionOccurrence> normalizeEvents(List<MarketConditionOccurrence> events) {
         if (events == null || events.isEmpty()) {
             return Collections.emptyList();
         }
-        List<MarketEvent> normalized = new ArrayList<>();
-        for (MarketEvent event : events) {
+        List<MarketConditionOccurrence> normalized = new ArrayList<>();
+        for (MarketConditionOccurrence event : events) {
             if (event != null) {
                 normalized.add(event);
             }

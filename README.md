@@ -2,7 +2,7 @@
 
 **Futures Order Replay and Generalized Execution Engine**
 
-FORGE is an early-stage Java futures backtesting project. The current code focuses on the setup/configuration model, futures contract modeling, feature/event-driven strategy evaluation, and unit-tested behavior for the implemented classes.
+FORGE is an early-stage Java futures research and backtesting project. The current code focuses on SCID ingestion, futures contract modeling, reusable study/statistics layers, feature/event-driven strategy evaluation, and unit-tested behavior for the implemented classes.
 
 It is not yet a complete historical market replay or backtesting engine.
 
@@ -12,7 +12,7 @@ It is not yet a complete historical market replay or backtesting engine.
 - Command-line import flow for preparing PostgreSQL contract tables from SCID file names
 - Maven build with JUnit 5 and PostgreSQL JDBC dependencies
 - Database-derived instrument/date catalog based on imported contract tables
-- Presentation-neutral database build/refresh workflow for derived session ranges and first-hour breach events
+- Presentation-neutral database build/refresh workflow for derived session ranges and first-hour breach condition occurrences
 - Date-based front-month rollover windows for imported equity index and CL futures
 - Batch-driven backtest replay over selected contract windows, with CLI progress reporting
 - Position-based trade lifecycle for strategies that emit a trade plan, including target, stop, time-stop, P/L, MFE, and MAE tracking
@@ -23,14 +23,15 @@ It is not yet a complete historical market replay or backtesting engine.
 - Strategy interface with:
   - `RangeBreakoutStrategy`
   - `OpeningRangeContinuationStrategy`
-- Feature/event-driven strategy context and strategy decisions
-- Strategy requirements for declaring required features/events plus session and TPO-period evaluation filters
+- Research-first study/statistics layer for analyzing market setup frequency before adding trade simulation
+- Feature/condition-driven strategy context and strategy decisions
+- Strategy requirements for declaring required features/conditions plus session and TPO-period evaluation filters
 - CLI strategy and event-statistic descriptions plus empty-result guidance
-- Trade trigger interface with:
-  - `OrderFlowExhaustionTrigger`
-  - `PriceCrossoverTrigger`
+- Market condition interface with:
+  - `OrderFlowExhaustionCondition`
+  - `PriceCrossoverCondition`
 - Target/stop exit settings represented by strategy trade plans and the trade lifecycle layer
-- Basic `OrderRequest` and `Fill` modeling
+- Basic trade order request and fill modeling
 - Completed-trade reporting metrics by instrument and contract
 - JUnit 5 tests for implemented behavior
 - Mermaid class and sequence diagrams:
@@ -46,8 +47,8 @@ Select Action
 │  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
 │  ├─ Select Trading Strategy
 │  ├─ Risk Settings
-│  ├─ Use or select strategy-compatible trade trigger
-│  ├─ Trigger options when the selected trigger requires parameters
+│  ├─ Use or select strategy-compatible market condition
+│  ├─ Condition options when the selected condition requires parameters
 │  ├─ Use or select strategy-compatible target mode
 │  ├─ Target model options with strategy defaults
 │  ├─ Build BacktestRequest
@@ -58,7 +59,7 @@ Select Action
 │  │  ├─ Choose an instrument's All Available front-month contracts
 │  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
 │  ├─ Select Event Statistic
-│  ├─ Calculate session ranges and first-hour breach events
+│  ├─ Calculate session ranges and first-hour breach condition occurrences
 │  └─ Display event counts by instrument and contract
 ├─ Import Data
 │  └─ Prepare PostgreSQL database/table for the selected SCID file
@@ -80,21 +81,21 @@ Backtest setup no longer asks for a free-form date range. The CLI selects valid 
 
 `BacktestRequest` carries those selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.
 
-Event statistics reuse the same selected contract windows as backtests. `First Hour Breach Frequency` is executed through the query layer with a single-line CLI progress bar. On the first run for a selected contract window, FORGE reads the selected trade ticks, stores derived session ranges and first-hour breach events in PostgreSQL, then reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract. Later runs for the same contract window reuse the stored derived rows instead of scanning the trade ticks again.
+Event statistics reuse the same selected contract windows as backtests, but they are treated as the research base layer: first study how often a market setup occurs, then optionally simulate trades from that setup. `First Hour Breach Frequency` is defined as a market study, aggregated through the statistics layer, and executed through the engine layer with a single-line CLI progress bar. On the first run for a selected contract window, FORGE reads the selected trade ticks, stores derived session ranges and first-hour breach condition occurrences in PostgreSQL, then reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract. Later runs for the same contract window reuse the stored derived rows instead of scanning the trade ticks again.
 
-The CLI also exposes `Build/Refresh Derived Data`, which runs the same reusable database build workflow without requiring a new SCID file. It uses selected contract windows, derived-data choices such as session ranges and first-hour breach events, and a rebuild flag to create a `DatabaseBuildRequest`. FORGE previews the work with a `DatabaseBuildPlan`, runs selected build work with a single-line status bar, and returns a `DatabaseBuildResult`. This is the same backend shape a future GUI can drive with checkboxes.
+The CLI also exposes `Build/Refresh Derived Data`, which runs the same reusable database build workflow without requiring a new SCID file. It uses selected contract windows, derived-data choices such as session ranges and first-hour breach condition occurrences, and a rebuild flag to create a `DatabaseBuildRequest`. FORGE previews the work with a `DatabaseBuildPlan`, runs selected build work with a single-line status bar, and returns a `DatabaseBuildResult`. This is the same backend shape a future GUI can drive with checkboxes.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
-Strategies own their compatible trigger and target choices. The CLI only asks the user to select a trigger or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default trigger and target settings; for example, `RangeBreakoutStrategy` defaults to `OrderFlowExhaustionTrigger`, also allows `PriceCrossoverTrigger`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
+Strategies own their compatible market condition and target choices. The CLI only asks the user to select a condition or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default condition and target settings; for example, `RangeBreakoutStrategy` defaults to `OrderFlowExhaustionCondition`, also allows `PriceCrossoverCondition`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
 
 The CLI displays a short description beside each trading strategy and event statistic so users can choose by intent rather than by internal feature/event requirements. When a backtest or statistic has no usable ticks, no generated signals, no completed trades, or no complete event sessions, the CLI prints a short explanation and returns to `Select Action`.
 
-`PriceCrossoverTrigger` is configured in ticks. For a long trigger, the condition is true when the current trade price reaches or exceeds the threshold. For a short trigger, the condition is true when the current trade price reaches or falls below the threshold.
+`PriceCrossoverCondition` is configured in ticks. For a long condition, the condition is true when the current trade price reaches or exceeds the threshold. For a short condition, the condition is true when the current trade price reaches or falls below the threshold.
 
-Strategies can declare `StrategyRequirements`, which tell the engine which derived features, market events, trading sessions, and TPO periods are relevant. The engine uses those requirements to build only the currently supported required facts and to skip strategy evaluation outside the allowed session/TPO filters. RTH TPO periods are 30-minute Central Time periods starting at `08:30`: `A` is `08:30-08:59`, `B` is `09:00-09:29`, `C` is `09:30-09:59`, and so on through the RTH session.
+Strategies can declare `StrategyRequirements`, which tell the engine which derived features, market condition occurrences, trading sessions, and TPO periods are relevant. The engine uses those requirements to build only the currently supported required facts and to skip strategy evaluation outside the allowed session/TPO filters. RTH TPO periods are 30-minute Central Time periods starting at `08:30`: `A` is `08:30-08:59`, `B` is `09:00-09:29`, `C` is `09:30-09:59`, and so on through the RTH session.
 
-`OpeningRangeContinuationStrategy` uses derived Central Time session features and first-hour breach events. The feature layer calculates the overnight range from `17:00` through `08:29:59`, the RTH first-hour range from `08:30` through `09:29:59`, and the event layer detects the first breach after the first hour. The strategy declares that it requires session ranges and first-hour breach events, and that entries should only evaluate during RTH TPO periods `C` and `D` (`09:30-10:29`). It only arms if the first-hour range remains inside the overnight range, allows one trade per day, and defaults to targeting the overnight high/low with a first-hour opposite-side stop and `10:30` time stop. The strategy can also be configured to use a risk/reward exit style, which keeps the same first-hour stop and calculates the target from entry risk in ticks.
+`OpeningRangeContinuationStrategy` uses derived Central Time session features and first-hour breach condition occurrences. The feature layer calculates the overnight range from `17:00` through `08:29:59`, the RTH first-hour range from `08:30` through `09:29:59`, and the event layer detects the first breach after the first hour. The strategy declares that it requires session ranges and first-hour breach condition occurrences, and that entries should only evaluate during RTH TPO periods `C` and `D` (`09:30-10:29`). It only arms if the first-hour range remains inside the overnight range, allows one trade per day, and defaults to targeting the overnight high/low with a first-hour opposite-side stop and `10:30` time stop. The strategy can also be configured to use a risk/reward exit style, which keeps the same first-hour stop and calculates the target from entry risk in ticks.
 
 The MVP execution layer fills generated orders at the current tick price. This is intentionally simple so the trade lifecycle can create real completed trades now; future execution work will add realistic market, limit, stop, slippage, and partial-fill behavior.
 
@@ -104,7 +105,7 @@ The MVP execution layer fills generated orders at the current tick price. This i
 - Analytics feature calculation beyond placeholder models
 - Full multi-position and scale-in/scale-out trade lifecycle behavior
 - Realistic market, limit, stop, and slippage execution simulation
-- Full trade trigger evaluation against market data
+- Additional market condition evaluation against market data
 - CLI stop selection and stop evaluation inside the backtest engine
 - Partial fills and advanced order execution simulation
 
@@ -122,16 +123,14 @@ src/forge/data/importing  SCID import services, import DTOs, and trade rows
 src/forge/data/market     Market data provider abstractions and trade batch models
 src/forge/data/postgres   PostgreSQL settings, import repository, and tick data provider
 src/forge/data/rollover   Contract rollover calendars and rules
-src/forge/engine     Market context and simple batch-driven backtest engine
-src/forge/event      Market event definitions, detection, and event facade
-src/forge/execution  Order request/fill models and MVP current-tick execution engine
-src/forge/feature    Derived feature architecture and session range calculation
+src/forge/engine     Market context, batch-driven backtest engine, and event statistics query orchestration
+src/forge/feature    Derived feature architecture, session ranges, and reusable range helpers
+src/forge/condition  Market condition interface, occurrence detection, catalog, facade, and result models
 src/forge/model      Instrument and futures contract models
-src/forge/query      Event statistics query scaffolding
+src/forge/statistics Research/statistics aggregation services and facade
+src/forge/study      Market study definitions and study facade
 src/forge/strategy   Strategy interface, catalog, context/decision models, and strategies
-src/forge/strategy/support  Reusable strategy helper services and value objects
-src/forge/trade      Position-based trade lifecycle, trade plans, trade results, and lifecycle facade
-src/forge/trigger    Trigger interface, catalog, and trigger result model
+src/forge/trade      Order/fill models, MVP current-tick execution, position lifecycle, trade plans, trade results, and lifecycle facade
 src/forge/reporting  Backtest result and performance metric models
 test/forge           JUnit 5 tests
 ```
@@ -140,8 +139,8 @@ test/forge           JUnit 5 tests
 
 - **Abstract class:** `Instrument` stores common instrument identity and requires subclasses to provide `getInstrumentType()`.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument`.
-- **Interfaces:** `TradingStrategy`, `TradeTrigger`, and `ExecutionEngine` define interchangeable behavior.
-- **Polymorphism:** Strategy and trigger implementations can be selected and evaluated through shared interfaces without depending on concrete classes.
+- **Interfaces:** `TradingStrategy`, `MarketCondition`, and `ExecutionEngine` define interchangeable behavior.
+- **Polymorphism:** Strategy and condition implementations can be selected and evaluated through shared interfaces without depending on concrete classes.
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 

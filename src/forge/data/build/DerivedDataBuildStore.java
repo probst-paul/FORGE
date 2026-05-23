@@ -1,7 +1,7 @@
 package forge.data.build;
 
 import forge.data.market.ContractTradeWindow;
-import forge.event.MarketEvent;
+import forge.condition.MarketConditionOccurrence;
 import forge.feature.SessionRangeFeature;
 
 import java.util.Collection;
@@ -18,13 +18,13 @@ public interface DerivedDataBuildStore {
 
     void clearSessionRanges(List<ContractTradeWindow> windows);
 
-    boolean areMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName);
+    boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName);
 
-    List<MarketEvent> loadMarketEvents(List<ContractTradeWindow> windows, String eventName);
+    List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName);
 
-    void saveMarketEvents(Collection<MarketEvent> marketEvents);
+    void saveMarketConditionOccurrences(Collection<MarketConditionOccurrence> marketEvents);
 
-    void markMarketEventsBuilt(List<ContractTradeWindow> windows, String eventName);
+    void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName);
 
-    void clearMarketEvents(List<ContractTradeWindow> windows, String eventName);
+    void clearMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName);
 }

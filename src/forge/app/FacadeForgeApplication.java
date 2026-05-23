@@ -6,9 +6,8 @@ import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.engine.FacadeForgeEngine;
-import forge.query.EventStatisticsQueryRequest;
-import forge.query.EventStatisticsReport;
-import forge.query.FacadeForgeQuery;
+import forge.engine.EventStatisticsQueryRequest;
+import forge.engine.EventStatisticsReport;
 import forge.reporting.BacktestResult;
 
 import java.util.Objects;
@@ -18,41 +17,25 @@ public class FacadeForgeApplication {
 
     private final FacadeForgeData forgeData;
     private final FacadeForgeEngine forgeEngine;
-    private final FacadeForgeQuery forgeQuery;
     private final ForgeApplicationAccess access = new ForgeApplicationAccess();
 
     public FacadeForgeApplication() {
         this(
                 FacadeForgeData.getTheInstance(),
-                FacadeForgeEngine.getTheInstance(),
-                FacadeForgeQuery.getTheInstance()
+                FacadeForgeEngine.getTheInstance()
         );
     }
 
     public FacadeForgeApplication(FacadeForgeData forgeData) {
         this(
                 forgeData,
-                FacadeForgeEngine.getTheInstance(),
-                FacadeForgeQuery.getTheInstance()
+                FacadeForgeEngine.getTheInstance()
         );
     }
 
     public FacadeForgeApplication(FacadeForgeData forgeData, FacadeForgeEngine forgeEngine) {
-        this(
-                forgeData,
-                forgeEngine,
-                FacadeForgeQuery.getTheInstance()
-        );
-    }
-
-    public FacadeForgeApplication(
-            FacadeForgeData forgeData,
-            FacadeForgeEngine forgeEngine,
-            FacadeForgeQuery forgeQuery
-    ) {
         this.forgeData = Objects.requireNonNull(forgeData, "forgeData is required");
         this.forgeEngine = Objects.requireNonNull(forgeEngine, "forgeEngine is required");
-        this.forgeQuery = Objects.requireNonNull(forgeQuery, "forgeQuery is required");
     }
 
     public static FacadeForgeApplication getTheInstance() {
@@ -76,7 +59,7 @@ public class FacadeForgeApplication {
 
         public EventStatisticsReport runEventStatistics(EventStatisticsRequest request) {
             Objects.requireNonNull(request, "request is required");
-            return forgeQuery.forgeQueryAccess().runEventStatistics(new EventStatisticsQueryRequest(
+            return forgeEngine.forgeEngineAccess().runEventStatistics(new EventStatisticsQueryRequest(
                     request.getContractWindows(),
                     request.getEventName(),
                     EventStatisticsQueryRequest.DEFAULT_BATCH_SIZE,

@@ -1,10 +1,10 @@
 package forge.strategy;
 
-import forge.event.EventSide;
-import forge.event.FirstHourBreachEvent;
-import forge.event.MarketEvent;
-import forge.execution.OrderRequest;
-import forge.execution.OrderSide;
+import forge.condition.ConditionSide;
+import forge.condition.FirstHourBreachCondition;
+import forge.condition.MarketConditionOccurrence;
+import forge.trade.OrderRequest;
+import forge.trade.OrderSide;
 import forge.feature.SessionRangeFeature;
 import forge.feature.TpoPeriod;
 import forge.feature.TradingSession;
@@ -60,7 +60,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     public StrategyRequirements getRequirements() {
         return StrategyRequirements.builder()
                 .requireFeature(SessionRangeFeature.FEATURE_NAME)
-                .requireEvent(FirstHourBreachEvent.EVENT_NAME)
+                .requireEvent(FirstHourBreachCondition.EVENT_NAME)
                 .evaluateDuring(TradingSession.RTH)
                 .evaluateDuring(TpoPeriod.C)
                 .evaluateDuring(TpoPeriod.D)
@@ -83,12 +83,12 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
         if (tradeTakenBySession.containsKey(sessionKey)) {
             return StrategyDecision.noAction();
         }
-        MarketEvent breachEvent = firstHourBreachEvent(strategyContext);
+        MarketConditionOccurrence breachEvent = firstHourBreachEvent(strategyContext);
         if (breachEvent == null || !isTradeWindow(breachEvent)) {
             return StrategyDecision.noAction();
         }
 
-        OrderSide side = breachEvent.getSide() == EventSide.LONG ? OrderSide.BUY : OrderSide.SELL;
+        OrderSide side = breachEvent.getSide() == ConditionSide.LONG ? OrderSide.BUY : OrderSide.SELL;
         long stopPriceTicks = side == OrderSide.BUY
                 ? feature.getFirstHourLowTicks()
                 : feature.getFirstHourHighTicks();
@@ -145,7 +145,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
                 : entryPriceTicks - rewardTicks;
     }
 
-    private boolean isTradeWindow(MarketEvent event) {
+    private boolean isTradeWindow(MarketConditionOccurrence event) {
         LocalTime time = event.getEventTime().atZone(CENTRAL_TIME).toLocalTime();
         return !time.isBefore(TRADE_START) && time.isBefore(TRADE_END_EXCLUSIVE);
     }
@@ -155,12 +155,12 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
                 && feature.getFirstHourLowTicks() >= feature.getOvernightLowTicks();
     }
 
-    private MarketEvent firstHourBreachEvent(StrategyContext context) {
-        for (MarketEvent event : context.getCurrentEvents()) {
-            if (FirstHourBreachEvent.EVENT_NAME.equals(event.getEventName())
+    private MarketConditionOccurrence firstHourBreachEvent(StrategyContext context) {
+        for (MarketConditionOccurrence event : context.getCurrentEvents()) {
+            if (FirstHourBreachCondition.EVENT_NAME.equals(event.getEventName())
                     && event.getEventTime().equals(context.getCurrentTick().getTradeDateTime())
                     && event.getContractSymbol().equals(context.getCurrentTick().getContractSymbol())
-                    && (event.getSide() == EventSide.LONG || event.getSide() == EventSide.SHORT)) {
+                    && (event.getSide() == ConditionSide.LONG || event.getSide() == ConditionSide.SHORT)) {
                 return event;
             }
         }

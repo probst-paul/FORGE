@@ -14,7 +14,7 @@ import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
 import forge.config.TargetSettings;
-import forge.config.TradeTriggerOptions;
+import forge.config.MarketConditionOptions;
 import forge.app.DataImportRequest;
 import forge.data.FacadeForgeData;
 import forge.data.build.DataBuildProgress;
@@ -27,15 +27,15 @@ import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.app.EventStatisticsRequest;
 import forge.app.EventStatisticsProgress;
-import forge.query.EventStatisticsReport;
-import forge.query.EventStatisticsResult;
-import forge.query.FacadeForgeQuery;
+import forge.engine.EventStatisticsReport;
+import forge.engine.EventStatisticsResult;
+import forge.engine.FacadeForgeEngine;
 import forge.reporting.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.StrategyConfigurationProfile;
 import forge.strategy.TradingStrategy;
-import forge.trigger.FacadeForgeTrigger;
-import forge.trigger.TradeTrigger;
+import forge.condition.FacadeForgeCondition;
+import forge.condition.MarketCondition;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -52,7 +52,7 @@ public class CliApplicationController {
     private final InstrumentSelectionService instrumentSelectionService;
     private final StrategySelectionService strategySelectionService;
     private final RiskSettingsSelectionService riskSettingsSelectionService;
-    private final TriggerSelectionService triggerSelectionService;
+    private final ConditionSelectionService conditionSelectionService;
     private final TargetSettingsSelectionService targetSettingsSelectionService;
 
     public CliApplicationController() {
@@ -62,7 +62,7 @@ public class CliApplicationController {
                 new InstrumentSelectionService(FacadeForgeData.getTheInstance()),
                 new StrategySelectionService(FacadeForgeStrategy.getTheInstance()),
                 new RiskSettingsSelectionService(),
-                new TriggerSelectionService(FacadeForgeTrigger.getTheInstance()),
+                new ConditionSelectionService(FacadeForgeCondition.getTheInstance()),
                 new TargetSettingsSelectionService()
         );
     }
@@ -73,7 +73,7 @@ public class CliApplicationController {
             InstrumentSelectionService instrumentSelectionService,
             StrategySelectionService strategySelectionService,
             RiskSettingsSelectionService riskSettingsSelectionService,
-            TriggerSelectionService triggerSelectionService,
+            ConditionSelectionService conditionSelectionService,
             TargetSettingsSelectionService targetSettingsSelectionService
     ) {
         this.forgeApplication = forgeApplication;
@@ -81,7 +81,7 @@ public class CliApplicationController {
         this.instrumentSelectionService = instrumentSelectionService;
         this.strategySelectionService = strategySelectionService;
         this.riskSettingsSelectionService = riskSettingsSelectionService;
-        this.triggerSelectionService = triggerSelectionService;
+        this.conditionSelectionService = conditionSelectionService;
         this.targetSettingsSelectionService = targetSettingsSelectionService;
     }
 
@@ -187,11 +187,11 @@ public class CliApplicationController {
         printSection(output, "Risk Settings");
         RiskSettings riskSettings = riskSettingsSelectionService.readRiskSettings(input, output);
 
-        printSection(output, strategyProfile.isTriggerSelectionAllowed() ? "Select Trade Trigger" : "Trade Trigger");
-        Class<? extends TradeTrigger> selectedTrigger = triggerSelectionService.selectTrigger(input, output, strategyProfile);
-        TradeTriggerOptions triggerOptions = strategyProfile.isTriggerSelectionAllowed()
-                ? triggerSelectionService.readTriggerOptions(input, output, selectedTrigger)
-                : triggerSelectionService.createDefaultTriggerOptions(selectedTrigger);
+        printSection(output, strategyProfile.isConditionSelectionAllowed() ? "Select Market Condition" : "Market Condition");
+        Class<? extends MarketCondition> selectedCondition = conditionSelectionService.selectCondition(input, output, strategyProfile);
+        MarketConditionOptions conditionOptions = strategyProfile.isConditionSelectionAllowed()
+                ? conditionSelectionService.readConditionOptions(input, output, selectedCondition)
+                : conditionSelectionService.createDefaultConditionOptions(selectedCondition);
 
         printSection(output, strategyProfile.isTargetSelectionAllowed() ? "Select Target Mode" : "Target Mode");
         String selectedTargetMode = targetSettingsSelectionService.selectTargetMode(input, output, strategyProfile);
@@ -207,7 +207,7 @@ public class CliApplicationController {
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 new StrategyOptions(strategySelectionService.getDisplayName(selectedStrategy)),
                 selectedContracts.getContractWindows(),
-                triggerOptions,
+                conditionOptions,
                 riskSettings,
                 targetSettings,
                 forgeConfig.forgeConfigAccess().defaultOrderSettings()
@@ -241,8 +241,8 @@ public class CliApplicationController {
     }
 
     private String selectEventStatistic(UserInput input, UserOutput output) {
-        java.util.List<String> eventNames = FacadeForgeQuery.getTheInstance()
-                .forgeQueryAccess()
+        java.util.List<String> eventNames = FacadeForgeEngine.getTheInstance()
+                .forgeEngineAccess()
                 .getSupportedQueryEventNames();
         if (eventNames.isEmpty()) {
             throw new IllegalStateException("No event statistics are available");
@@ -251,11 +251,11 @@ public class CliApplicationController {
         output.printLine("Available event statistics:");
         for (int i = 0; i < eventNames.size(); i++) {
             String eventName = eventNames.get(i);
-            output.printLine((i + 1) + ". " + FacadeForgeQuery.getTheInstance()
-                    .forgeQueryAccess()
+            output.printLine((i + 1) + ". " + FacadeForgeEngine.getTheInstance()
+                    .forgeEngineAccess()
                     .getEventStatisticDisplayName(eventName));
-            output.printLine("   " + FacadeForgeQuery.getTheInstance()
-                    .forgeQueryAccess()
+            output.printLine("   " + FacadeForgeEngine.getTheInstance()
+                    .forgeEngineAccess()
                     .getEventStatisticDescription(eventName));
         }
 
@@ -412,7 +412,7 @@ public class CliApplicationController {
         output.printLine("Derived data build complete:");
         output.printLine("Ticks read: " + result.getTicksRead());
         output.printLine("Session ranges built: " + result.getSessionRangesBuilt());
-        output.printLine("Market events built: " + result.getMarketEventsBuilt());
+        output.printLine("Market events built: " + result.getMarketConditionOccurrencesBuilt());
         output.printLine("Build time: " + formatDuration(result.getElapsedTime()));
     }
 
@@ -462,8 +462,8 @@ public class CliApplicationController {
                 plan.willBuildSessionRanges()
         ));
         output.printLine("First-hour breach events: " + describeBuildPlanItem(
-                plan.isFirstHourBreachEventsAlreadyBuilt(),
-                plan.willBuildFirstHourBreachEvents()
+                plan.isFirstHourBreachConditionsAlreadyBuilt(),
+                plan.willBuildFirstHourBreachConditions()
         ));
     }
 

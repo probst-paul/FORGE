@@ -9,12 +9,12 @@ import forge.data.market.ContractTradeWindow;
 import forge.data.market.TickDataProvider;
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
-import forge.event.EventBuildService;
-import forge.event.MarketEvent;
-import forge.execution.ExecutionEngine;
-import forge.execution.FacadeForgeExecution;
-import forge.execution.Fill;
-import forge.execution.OrderRequest;
+import forge.condition.ConditionBuildService;
+import forge.condition.MarketConditionOccurrence;
+import forge.trade.ExecutionEngine;
+import forge.trade.FacadeForgeTrade;
+import forge.trade.Fill;
+import forge.trade.OrderRequest;
 import forge.feature.FeatureBuildService;
 import forge.feature.SessionRangeFeature;
 import forge.feature.TpoPeriodClassifier;
@@ -56,7 +56,7 @@ public class BacktestEngine {
     private final FuturesInstrumentSpecProvider futuresInstrumentSpecProvider;
     private final ExecutionEngine executionEngine;
     private final FeatureBuildService featureBuildService;
-    private final EventBuildService eventBuildService;
+    private final ConditionBuildService eventBuildService;
     private final TradingDayClassifier tradingDayClassifier;
     private final TpoPeriodClassifier tpoPeriodClassifier;
 
@@ -80,9 +80,9 @@ public class BacktestEngine {
                 new StrategyCatalog(),
                 new ContractNameResolver(),
                 new StaticFuturesInstrumentSpecProvider(),
-                FacadeForgeExecution.getTheInstance().forgeExecutionAccess().createSimpleExecutionEngine(),
+                FacadeForgeTrade.getTheInstance().forgeTradeAccess().createSimpleExecutionEngine(),
                 new FeatureBuildService(),
-                new EventBuildService(),
+                new ConditionBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier()
         );
@@ -106,9 +106,9 @@ public class BacktestEngine {
                 new StrategyCatalog(),
                 new ContractNameResolver(),
                 new StaticFuturesInstrumentSpecProvider(),
-                FacadeForgeExecution.getTheInstance().forgeExecutionAccess().createSimpleExecutionEngine(),
+                FacadeForgeTrade.getTheInstance().forgeTradeAccess().createSimpleExecutionEngine(),
                 new FeatureBuildService(),
-                new EventBuildService(),
+                new ConditionBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier()
         );
@@ -128,7 +128,7 @@ public class BacktestEngine {
                 futuresInstrumentSpecProvider,
                 executionEngine,
                 new FeatureBuildService(),
-                new EventBuildService(),
+                new ConditionBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier()
         );
@@ -141,7 +141,7 @@ public class BacktestEngine {
             FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
             ExecutionEngine executionEngine,
             FeatureBuildService featureBuildService,
-            EventBuildService eventBuildService,
+            ConditionBuildService eventBuildService,
             TradingDayClassifier tradingDayClassifier,
             TpoPeriodClassifier tpoPeriodClassifier
     ) {
@@ -170,9 +170,9 @@ public class BacktestEngine {
         listener.onProgress(new BacktestProgress(0, totalTicks));
         List<TradeTick> ticks = readTicks(request, listener, totalTicks);
         List<SessionRangeFeature> sessionRangeFeatures = buildSessionRangeFeatures(requirements, ticks);
-        List<MarketEvent> marketEvents = buildMarketEvents(requirements, sessionRangeFeatures, ticks);
+        List<MarketConditionOccurrence> marketEvents = buildMarketConditionOccurrences(requirements, sessionRangeFeatures, ticks);
         Map<SessionKey, SessionRangeFeature> featuresBySession = indexFeatures(sessionRangeFeatures);
-        Map<SessionKey, List<MarketEvent>> eventsBySession = indexEvents(marketEvents);
+        Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession = indexEvents(marketEvents);
         Map<String, FuturesInstrumentSpec> specsByInstrument = new HashMap<>();
         Map<String, ContractRunAccumulator> contractAccumulators = initializeContractAccumulators(request);
         Map<String, TradeLifecycleEngine> lifecycleEngines = initializeLifecycleEngines(request);
@@ -242,19 +242,19 @@ public class BacktestEngine {
             return List.of();
         }
         if (requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME)
-                || requirements.requiresEvent(forge.event.FirstHourBreachEvent.EVENT_NAME)) {
+                || requirements.requiresEvent(forge.condition.FirstHourBreachCondition.EVENT_NAME)) {
             return featureBuildService.calculateSessionRanges(ticks);
         }
         return List.of();
     }
 
-    private List<MarketEvent> buildMarketEvents(
+    private List<MarketConditionOccurrence> buildMarketConditionOccurrences(
             StrategyRequirements requirements,
             List<SessionRangeFeature> sessionRangeFeatures,
             List<TradeTick> ticks
     ) {
-        if (requirements.requiresEvent(forge.event.FirstHourBreachEvent.EVENT_NAME)) {
-            return eventBuildService.detectFirstHourBreachEvents(sessionRangeFeatures, ticks);
+        if (requirements.requiresEvent(forge.condition.FirstHourBreachCondition.EVENT_NAME)) {
+            return eventBuildService.detectFirstHourBreachConditions(sessionRangeFeatures, ticks);
         }
         return List.of();
     }
@@ -287,9 +287,9 @@ public class BacktestEngine {
         return featuresBySession;
     }
 
-    private Map<SessionKey, List<MarketEvent>> indexEvents(List<MarketEvent> events) {
-        Map<SessionKey, List<MarketEvent>> eventsBySession = new HashMap<>();
-        for (MarketEvent event : events) {
+    private Map<SessionKey, List<MarketConditionOccurrence>> indexEvents(List<MarketConditionOccurrence> events) {
+        Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession = new HashMap<>();
+        for (MarketConditionOccurrence event : events) {
             eventsBySession
                     .computeIfAbsent(new SessionKey(event.getContractSymbol(), event.getSessionDate()), ignored -> new ArrayList<>())
                     .add(event);
@@ -297,12 +297,12 @@ public class BacktestEngine {
         return eventsBySession;
     }
 
-    private List<MarketEvent> eventsForTick(TradeTick tick, List<MarketEvent> sessionEvents) {
+    private List<MarketConditionOccurrence> eventsForTick(TradeTick tick, List<MarketConditionOccurrence> sessionEvents) {
         if (sessionEvents == null || sessionEvents.isEmpty()) {
             return List.of();
         }
-        List<MarketEvent> events = new ArrayList<>();
-        for (MarketEvent event : sessionEvents) {
+        List<MarketConditionOccurrence> events = new ArrayList<>();
+        for (MarketConditionOccurrence event : sessionEvents) {
             if (event.getEventTime().equals(tick.getTradeDateTime())
                     && event.getEventPriceTicks() == tick.getPriceTicks()) {
                 events.add(event);

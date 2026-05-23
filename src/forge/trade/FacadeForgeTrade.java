@@ -1,7 +1,6 @@
 package forge.trade;
 
-import forge.execution.OrderSide;
-
+import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
@@ -21,6 +20,40 @@ public class FacadeForgeTrade {
     public static class ForgeTradeAccess {
         public TradeLifecycleEngine createTradeLifecycleEngine() {
             return new TradeLifecycleEngine();
+        }
+
+        public ExecutionEngine createSimpleExecutionEngine() {
+            return new SimpleExecutionEngine();
+        }
+
+        public OrderRequest createMarketOrderRequest(String instrumentSymbol, OrderSide side, int quantity) {
+            return OrderRequest.market(instrumentSymbol, side, quantity);
+        }
+
+        public Order createOrder() {
+            return new Order();
+        }
+
+        public Fill createFill(
+                String instrumentSymbol,
+                String contractSymbol,
+                OrderSide side,
+                OrderType orderType,
+                int quantity,
+                Instant fillTime,
+                long fillPriceTicks,
+                long scidRecordIndex
+        ) {
+            return new Fill(
+                    instrumentSymbol,
+                    contractSymbol,
+                    side,
+                    orderType,
+                    quantity,
+                    fillTime,
+                    fillPriceTicks,
+                    scidRecordIndex
+            );
         }
 
         public TradePlan createTradePlan(

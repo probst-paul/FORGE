@@ -2,9 +2,9 @@ package forge.trade;
 
 import forge.trade.TradeResult;
 import forge.data.market.TradeTick;
-import forge.execution.Fill;
-import forge.execution.OrderRequest;
-import forge.execution.OrderSide;
+import forge.trade.Fill;
+import forge.trade.OrderRequest;
+import forge.trade.OrderSide;
 import forge.model.FuturesInstrumentSpec;
 
 import java.time.LocalTime;

@@ -1,7 +1,7 @@
 package forge.strategy;
 
-import forge.execution.OrderRequest;
-import forge.execution.OrderSide;
+import forge.trade.OrderRequest;
+import forge.trade.OrderSide;
 
 public class RangeBreakoutStrategy implements TradingStrategy {
     private final double rangeHigh;

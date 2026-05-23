@@ -1,6 +1,6 @@
 package forge.trade;
 
-import forge.execution.OrderSide;
+import forge.trade.OrderSide;
 
 import java.time.Instant;
 import java.util.Objects;

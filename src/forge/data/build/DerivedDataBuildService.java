@@ -2,9 +2,9 @@ package forge.data.build;
 
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
-import forge.event.EventBuildService;
-import forge.event.FirstHourBreachEvent;
-import forge.event.MarketEvent;
+import forge.condition.ConditionBuildService;
+import forge.condition.FirstHourBreachCondition;
+import forge.condition.MarketConditionOccurrence;
 import forge.feature.FeatureBuildService;
 import forge.feature.SessionRangeFeature;
 
@@ -17,13 +17,13 @@ public class DerivedDataBuildService {
     private final DerivedDataBuildTradeSource tradeSource;
     private final DerivedDataBuildStore buildStore;
     private final FeatureBuildService featureBuildService;
-    private final EventBuildService eventBuildService;
+    private final ConditionBuildService eventBuildService;
 
     public DerivedDataBuildService(
             DerivedDataBuildTradeSource tradeSource,
             DerivedDataBuildStore buildStore,
             FeatureBuildService featureBuildService,
-            EventBuildService eventBuildService
+            ConditionBuildService eventBuildService
     ) {
         if (tradeSource == null) {
             throw new IllegalArgumentException("tradeSource is required");
@@ -48,15 +48,15 @@ public class DerivedDataBuildService {
             throw new IllegalArgumentException("request is required");
         }
         boolean sessionRangesBuilt = buildStore.areSessionRangesBuilt(request.getContractWindows());
-        boolean firstHourBreachEventsBuilt = buildStore.areMarketEventsBuilt(
+        boolean firstHourBreachEventsBuilt = buildStore.areMarketConditionOccurrencesBuilt(
                 request.getContractWindows(),
-                FirstHourBreachEvent.EVENT_NAME
+                FirstHourBreachCondition.EVENT_NAME
         );
         boolean needsSessionRanges = request.shouldBuild(DerivedDataBuildOption.SESSION_RANGES)
                 || request.shouldBuild(DerivedDataBuildOption.FIRST_HOUR_BREACH_EVENTS);
         boolean willBuildSessionRanges = needsSessionRanges
                 && (request.isRebuildExisting() || !sessionRangesBuilt);
-        boolean willBuildFirstHourBreachEvents = request.shouldBuild(DerivedDataBuildOption.FIRST_HOUR_BREACH_EVENTS)
+        boolean willBuildFirstHourBreachConditions = request.shouldBuild(DerivedDataBuildOption.FIRST_HOUR_BREACH_EVENTS)
                 && (request.isRebuildExisting() || !firstHourBreachEventsBuilt);
         long totalTicks = tradeSource.countTradeTicks(request.getContractWindows());
 
@@ -68,7 +68,7 @@ public class DerivedDataBuildService {
                 sessionRangesBuilt,
                 firstHourBreachEventsBuilt,
                 willBuildSessionRanges,
-                willBuildFirstHourBreachEvents
+                willBuildFirstHourBreachConditions
         );
     }
 
@@ -94,7 +94,7 @@ public class DerivedDataBuildService {
         if (plan.willBuildSessionRanges()) {
             if (request.isRebuildExisting()) {
                 buildStore.clearSessionRanges(request.getContractWindows());
-                buildStore.clearMarketEvents(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
+                buildStore.clearMarketConditionOccurrences(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
             }
             buildStore.saveSessionRanges(sessionRangeFeatures);
             buildStore.markSessionRangesBuilt(request.getContractWindows());
@@ -102,13 +102,13 @@ public class DerivedDataBuildService {
         }
 
         long marketEventsBuilt = 0;
-        if (plan.willBuildFirstHourBreachEvents()) {
-            List<MarketEvent> events = eventBuildService.detectFirstHourBreachEvents(sessionRangeFeatures, ticks);
+        if (plan.willBuildFirstHourBreachConditions()) {
+            List<MarketConditionOccurrence> events = eventBuildService.detectFirstHourBreachConditions(sessionRangeFeatures, ticks);
             if (request.isRebuildExisting()) {
-                buildStore.clearMarketEvents(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
+                buildStore.clearMarketConditionOccurrences(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
             }
-            buildStore.saveMarketEvents(events);
-            buildStore.markMarketEventsBuilt(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
+            buildStore.saveMarketConditionOccurrences(events);
+            buildStore.markMarketConditionOccurrencesBuilt(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
             marketEventsBuilt = events.size();
         }
 

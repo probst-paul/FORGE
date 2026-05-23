@@ -14,7 +14,7 @@ public class BacktestRequest {
     private final List<ContractTradeWindow> contractWindows;
     private final LocalDate startDate;
     private final LocalDate endDate;
-    private final TradeTriggerOptions tradeTriggerOptions;
+    private final MarketConditionOptions marketConditionOptions;
     private final RiskSettings riskSettings;
     private final TargetSettings targetSettings;
     private final OrderSettings orderSettings;
@@ -24,7 +24,7 @@ public class BacktestRequest {
             List<String> instruments,
             LocalDate startDate,
             LocalDate endDate,
-            TradeTriggerOptions tradeTriggerOptions,
+            MarketConditionOptions marketConditionOptions,
             RiskSettings riskSettings,
             TargetSettings targetSettings,
             OrderSettings orderSettings
@@ -32,7 +32,7 @@ public class BacktestRequest {
         this(
                 strategyOptions,
                 toContractWindows(instruments, startDate, endDate),
-                tradeTriggerOptions,
+                marketConditionOptions,
                 riskSettings,
                 targetSettings,
                 orderSettings
@@ -42,7 +42,7 @@ public class BacktestRequest {
     public BacktestRequest(
             StrategyOptions strategyOptions,
             List<ContractTradeWindow> contractWindows,
-            TradeTriggerOptions tradeTriggerOptions,
+            MarketConditionOptions marketConditionOptions,
             RiskSettings riskSettings,
             TargetSettings targetSettings,
             OrderSettings orderSettings
@@ -52,7 +52,7 @@ public class BacktestRequest {
         this.instruments = Collections.unmodifiableList(extractContractSymbols(this.contractWindows));
         this.startDate = findStartDate(this.contractWindows);
         this.endDate = findEndDate(this.contractWindows);
-        this.tradeTriggerOptions = Objects.requireNonNull(tradeTriggerOptions, "tradeTriggerOptions is required");
+        this.marketConditionOptions = Objects.requireNonNull(marketConditionOptions, "marketConditionOptions is required");
         this.riskSettings = Objects.requireNonNull(riskSettings, "riskSettings is required");
         this.targetSettings = Objects.requireNonNull(targetSettings, "targetSettings is required");
         this.orderSettings = Objects.requireNonNull(orderSettings, "orderSettings is required");
@@ -78,8 +78,8 @@ public class BacktestRequest {
         return endDate;
     }
 
-    public TradeTriggerOptions getTradeTriggerOptions() {
-        return tradeTriggerOptions;
+    public MarketConditionOptions getMarketConditionOptions() {
+        return marketConditionOptions;
     }
 
     public RiskSettings getRiskSettings() {
@@ -101,7 +101,7 @@ public class BacktestRequest {
                 ", contractWindows=" + contractWindows +
                 ", startDate=" + startDate +
                 ", endDate=" + endDate +
-                ", tradeTriggerOptions=" + tradeTriggerOptions +
+                ", marketConditionOptions=" + marketConditionOptions +
                 ", riskSettings=" + riskSettings +
                 ", targetSettings=" + targetSettings +
                 ", orderSettings=" + orderSettings +

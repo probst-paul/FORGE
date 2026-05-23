@@ -20,18 +20,17 @@ classDiagram
     class PostgresTradeRepository
     class ContractRolloverCalendar
     class FacadeForgeStrategy
-    class FacadeForgeTrigger
+    class FacadeForgeCondition
     class FacadeForgeEngine
     class FacadeForgeFeature
-    class FacadeForgeEvent
-    class FacadeForgeQuery
+    class FacadeForgeStudy
+    class FacadeForgeStatistics
     class FacadeForgeTrade
     class FacadeForgeReporting
-    class FacadeForgeExecution
     class ForgeApplicationAccess
     class InstrumentSelectionService
     class StrategySelectionService
-    class TriggerSelectionService
+    class ConditionSelectionService
     class TargetSettingsSelectionService
     class RiskSettingsSelectionService
 
@@ -43,7 +42,7 @@ classDiagram
     CliApplicationController --> InstrumentSelectionService : instruments + dates
     CliApplicationController --> StrategySelectionService : strategy
     CliApplicationController --> RiskSettingsSelectionService : risk settings
-    CliApplicationController --> TriggerSelectionService : trigger
+    CliApplicationController --> ConditionSelectionService : condition
     CliApplicationController --> TargetSettingsSelectionService : target settings
     CliApplicationController --> FacadeForgeConfig : build request
     CliApplicationController --> FacadeForgeData : derived data build
@@ -57,17 +56,18 @@ classDiagram
     ScidDataImportService --> ContractNameResolver : contract root
     ScidDataImportService --> PostgresTradeRepository : persist rows
     StrategySelectionService --> FacadeForgeStrategy
-    TriggerSelectionService --> FacadeForgeTrigger
+    ConditionSelectionService --> FacadeForgeCondition
 
-    ForgeApplicationAccess ..> FacadeForgeEngine : run request
+    ForgeApplicationAccess ..> FacadeForgeEngine : run backtests + statistics
     FacadeForgeEngine ..> FacadeForgeFeature : build features
-    FacadeForgeEngine ..> FacadeForgeEvent : build events
-    ForgeApplicationAccess ..> FacadeForgeQuery : later run statistics
+    FacadeForgeEngine ..> FacadeForgeCondition : build condition occurrences
+    FacadeForgeEngine ..> FacadeForgeStudy : select study
+    FacadeForgeEngine ..> FacadeForgeStatistics : aggregate outcomes
     ForgeApplicationAccess ..> FacadeForgeTrade : lifecycle support
-    ForgeApplicationAccess ..> FacadeForgeExecution : later execute orders
+    ForgeApplicationAccess ..> FacadeForgeTrade : later execute orders
     ForgeApplicationAccess ..> FacadeForgeReporting : later summarize result
-    FacadeForgeFeature ..> FacadeForgeEvent : features feed events
-    FacadeForgeEvent ..> FacadeForgeQuery : events feed statistics
+    FacadeForgeFeature ..> FacadeForgeCondition : features feed condition occurrences
+    FacadeForgeCondition ..> FacadeForgeStatistics : condition occurrences feed statistics
 ```
 
 ## CLI Interaction Overview
@@ -108,8 +108,8 @@ sequenceDiagram
         Cli->>Strategies: getConfigurationProfile(selected strategy)
         Strategies->>Strategy: forgeStrategyAccess().getConfigurationProfile(strategy)
         Strategy-->>Strategies: StrategyConfigurationProfile
-        Strategies-->>Cli: strategy trigger/target profile
-        Cli->>Input: read risk, trigger, and target settings
+        Strategies-->>Cli: strategy condition/target profile
+        Cli->>Input: read risk, condition, and target settings
         Cli->>Config: forgeConfigAccess().createBacktestRequest(...)
         Config-->>Cli: BacktestRequest
         Cli->>App: forgeApplicationAccess().runBacktest(request, progress listener)
@@ -300,10 +300,10 @@ classDiagram
         +RiskSettings readRiskSettings(UserInput input)
     }
 
-    class TriggerSelectionService {
-        +Class selectTrigger(UserInput input, UserOutput output)
-        +TradeTriggerOptions readTriggerOptions(UserInput input, UserOutput output, Class trigger)
-        +String getDisplayName(Class trigger)
+    class ConditionSelectionService {
+        +Class selectCondition(UserInput input, UserOutput output)
+        +MarketConditionOptions readConditionOptions(UserInput input, UserOutput output, Class condition)
+        +String getDisplayName(Class condition)
     }
 
     class TargetSettingsSelectionService {
@@ -319,7 +319,7 @@ classDiagram
     CliApplicationController --> InstrumentSelectionService
     CliApplicationController --> StrategySelectionService
     CliApplicationController --> RiskSettingsSelectionService
-    CliApplicationController --> TriggerSelectionService
+    CliApplicationController --> ConditionSelectionService
     CliApplicationController --> TargetSettingsSelectionService
 ```
 
@@ -345,7 +345,7 @@ classDiagram
         -List~ContractTradeWindow~ contractWindows
         -LocalDate startDate
         -LocalDate endDate
-        -TradeTriggerOptions tradeTriggerOptions
+        -MarketConditionOptions tradeConditionOptions
         -RiskSettings riskSettings
         -TargetSettings targetSettings
         -OrderSettings orderSettings
@@ -356,8 +356,8 @@ classDiagram
         -Map~String,String~ parameters
     }
 
-    class TradeTriggerOptions {
-        -String triggerName
+    class MarketConditionOptions {
+        -String conditionName
         -Map~String,String~ parameters
     }
 
@@ -382,10 +382,10 @@ classDiagram
     FacadeForgeConfig --> ForgeConfigAccess
     ForgeConfigAccess --> BacktestRequest : creates
     ForgeConfigAccess --> StrategyOptions : creates
-    ForgeConfigAccess --> TradeTriggerOptions : creates
+    ForgeConfigAccess --> MarketConditionOptions : creates
     ForgeConfigAccess --> OrderSettings : creates default
     BacktestRequest --> StrategyOptions
-    BacktestRequest --> TradeTriggerOptions
+    BacktestRequest --> MarketConditionOptions
     BacktestRequest --> RiskSettings
     BacktestRequest --> TargetSettings
     BacktestRequest --> OrderSettings
@@ -456,16 +456,16 @@ classDiagram
     class DatabaseBuildPlan {
         -long totalTicks
         -boolean sessionRangesAlreadyBuilt
-        -boolean firstHourBreachEventsAlreadyBuilt
+        -boolean firstHourBreachCondition OccurrencesAlreadyBuilt
         -boolean willBuildSessionRanges
-        -boolean willBuildFirstHourBreachEvents
+        -boolean willBuildFirstHourBreachConditions
         +boolean hasWorkToRun()
     }
 
     class DatabaseBuildResult {
         -long ticksRead
         -long sessionRangesBuilt
-        -long marketEventsBuilt
+        -long marketCondition OccurrencesBuilt
         -Duration elapsedTime
     }
 
@@ -491,9 +491,9 @@ classDiagram
         +boolean areSessionRangesBuilt(List~ContractTradeWindow~ windows)
         +void saveSessionRanges(Collection~SessionRangeFeature~ features)
         +void clearSessionRanges(List~ContractTradeWindow~ windows)
-        +boolean areMarketEventsBuilt(List~ContractTradeWindow~ windows, String eventName)
-        +void saveMarketEvents(Collection~MarketEvent~ events)
-        +void clearMarketEvents(List~ContractTradeWindow~ windows, String eventName)
+        +boolean areMarketConditionOccurrencesBuilt(List~ContractTradeWindow~ windows, String eventName)
+        +void saveMarketConditionOccurrences(Collection~MarketConditionOccurrence~ condition occurrences)
+        +void clearMarketConditionOccurrences(List~ContractTradeWindow~ windows, String eventName)
     }
 
     class DataBuildProgress
@@ -505,7 +505,7 @@ classDiagram
     DerivedDataBuildService --> DerivedDataBuildTradeSource
     DerivedDataBuildService --> DerivedDataBuildStore
     DerivedDataBuildService --> FeatureBuildService
-    DerivedDataBuildService --> EventBuildService
+    DerivedDataBuildService --> ConditionBuildService
     DatabaseBuildRequest --> DerivedDataBuildOption
     DatabaseBuildPlan --> DerivedDataBuildOption
     DatabaseBuildResult --> DatabaseBuildPlan
@@ -839,9 +839,9 @@ classDiagram
     }
 
     class StrategyConfigurationProfile {
-        -List~Class~ allowedTriggers
-        -Class defaultTrigger
-        -boolean triggerSelectionAllowed
+        -List~Class~ allowedConditions
+        -Class defaultCondition
+        -boolean conditionSelectionAllowed
         -List~String~ allowedTargets
         -String defaultTarget
         -boolean targetSelectionAllowed
@@ -872,7 +872,7 @@ classDiagram
         -TradingDayContext tradingDayContext
         -TpoPeriod tpoPeriod
         -SessionRangeFeature sessionRangeFeature
-        -List~MarketEvent~ currentEvents
+        -List~MarketConditionOccurrence~ currentCondition Occurrences
     }
 
     class StrategyDecision {
@@ -925,7 +925,7 @@ classDiagram
     ForgeStrategyAccess --> StrategyConfigurationProfile : exposes
     StrategyCatalog --> StrategyConfigurationProfile : creates
     ForgeStrategyAccess --> TradingStrategy : creates
-    StrategyConfigurationProfile --> TradeTrigger : allowed/default triggers
+    StrategyConfigurationProfile --> MarketCondition : allowed/default conditions
     StrategyConfigurationProfile --> TargetSettings : allowed/default targets
     StrategyConfigurationProfile --> TargetSettings : defaults
     TradingStrategy <|.. RangeBreakoutStrategy
@@ -940,70 +940,70 @@ classDiagram
     StrategyContext --> TradingDayContext
     StrategyContext --> TpoPeriod
     StrategyContext --> SessionRangeFeature
-    StrategyContext --> MarketEvent
+    StrategyContext --> MarketConditionOccurrence
     StrategyDecision --> OrderRequest
     StrategyDecision --> TradePlan
-    OpeningRangeContinuationStrategy --> MarketEvent : consumes breach events
+    OpeningRangeContinuationStrategy --> MarketConditionOccurrence : consumes breach condition occurrences
     OpeningRangeContinuationStrategy --> SessionRangeFeature : consumes ranges
     OpeningRangeContinuationStrategy --> ExitStyle
     TimeframeRangeCalculator --> TradeTick : scans
     TimeframeRangeCalculator --> PriceRange : returns
 ```
 
-## trigger Package
+## condition Package
 
 ```mermaid
 classDiagram
     direction LR
 
-    class FacadeForgeTrigger {
-        +FacadeForgeTrigger getTheInstance()
-        +ForgeTriggerAccess forgeTriggerAccess()
+    class FacadeForgeCondition {
+        +FacadeForgeCondition getTheInstance()
+        +ForgeConditionAccess forgeConditionAccess()
     }
 
-    class ForgeTriggerAccess {
-        +List~Class~ findAvailableTriggers()
-        +String getDisplayName(Class trigger)
-        +TradeTriggerOptions createTriggerOptions(Class trigger)
-        +TradeTriggerOptions createTriggerOptions(Class trigger, Map parameters)
-        +TradeTrigger createTrigger(Class trigger)
+    class ForgeConditionAccess {
+        +List~Class~ findAvailableConditions()
+        +String getDisplayName(Class condition)
+        +MarketConditionOptions createConditionOptions(Class condition)
+        +MarketConditionOptions createConditionOptions(Class condition, Map parameters)
+        +MarketCondition createCondition(Class condition)
     }
 
-    class TriggerCatalog {
-        +List~Class~ findAvailableTriggers()
-        +String getDisplayName(Class triggerClass)
+    class ConditionCatalog {
+        +List~Class~ findAvailableConditions()
+        +String getDisplayName(Class conditionClass)
     }
 
-    class TradeTrigger {
+    class MarketCondition {
         <<interface>>
         +String getName()
-        +TriggerResult evaluate(MarketContext context)
+        +ConditionResult evaluate(MarketContext context)
     }
 
-    class OrderFlowExhaustionTrigger
-    class PriceCrossoverTrigger {
-        -TriggerDirection direction
+    class OrderFlowExhaustionCondition
+    class PriceCrossoverCondition {
+        -ConditionDirection direction
         -long priceThresholdTicks
-        +TriggerResult evaluate(MarketContext context)
+        +ConditionResult evaluate(MarketContext context)
     }
-    class TriggerResult {
-        -boolean triggered
-        -TriggerDirection direction
-        +TriggerResult triggered(TriggerDirection direction)
-        +TriggerResult notTriggered()
-        +boolean isTriggered()
-        +TriggerDirection getDirection()
+    class ConditionResult {
+        -boolean conditioned
+        -ConditionDirection direction
+        +ConditionResult conditioned(ConditionDirection direction)
+        +ConditionResult notConditioned()
+        +boolean isConditioned()
+        +ConditionDirection getDirection()
     }
-    class TriggerDirection
+    class ConditionDirection
 
-    FacadeForgeTrigger --> ForgeTriggerAccess
-    ForgeTriggerAccess --> TriggerCatalog
-    ForgeTriggerAccess --> TradeTrigger : creates
-    TradeTrigger <|.. OrderFlowExhaustionTrigger
-    TradeTrigger <|.. PriceCrossoverTrigger
-    TradeTrigger --> TriggerResult
-    PriceCrossoverTrigger --> TriggerDirection
-    TriggerResult --> TriggerDirection
+    FacadeForgeCondition --> ForgeConditionAccess
+    ForgeConditionAccess --> ConditionCatalog
+    ForgeConditionAccess --> MarketCondition : creates
+    MarketCondition <|.. OrderFlowExhaustionCondition
+    MarketCondition <|.. PriceCrossoverCondition
+    MarketCondition --> ConditionResult
+    PriceCrossoverCondition --> ConditionDirection
+    ConditionResult --> ConditionDirection
 ```
 
 ## engine Package
@@ -1023,6 +1023,11 @@ classDiagram
         +MarketContext createMarketContext(String instrumentSymbol, LocalDateTime timestamp, long lastPriceTicks, double tickSize, double tickDollarValue, boolean hasOpenPosition)
         +BacktestResult run(BacktestRequest request)
         +BacktestResult run(BacktestRequest request, BacktestProgressListener listener)
+        +List~String~ getSupportedQueryEventNames()
+        +String getEventStatisticDisplayName(String eventName)
+        +String getEventStatisticDescription(String eventName)
+        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketConditionOccurrence~ conditionOccurrences)
+        +EventStatisticsReport runEventStatistics(EventStatisticsQueryRequest request)
     }
 
     class BacktestEngine {
@@ -1040,14 +1045,71 @@ classDiagram
         -boolean hasOpenPosition
     }
 
+    class QueryService {
+        +List~String~ getSupportedQueryEventNames()
+        +String getEventStatisticDisplayName(String eventName)
+        +String getEventStatisticDescription(String eventName)
+        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketConditionOccurrence~ conditionOccurrences)
+    }
+
+    class EventStatisticsQueryRunner {
+        +EventStatisticsReport run(EventStatisticsQueryRequest request)
+    }
+
+    class QueryTradeTickSource {
+        <<interface>>
+        +TradeBatchReader openTradeBatchReader(List~ContractTradeWindow~ windows, int batchSize)
+        +long countTradeTicks(List~ContractTradeWindow~ windows)
+    }
+
+    class QueryDerivedDataStore {
+        <<interface>>
+        +boolean areSessionRangesBuilt(List~ContractTradeWindow~ windows)
+        +List~SessionRangeFeature~ loadSessionRanges(List~ContractTradeWindow~ windows)
+        +void saveSessionRanges(Collection~SessionRangeFeature~ features)
+        +boolean areMarketConditionOccurrencesBuilt(List~ContractTradeWindow~ windows, String eventName)
+        +List~MarketConditionOccurrence~ loadMarketConditionOccurrences(List~ContractTradeWindow~ windows, String eventName)
+        +void saveMarketConditionOccurrences(Collection~MarketConditionOccurrence~ conditionOccurrences)
+    }
+
+    class EventStatisticsQuery {
+        -String eventName
+    }
+
+    class EventStatisticsQueryRequest {
+        -List~ContractTradeWindow~ contractWindows
+        -String eventName
+        -int batchSize
+        -EventStatisticsProgressListener progressListener
+    }
+
+    class EventStatisticsResult {
+        -String scopeName
+        -String eventName
+        -long sessionsAnalyzed
+        -long longEventCount
+        -long shortEventCount
+        +long getTotalEventCount()
+        +long getNoEventCount()
+        +double getEventRate()
+    }
+
+    class EventStatisticsReport {
+        -String eventName
+        -List~EventStatisticsResult~ instrumentResults
+        -List~EventStatisticsResult~ contractResults
+    }
+
     FacadeForgeEngine --> ForgeEngineAccess
     ForgeEngineAccess --> BacktestEngine
+    ForgeEngineAccess --> QueryService
+    ForgeEngineAccess --> EventStatisticsQueryRunner
     ForgeEngineAccess --> MarketContext : creates
     BacktestEngine --> BacktestRequest
     BacktestEngine --> BacktestProgressListener : reports progress
     BacktestEngine --> TradeBatchReader : reads batches
     BacktestEngine --> FeatureBuildService : derives features
-    BacktestEngine --> EventBuildService : derives events
+    BacktestEngine --> ConditionBuildService : derives condition occurrences
     BacktestEngine --> TpoPeriodClassifier : classifies periods
     BacktestEngine --> StrategyRequirements : plans evaluation
     BacktestEngine --> StrategyContext : builds
@@ -1056,6 +1118,16 @@ classDiagram
     BacktestEngine --> ExecutionEngine : creates fills
     BacktestEngine --> FacadeForgeTrade : creates lifecycle engines
     BacktestEngine --> BacktestResult : creates
+    EventStatisticsQueryRunner --> QueryTradeTickSource
+    EventStatisticsQueryRunner --> QueryDerivedDataStore
+    EventStatisticsQueryRunner --> EventStatisticsQueryRequest
+    EventStatisticsQueryRunner --> FeatureBuildService
+    EventStatisticsQueryRunner --> ConditionBuildService
+    EventStatisticsQueryRunner --> QueryService
+    QueryService --> EventStatisticsQuery
+    QueryService --> EventStatisticsReport
+    QueryService --> EventStatisticsResult
+    EventStatisticsReport --> EventStatisticsResult
 ```
 
 ## trade Package
@@ -1124,18 +1196,18 @@ classDiagram
     Position --> TradeResult
 ```
 
-## execution Package
+## trade Execution Models
 
 ```mermaid
 classDiagram
     direction LR
 
-    class FacadeForgeExecution {
-        +FacadeForgeExecution getTheInstance()
-        +ForgeExecutionAccess forgeExecutionAccess()
+    class FacadeForgeTrade {
+        +FacadeForgeTrade getTheInstance()
+        +ForgeTradeAccess forgeTradeAccess()
     }
 
-    class ForgeExecutionAccess {
+    class ForgeTradeAccess {
         +ExecutionEngine createSimpleExecutionEngine()
         +OrderRequest createMarketOrderRequest(String instrumentSymbol, OrderSide side, int quantity)
         +Order createOrder()
@@ -1165,11 +1237,11 @@ classDiagram
     class OrderSide
     class OrderType
 
-    FacadeForgeExecution --> ForgeExecutionAccess
-    ForgeExecutionAccess --> ExecutionEngine : creates
-    ForgeExecutionAccess --> OrderRequest : creates
-    ForgeExecutionAccess --> Order : creates
-    ForgeExecutionAccess --> Fill : creates
+    FacadeForgeTrade --> ForgeTradeAccess
+    ForgeTradeAccess --> ExecutionEngine : creates
+    ForgeTradeAccess --> OrderRequest : creates
+    ForgeTradeAccess --> Order : creates
+    ForgeTradeAccess --> Fill : creates
     ExecutionEngine <|.. SimpleExecutionEngine
     SimpleExecutionEngine --> Fill : current tick price
     SimpleExecutionEngine --> TradeTick : reads current tick
@@ -1350,169 +1422,145 @@ classDiagram
     SessionRangeFeature --|> FeatureResult
 ```
 
-## event Package
+## condition Occurrence Models
 
 ```mermaid
 classDiagram
     direction LR
 
-    class FacadeForgeEvent {
-        +FacadeForgeEvent getTheInstance()
-        +ForgeEventAccess forgeEventAccess()
+    class FacadeForgeCondition {
+        +FacadeForgeCondition getTheInstance()
+        +ForgeConditionAccess forgeConditionAccess()
     }
 
-    class ForgeEventAccess {
+    class ForgeConditionAccess {
         +List~String~ getSupportedEventNames()
-        +List~MarketEvent~ detectFirstHourBreachEvents(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
+        +List~MarketConditionOccurrence~ detectFirstHourBreachConditions(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
     }
 
-    class EventDefinition {
+    class ConditionDefinition {
         <<interface>>
         +String getName()
         +int getVersion()
     }
 
-    class EventDetector {
+    class ConditionDetector {
         <<interface>>
-        +EventDefinition getDefinition()
+        +ConditionDefinition getDefinition()
     }
 
-    class EventBuildService {
+    class ConditionBuildService {
         +List~String~ getSupportedEventNames()
-        +List~MarketEvent~ detectFirstHourBreachEvents(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
+        +List~MarketConditionOccurrence~ detectFirstHourBreachConditions(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
     }
 
-    class FirstHourBreachEventDetector {
-        +EventDefinition getDefinition()
-        +List~MarketEvent~ detect(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
+    class FirstHourBreachConditionDetector {
+        +ConditionDefinition getDefinition()
+        +List~MarketConditionOccurrence~ detect(Collection~SessionRangeFeature~ features, Collection~TradeTick~ ticks)
     }
 
-    class FirstHourBreachEvent {
+    class FirstHourBreachCondition {
         +String getName()
         +int getVersion()
     }
 
-    class MarketEvent {
+    class MarketConditionOccurrence {
         -String contractSymbol
         -LocalDate sessionDate
         -String eventName
-        -EventSide side
+        -ConditionSide side
         -Instant eventTime
         -long eventPriceTicks
     }
 
-    class EventSide
+    class ConditionSide
 
-    FacadeForgeEvent --> ForgeEventAccess
-    ForgeEventAccess --> EventBuildService
-    EventBuildService --> FirstHourBreachEventDetector
-    EventDetector --> EventDefinition
-    FirstHourBreachEventDetector ..|> EventDetector
-    FirstHourBreachEventDetector --> SessionRangeFeature
-    FirstHourBreachEventDetector --> TradeTick
-    FirstHourBreachEventDetector --> MarketEvent
-    FirstHourBreachEvent ..|> EventDefinition
-    MarketEvent --> EventSide
+    FacadeForgeCondition --> ForgeConditionAccess
+    ForgeConditionAccess --> ConditionBuildService
+    ConditionBuildService --> FirstHourBreachConditionDetector
+    ConditionDetector --> ConditionDefinition
+    FirstHourBreachConditionDetector ..|> ConditionDetector
+    FirstHourBreachConditionDetector --> SessionRangeFeature
+    FirstHourBreachConditionDetector --> TradeTick
+    FirstHourBreachConditionDetector --> MarketConditionOccurrence
+    FirstHourBreachCondition ..|> ConditionDefinition
+    MarketConditionOccurrence --> ConditionSide
 ```
 
-## query Package
+## study Package
 
 ```mermaid
 classDiagram
     direction LR
 
-    class FacadeForgeQuery {
-        +FacadeForgeQuery getTheInstance()
-        +ForgeQueryAccess forgeQueryAccess()
+    class FacadeForgeStudy {
+        +FacadeForgeStudy getTheInstance()
+        +ForgeStudyAccess forgeStudyAccess()
     }
 
-    class ForgeQueryAccess {
-        +List~String~ getSupportedQueryEventNames()
-        +String getEventStatisticDisplayName(String eventName)
-        +String getEventStatisticDescription(String eventName)
-        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
-        +EventStatisticsReport runEventStatistics(EventStatisticsQueryRequest request)
+    class ForgeStudyAccess {
+        +List~String~ getSupportedStudyNames()
+        +MarketStudy getStudy(String studyName)
     }
 
-    class QueryService {
-        +List~String~ getSupportedQueryEventNames()
-        +String getEventStatisticDisplayName(String eventName)
-        +String getEventStatisticDescription(String eventName)
-        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketEvent~ events)
+    class StudyCatalog {
+        +List~MarketStudy~ findAvailableStudies()
+        +List~String~ findAvailableStudyNames()
+        +MarketStudy getStudy(String studyName)
     }
 
-    class EventStatisticsQueryRunner {
-        +EventStatisticsReport run(EventStatisticsQueryRequest request)
-    }
-
-    class QueryTradeTickSource {
+    class MarketStudy {
         <<interface>>
-        +TradeBatchReader openTradeBatchReader(List~ContractTradeWindow~ windows, int batchSize)
-        +long countTradeTicks(List~ContractTradeWindow~ windows)
+        +String getName()
+        +String getDisplayName()
+        +String getDescription()
     }
 
-    class QueryDerivedDataStore {
-        <<interface>>
-        +boolean areSessionRangesBuilt(List~ContractTradeWindow~ windows)
-        +List~SessionRangeFeature~ loadSessionRanges(List~ContractTradeWindow~ windows)
-        +void saveSessionRanges(Collection~SessionRangeFeature~ features)
-        +boolean areMarketEventsBuilt(List~ContractTradeWindow~ windows, String eventName)
-        +List~MarketEvent~ loadMarketEvents(List~ContractTradeWindow~ windows, String eventName)
-        +void saveMarketEvents(Collection~MarketEvent~ events)
+    class FirstHourBreachStudy
+
+    FacadeForgeStudy --> ForgeStudyAccess
+    ForgeStudyAccess --> StudyCatalog
+    StudyCatalog --> MarketStudy
+    FirstHourBreachStudy ..|> MarketStudy
+```
+
+## statistics Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeStatistics {
+        +FacadeForgeStatistics getTheInstance()
+        +ForgeStatisticsAccess forgeStatisticsAccess()
     }
 
-    class EventStatisticsQuery {
-        -String eventName
+    class ForgeStatisticsAccess {
+        +EventStatisticsReport summarizeStudyOccurrences(MarketStudy study, Collection~SessionRangeFeature~ features, Collection~MarketConditionOccurrence~ conditionOccurrences)
+        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketConditionOccurrence~ conditionOccurrences)
     }
 
-    class EventStatisticsQueryRequest {
-        -List~ContractTradeWindow~ contractWindows
-        -String eventName
-        -int batchSize
-        -EventStatisticsProgressListener progressListener
+    class StatisticsService {
+        +EventStatisticsReport summarizeStudyOccurrences(MarketStudy study, Collection~SessionRangeFeature~ features, Collection~MarketConditionOccurrence~ conditionOccurrences)
+        +EventStatisticsReport summarizeEventStatistics(EventStatisticsQuery query, Collection~SessionRangeFeature~ features, Collection~MarketConditionOccurrence~ conditionOccurrences)
     }
 
-    class EventStatisticsResult {
-        -String scopeName
-        -String eventName
-        -long sessionsAnalyzed
-        -long longEventCount
-        -long shortEventCount
-        +long getTotalEventCount()
-        +long getNoEventCount()
-        +double getEventRate()
-    }
-
-    class EventStatisticsReport {
-        -String eventName
-        -List~EventStatisticsResult~ instrumentResults
-        -List~EventStatisticsResult~ contractResults
-    }
-
-    FacadeForgeQuery --> ForgeQueryAccess
-    ForgeQueryAccess --> QueryService
-    ForgeQueryAccess --> EventStatisticsQueryRunner
-    EventStatisticsQueryRunner --> QueryTradeTickSource
-    EventStatisticsQueryRunner --> QueryDerivedDataStore
-    EventStatisticsQueryRunner --> EventStatisticsQueryRequest
-    EventStatisticsQueryRunner --> FeatureBuildService
-    EventStatisticsQueryRunner --> EventBuildService
-    EventStatisticsQueryRunner --> QueryService
-    QueryService --> EventStatisticsQuery
-    QueryService --> EventStatisticsReport
-    QueryService --> EventStatisticsResult
-    EventStatisticsReport --> EventStatisticsResult
+    FacadeForgeStatistics --> ForgeStatisticsAccess
+    ForgeStatisticsAccess --> StatisticsService
+    StatisticsService --> MarketStudy
+    StatisticsService --> EventStatisticsReport
+    StatisticsService --> EventStatisticsResult
 ```
 
 ## Technique Mapping
 
 - **Abstract class:** `Instrument` defines shared instrument behavior while requiring subclasses to provide the instrument type.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument` because futures instruments/contracts are specialized tradable instruments.
-- **Interfaces:** `TradingStrategy`, `TradeTrigger`, and `ExecutionEngine` define interchangeable behavior.
-- **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `TradeTrigger`, and `ExecutionEngine` without depending on specific implementations.
+- **Interfaces:** `TradingStrategy`, `MarketCondition`, and `ExecutionEngine` define interchangeable behavior.
+- **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `MarketCondition`, and `ExecutionEngine` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeTrigger`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeEvent`, `FacadeForgeQuery`, `FacadeForgeTrade`, `FacadeForgeExecution`, and `FacadeForgeReporting` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeCondition`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeStudy`, `FacadeForgeStatistics`, `FacadeForgeTrade`, and `FacadeForgeReporting` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Integrated file I/O:** `ScidTradeReader.readTrades(...)` performs the core file I/O by opening a SCID file with `FileChannel.open(scidFilePath, StandardOpenOption.READ)`, reading binary records into a `ByteBuffer`, validating the SCID header, and converting complete records into `TradeRow` objects. `ScidDataImportService` integrates that file reader into the import workflow and also uses `Files.size(...)` and `Files.getLastModifiedTime(...)` to capture file metadata for checkpointing.
 - **Exception handling:** `ConsoleUserInput` throws the user-defined `UserQuitException` when the user enters `quit` or console input ends, and `CliApplicationController` catches it to exit cleanly. Validation failures use `IllegalArgumentException` to reject invalid settings, unsupported contracts, and malformed SCID records before processing continues. File and database failures are caught as lower-level exceptions such as `IOException` or `SQLException` and wrapped in `IllegalStateException` with application-level messages.
 - **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation.

@@ -15,7 +15,7 @@ public class DatabaseBuildPlan {
     private final boolean sessionRangesAlreadyBuilt;
     private final boolean firstHourBreachEventsAlreadyBuilt;
     private final boolean willBuildSessionRanges;
-    private final boolean willBuildFirstHourBreachEvents;
+    private final boolean willBuildFirstHourBreachConditions;
 
     public DatabaseBuildPlan(
             List<ContractTradeWindow> contractWindows,
@@ -25,7 +25,7 @@ public class DatabaseBuildPlan {
             boolean sessionRangesAlreadyBuilt,
             boolean firstHourBreachEventsAlreadyBuilt,
             boolean willBuildSessionRanges,
-            boolean willBuildFirstHourBreachEvents
+            boolean willBuildFirstHourBreachConditions
     ) {
         if (contractWindows == null || contractWindows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
@@ -43,7 +43,7 @@ public class DatabaseBuildPlan {
         this.sessionRangesAlreadyBuilt = sessionRangesAlreadyBuilt;
         this.firstHourBreachEventsAlreadyBuilt = firstHourBreachEventsAlreadyBuilt;
         this.willBuildSessionRanges = willBuildSessionRanges;
-        this.willBuildFirstHourBreachEvents = willBuildFirstHourBreachEvents;
+        this.willBuildFirstHourBreachConditions = willBuildFirstHourBreachConditions;
     }
 
     public List<ContractTradeWindow> getContractWindows() {
@@ -66,7 +66,7 @@ public class DatabaseBuildPlan {
         return sessionRangesAlreadyBuilt;
     }
 
-    public boolean isFirstHourBreachEventsAlreadyBuilt() {
+    public boolean isFirstHourBreachConditionsAlreadyBuilt() {
         return firstHourBreachEventsAlreadyBuilt;
     }
 
@@ -74,11 +74,11 @@ public class DatabaseBuildPlan {
         return willBuildSessionRanges;
     }
 
-    public boolean willBuildFirstHourBreachEvents() {
-        return willBuildFirstHourBreachEvents;
+    public boolean willBuildFirstHourBreachConditions() {
+        return willBuildFirstHourBreachConditions;
     }
 
     public boolean hasWorkToRun() {
-        return willBuildSessionRanges || willBuildFirstHourBreachEvents;
+        return willBuildSessionRanges || willBuildFirstHourBreachConditions;
     }
 }

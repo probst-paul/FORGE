@@ -5,11 +5,11 @@ import forge.config.OrderSettings;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
 import forge.config.TargetSettings;
-import forge.config.TradeTriggerOptions;
+import forge.config.MarketConditionOptions;
 import forge.data.market.ContractTradeWindow;
 import forge.data.market.InMemoryTickDataProvider;
 import forge.data.market.TradeTick;
-import forge.execution.OrderType;
+import forge.trade.OrderType;
 import forge.reporting.BacktestResult;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -83,7 +83,7 @@ class BacktestEngineTest {
         return new BacktestRequest(
                 new StrategyOptions("RangeBreakout"),
                 List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 8, 1), LocalDate.of(2025, 9, 14))),
-                new TradeTriggerOptions("OrderFlowExhaustion"),
+                new MarketConditionOptions("OrderFlowExhaustion"),
                 new RiskSettings(500, 1500),
                 TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                 new OrderSettings(OrderType.MARKET, 1, 0, 0)
@@ -94,7 +94,7 @@ class BacktestEngineTest {
         return new BacktestRequest(
                 new StrategyOptions("OpeningRangeContinuation"),
                 List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 1, 5), LocalDate.of(2025, 1, 6))),
-                new TradeTriggerOptions("PriceCrossover"),
+                new MarketConditionOptions("PriceCrossover"),
                 new RiskSettings(500, 1500),
                 TargetSettings.fixedTarget("Target", 1),
                 new OrderSettings(OrderType.MARKET, 1, 0, 0)

@@ -1,6 +1,6 @@
 package forge.strategy;
 
-import forge.execution.OrderRequest;
+import forge.trade.OrderRequest;
 import forge.trade.TradePlan;
 
 import java.util.Objects;

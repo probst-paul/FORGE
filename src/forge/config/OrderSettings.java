@@ -1,6 +1,6 @@
 package forge.config;
 
-import forge.execution.OrderType;
+import forge.trade.OrderType;
 
 import java.util.Objects;
 

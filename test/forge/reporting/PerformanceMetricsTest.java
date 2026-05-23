@@ -1,7 +1,7 @@
 package forge.reporting;
 
 import forge.trade.TradeResult;
-import forge.execution.OrderSide;
+import forge.trade.OrderSide;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;

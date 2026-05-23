@@ -1,7 +1,7 @@
 package forge.strategy;
 
 import forge.config.TargetSettings;
-import forge.trigger.TradeTrigger;
+import forge.condition.MarketCondition;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,9 +11,9 @@ import java.util.Objects;
 
 public class StrategyConfigurationProfile {
     private final Class<? extends TradingStrategy> strategyClass;
-    private final List<Class<? extends TradeTrigger>> allowedTriggers;
-    private final Class<? extends TradeTrigger> defaultTrigger;
-    private final boolean triggerSelectionAllowed;
+    private final List<Class<? extends MarketCondition>> allowedConditions;
+    private final Class<? extends MarketCondition> defaultCondition;
+    private final boolean conditionSelectionAllowed;
     private final List<String> allowedTargets;
     private final String defaultTarget;
     private final boolean targetSelectionAllowed;
@@ -21,18 +21,18 @@ public class StrategyConfigurationProfile {
 
     public StrategyConfigurationProfile(
             Class<? extends TradingStrategy> strategyClass,
-            List<Class<? extends TradeTrigger>> allowedTriggers,
-            Class<? extends TradeTrigger> defaultTrigger,
-            boolean triggerSelectionAllowed,
+            List<Class<? extends MarketCondition>> allowedConditions,
+            Class<? extends MarketCondition> defaultCondition,
+            boolean conditionSelectionAllowed,
             List<String> allowedTargets,
             String defaultTarget,
             boolean targetSelectionAllowed,
             Map<String, TargetSettings> defaultTargetSettingsByTarget
     ) {
         this.strategyClass = Objects.requireNonNull(strategyClass, "strategyClass is required");
-        this.allowedTriggers = validateChoices(allowedTriggers, "allowedTriggers");
-        this.defaultTrigger = validateDefault(defaultTrigger, this.allowedTriggers, "defaultTrigger");
-        this.triggerSelectionAllowed = triggerSelectionAllowed && this.allowedTriggers.size() > 1;
+        this.allowedConditions = validateChoices(allowedConditions, "allowedConditions");
+        this.defaultCondition = validateDefault(defaultCondition, this.allowedConditions, "defaultCondition");
+        this.conditionSelectionAllowed = conditionSelectionAllowed && this.allowedConditions.size() > 1;
         this.allowedTargets = validateTargetChoices(allowedTargets, "allowedTargets");
         this.defaultTarget = validateDefaultTarget(defaultTarget, this.allowedTargets, "defaultTarget");
         this.targetSelectionAllowed = targetSelectionAllowed && this.allowedTargets.size() > 1;
@@ -43,16 +43,16 @@ public class StrategyConfigurationProfile {
         return strategyClass;
     }
 
-    public List<Class<? extends TradeTrigger>> getAllowedTriggers() {
-        return allowedTriggers;
+    public List<Class<? extends MarketCondition>> getAllowedConditions() {
+        return allowedConditions;
     }
 
-    public Class<? extends TradeTrigger> getDefaultTrigger() {
-        return defaultTrigger;
+    public Class<? extends MarketCondition> getDefaultCondition() {
+        return defaultCondition;
     }
 
-    public boolean isTriggerSelectionAllowed() {
-        return triggerSelectionAllowed;
+    public boolean isConditionSelectionAllowed() {
+        return conditionSelectionAllowed;
     }
 
     public List<String> getAllowedTargets() {

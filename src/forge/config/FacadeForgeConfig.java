@@ -1,7 +1,7 @@
 package forge.config;
 
 import forge.data.market.ContractTradeWindow;
-import forge.execution.OrderType;
+import forge.trade.OrderType;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,7 +25,7 @@ public class FacadeForgeConfig {
                 List<String> instruments,
                 LocalDate startDate,
                 LocalDate endDate,
-                String triggerName,
+                String conditionName,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings
         ) {
@@ -34,7 +34,7 @@ public class FacadeForgeConfig {
                     instruments,
                     startDate,
                     endDate,
-                    new TradeTriggerOptions(triggerName),
+                    new MarketConditionOptions(conditionName),
                     riskSettings,
                     targetSettings,
                     defaultOrderSettings()
@@ -44,14 +44,14 @@ public class FacadeForgeConfig {
         public BacktestRequest createBacktestRequest(
                 String strategyName,
                 List<ContractTradeWindow> contractWindows,
-                String triggerName,
+                String conditionName,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings
         ) {
             return createBacktestRequest(
                     new StrategyOptions(strategyName),
                     contractWindows,
-                    new TradeTriggerOptions(triggerName),
+                    new MarketConditionOptions(conditionName),
                     riskSettings,
                     targetSettings,
                     defaultOrderSettings()
@@ -63,7 +63,7 @@ public class FacadeForgeConfig {
                 List<String> instruments,
                 LocalDate startDate,
                 LocalDate endDate,
-                TradeTriggerOptions tradeTriggerOptions,
+                MarketConditionOptions marketConditionOptions,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings,
                 OrderSettings orderSettings
@@ -73,7 +73,7 @@ public class FacadeForgeConfig {
                     instruments,
                     startDate,
                     endDate,
-                    tradeTriggerOptions,
+                    marketConditionOptions,
                     riskSettings,
                     targetSettings,
                     orderSettings
@@ -83,7 +83,7 @@ public class FacadeForgeConfig {
         public BacktestRequest createBacktestRequest(
                 StrategyOptions strategyOptions,
                 List<ContractTradeWindow> contractWindows,
-                TradeTriggerOptions tradeTriggerOptions,
+                MarketConditionOptions marketConditionOptions,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings,
                 OrderSettings orderSettings
@@ -91,7 +91,7 @@ public class FacadeForgeConfig {
             return new BacktestRequest(
                     strategyOptions,
                     contractWindows,
-                    tradeTriggerOptions,
+                    marketConditionOptions,
                     riskSettings,
                     targetSettings,
                     orderSettings
