@@ -1,5 +1,7 @@
 package forge.reporting;
 
+import forge.util.ImmutableLists;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,7 +41,7 @@ public class BacktestResult {
             throw new IllegalArgumentException("instrumentResults is required");
         }
         this.strategyName = requireStrategyName(strategyName);
-        this.instrumentResults = Collections.unmodifiableList(new ArrayList<>(instrumentResults));
+        this.instrumentResults = ImmutableLists.copyOfRequired(instrumentResults, "instrumentResults");
         List<String> symbols = new ArrayList<>();
         long ticks = 0;
         long signals = 0;

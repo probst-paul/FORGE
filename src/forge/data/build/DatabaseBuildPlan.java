@@ -1,6 +1,7 @@
 package forge.data.build;
 
 import forge.data.market.ContractTradeWindow;
+import forge.util.ImmutableLists;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -36,7 +37,7 @@ public class DatabaseBuildPlan {
         if (totalTicks < 0) {
             throw new IllegalArgumentException("totalTicks cannot be negative");
         }
-        this.contractWindows = Collections.unmodifiableList(List.copyOf(contractWindows));
+        this.contractWindows = ImmutableLists.copyOfRequired(contractWindows, "contractWindows");
         this.requestedOptions = Collections.unmodifiableSet(EnumSet.copyOf(requestedOptions));
         this.rebuildExisting = rebuildExisting;
         this.totalTicks = totalTicks;

@@ -1,9 +1,8 @@
 package forge.reporting;
 
 import forge.trade.TradeResult;
+import forge.util.ImmutableLists;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class ContractBacktestResult {
@@ -28,13 +27,10 @@ public class ContractBacktestResult {
         if (orderSignalsGenerated < 0) {
             throw new IllegalArgumentException("orderSignalsGenerated cannot be negative");
         }
-        if (trades == null) {
-            throw new IllegalArgumentException("trades is required");
-        }
         this.contractSymbol = contractSymbol.trim().toUpperCase();
         this.ticksProcessed = ticksProcessed;
         this.orderSignalsGenerated = orderSignalsGenerated;
-        this.trades = Collections.unmodifiableList(new ArrayList<>(trades));
+        this.trades = ImmutableLists.copyOfRequired(trades, "trades");
         this.performanceMetrics = PerformanceMetrics.fromTrades(this.trades);
     }
 

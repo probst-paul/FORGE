@@ -1,6 +1,7 @@
 package forge.data.build;
 
 import forge.data.market.ContractTradeWindow;
+import forge.util.ImmutableLists;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -38,7 +39,7 @@ public class DatabaseBuildRequest {
         if (batchSize < 1) {
             throw new IllegalArgumentException("batchSize must be positive");
         }
-        this.contractWindows = Collections.unmodifiableList(List.copyOf(contractWindows));
+        this.contractWindows = ImmutableLists.copyOfRequired(contractWindows, "contractWindows");
         this.options = Collections.unmodifiableSet(EnumSet.copyOf(options));
         this.rebuildExisting = rebuildExisting;
         this.batchSize = batchSize;

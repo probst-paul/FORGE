@@ -1,9 +1,9 @@
 package forge.reporting;
 
 import forge.trade.TradeResult;
+import forge.util.ImmutableLists;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class InstrumentBacktestResult {
@@ -17,11 +17,8 @@ public class InstrumentBacktestResult {
         if (instrumentSymbol == null || instrumentSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("instrumentSymbol is required");
         }
-        if (contractResults == null) {
-            throw new IllegalArgumentException("contractResults is required");
-        }
         this.instrumentSymbol = instrumentSymbol.trim().toUpperCase();
-        this.contractResults = Collections.unmodifiableList(new ArrayList<>(contractResults));
+        this.contractResults = ImmutableLists.copyOfRequired(contractResults, "contractResults");
 
         long ticks = 0;
         long signals = 0;

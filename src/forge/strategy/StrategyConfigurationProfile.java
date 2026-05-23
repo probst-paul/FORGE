@@ -2,12 +2,14 @@ package forge.strategy;
 
 import forge.config.TargetSettings;
 import forge.condition.MarketCondition;
+import forge.util.ImmutableLists;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class StrategyConfigurationProfile {
     private final Class<? extends TradingStrategy> strategyClass;
@@ -30,10 +32,14 @@ public class StrategyConfigurationProfile {
             Map<String, TargetSettings> defaultTargetSettingsByTarget
     ) {
         this.strategyClass = Objects.requireNonNull(strategyClass, "strategyClass is required");
-        this.allowedConditions = validateChoices(allowedConditions, "allowedConditions");
+        this.allowedConditions = validateChoices(
+                allowedConditions,
+                "allowedConditions",
+                choice -> Objects.requireNonNull(choice, "allowedConditions cannot contain null choices")
+        );
         this.defaultCondition = validateDefault(defaultCondition, this.allowedConditions, "defaultCondition");
         this.conditionSelectionAllowed = conditionSelectionAllowed && this.allowedConditions.size() > 1;
-        this.allowedTargets = validateTargetChoices(allowedTargets, "allowedTargets");
+        this.allowedTargets = validateChoices(allowedTargets, "allowedTargets", this::normalizeTargetChoice);
         this.defaultTarget = validateDefaultTarget(defaultTarget, this.allowedTargets, "defaultTarget");
         this.targetSelectionAllowed = targetSelectionAllowed && this.allowedTargets.size() > 1;
         this.defaultTargetSettingsByTarget = validateDefaultTargetSettings(defaultTargetSettingsByTarget, this.allowedTargets);
@@ -82,15 +88,16 @@ public class StrategyConfigurationProfile {
         return targetMode;
     }
 
-    private <T> List<Class<? extends T>> validateChoices(List<Class<? extends T>> choices, String name) {
+    private <T> List<T> validateChoices(List<? extends T> choices, String name, Function<T, T> normalizer) {
         Objects.requireNonNull(choices, name + " is required");
         if (choices.isEmpty()) {
             throw new IllegalArgumentException(name + " must contain at least one choice");
         }
-        for (Class<? extends T> choice : choices) {
-            Objects.requireNonNull(choice, name + " cannot contain null choices");
+        List<T> normalized = new java.util.ArrayList<>();
+        for (T choice : choices) {
+            normalized.add(normalizer.apply(choice));
         }
-        return Collections.unmodifiableList(List.copyOf(choices));
+        return ImmutableLists.copyOfRequired(normalized, name);
     }
 
     private <T> Class<? extends T> validateDefault(
@@ -121,30 +128,22 @@ public class StrategyConfigurationProfile {
         return Collections.unmodifiableMap(normalized);
     }
 
-    private List<String> validateTargetChoices(List<String> choices, String name) {
-        Objects.requireNonNull(choices, name + " is required");
-        if (choices.isEmpty()) {
-            throw new IllegalArgumentException(name + " must contain at least one choice");
-        }
-        for (String choice : choices) {
-            if (choice == null || choice.trim().isEmpty()) {
-                throw new IllegalArgumentException(name + " cannot contain blank choices");
-            }
-        }
-        return Collections.unmodifiableList(List.copyOf(choices));
-    }
-
     private String validateDefaultTarget(
             String defaultChoice,
             List<String> allowedChoices,
             String name
     ) {
-        if (defaultChoice == null || defaultChoice.trim().isEmpty()) {
-            throw new IllegalArgumentException(name + " is required");
-        }
-        if (!allowedChoices.contains(defaultChoice)) {
+        String normalizedDefault = normalizeTargetChoice(defaultChoice);
+        if (!allowedChoices.contains(normalizedDefault)) {
             throw new IllegalArgumentException(name + " must be included in allowed choices");
         }
-        return defaultChoice;
+        return normalizedDefault;
+    }
+
+    private String normalizeTargetChoice(String choice) {
+        if (choice == null || choice.trim().isEmpty()) {
+            throw new IllegalArgumentException("target choice cannot be blank");
+        }
+        return choice.trim();
     }
 }

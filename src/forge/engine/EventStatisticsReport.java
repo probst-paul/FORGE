@@ -1,7 +1,7 @@
 package forge.engine;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import forge.util.ImmutableLists;
+
 import java.util.List;
 
 public class EventStatisticsReport {
@@ -18,8 +18,8 @@ public class EventStatisticsReport {
             throw new IllegalArgumentException("eventName is required");
         }
         this.eventName = eventName.trim();
-        this.instrumentResults = immutableCopy(instrumentResults, "instrumentResults");
-        this.contractResults = immutableCopy(contractResults, "contractResults");
+        this.instrumentResults = ImmutableLists.copyOfRequired(instrumentResults, "instrumentResults");
+        this.contractResults = ImmutableLists.copyOfRequired(contractResults, "contractResults");
     }
 
     public String getEventName() {
@@ -34,10 +34,4 @@ public class EventStatisticsReport {
         return contractResults;
     }
 
-    private List<EventStatisticsResult> immutableCopy(List<EventStatisticsResult> results, String name) {
-        if (results == null) {
-            throw new IllegalArgumentException(name + " is required");
-        }
-        return Collections.unmodifiableList(new ArrayList<>(results));
-    }
 }
