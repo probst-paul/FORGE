@@ -9,6 +9,9 @@ import forge.app.ImportProgress;
 import forge.app.UserInput;
 import forge.app.UserOutput;
 import forge.app.UserQuitException;
+import forge.benchmark.BenchmarkRunRequest;
+import forge.benchmark.BenchmarkRunResult;
+import forge.benchmark.FacadeForgeBenchmark;
 import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
@@ -110,6 +113,7 @@ public class CliApplicationController {
         output.printLine("3. Import Data");
         output.printLine("4. Build/Refresh Derived Data");
         output.printLine("5. Configure Database");
+        output.printLine("6. Run Benchmark Workflow");
 
         while (true) {
             int selectedAction = input.readInt("Select action (or enter 'quit' to exit program)");
@@ -138,8 +142,13 @@ public class CliApplicationController {
                 output.printBlankLine();
                 return true;
             }
+            if (selectedAction == 6) {
+                runCliAction("run benchmark workflow", output, () -> runBenchmarkWorkflow(input, output));
+                output.printBlankLine();
+                return true;
+            }
 
-            output.printLine("Please select 1, 2, 3, 4, or 5, or enter 'quit' to exit program.");
+            output.printLine("Please select 1, 2, 3, 4, 5, or 6, or enter 'quit' to exit program.");
         }
     }
 
@@ -163,9 +172,11 @@ public class CliApplicationController {
 
     private void runBacktestSetup(UserInput input, UserOutput output) {
         BacktestRequest request = configureBacktest(input, output);
+        StatusTimer timer = StatusTimer.start();
+        boolean[] backtestProgressFinished = {false};
         BacktestResult result = forgeApplication.forgeApplicationAccess().runBacktest(
                 request,
-                progress -> printBacktestProgress(output, progress)
+                progress -> printBacktestProgress(output, progress, timer, backtestProgressFinished)
         );
 
         output.printBlankLine();
@@ -221,12 +232,13 @@ public class CliApplicationController {
         printSection(output, "Select Event Statistic");
         String eventName = selectEventStatistic(input, output);
         boolean[] eventStatisticsProgressFinished = {false};
+        StatusTimer timer = StatusTimer.start();
 
         EventStatisticsReport report = forgeApplication.forgeApplicationAccess().runEventStatistics(
                 new EventStatisticsRequest(
                         selectedContracts.getContractWindows(),
                         eventName,
-                        progress -> printEventStatisticsProgress(output, progress, eventStatisticsProgressFinished)
+                        progress -> printEventStatisticsProgress(output, progress, timer, eventStatisticsProgressFinished)
                 )
         );
 
@@ -361,8 +373,14 @@ public class CliApplicationController {
             rebuildExistingContract = true;
         }
 
+        StatusTimer timer = StatusTimer.start();
+        boolean[] importProgressFinished = {false};
         DataImportResult result = forgeApplication.forgeApplicationAccess().importData(
-                new DataImportRequest(scidFilePath, rebuildExistingContract, progress -> printImportProgress(output, progress))
+                new DataImportRequest(
+                        scidFilePath,
+                        rebuildExistingContract,
+                        progress -> printImportProgress(output, progress, timer, importProgressFinished)
+                )
         );
 
         output.printBlankLine();
@@ -403,9 +421,10 @@ public class CliApplicationController {
         }
 
         boolean[] dataBuildProgressFinished = {false};
+        StatusTimer timer = StatusTimer.start();
         DatabaseBuildResult result = FacadeForgeData.getTheInstance().forgeDataAccess().runDatabaseBuild(
                 request,
-                progress -> printDataBuildProgress(output, progress, dataBuildProgressFinished)
+                progress -> printDataBuildProgress(output, progress, timer, dataBuildProgressFinished)
         );
 
         output.printBlankLine();
@@ -414,6 +433,71 @@ public class CliApplicationController {
         output.printLine("Session ranges built: " + result.getSessionRangesBuilt());
         output.printLine("Market events built: " + result.getMarketConditionOccurrencesBuilt());
         output.printLine("Build time: " + formatDuration(result.getElapsedTime()));
+    }
+
+    private void runBenchmarkWorkflow(UserInput input, UserOutput output) {
+        printSection(output, "Benchmark Workflow");
+        String scidFilePath;
+        while (true) {
+            scidFilePath = input.readString("SCID data file path (leave blank to return to Select Action)");
+            if (scidFilePath.trim().isEmpty()) {
+                output.printLine("Benchmark canceled. Returning to Select Action.");
+                return;
+            }
+            try {
+                new DataImportRequest(scidFilePath);
+                break;
+            } catch (IllegalArgumentException exception) {
+                output.printLine(exception.getMessage() + ". Please enter a valid SCID file path, or enter 'quit' to exit program.");
+            }
+        }
+
+        DataImportPlan plan = forgeApplication.forgeApplicationAccess().planDataImport(new DataImportRequest(scidFilePath));
+        boolean rebuildExistingContract = false;
+        if (plan.hasExistingContractTable()) {
+            output.printBlankLine();
+            output.printLine("Benchmark import will rebuild existing data for " + plan.getContractSymbol() + ".");
+            output.printLine("Rows: " + plan.getExistingRows());
+            if (!confirmWipeAndRebuild(input, output, plan)) {
+                output.printLine("Benchmark canceled. Existing " + plan.getContractSymbol() + " data was kept.");
+                return;
+            }
+            rebuildExistingContract = true;
+        }
+
+        output.printBlankLine();
+        output.printLine("Benchmark started:");
+
+        boolean[] importFinished = {false};
+        boolean[] dataBuildFinished = {false};
+        boolean[] eventStatisticsFinished = {false};
+        boolean[] backtestFinished = {false};
+        StatusTimer[] importTimer = new StatusTimer[1];
+        StatusTimer[] dataBuildTimer = new StatusTimer[1];
+        StatusTimer[] eventStatisticsTimer = new StatusTimer[1];
+        StatusTimer[] backtestTimer = new StatusTimer[1];
+
+        BenchmarkRunResult result = FacadeForgeBenchmark.getTheInstance().forgeBenchmarkAccess().runBenchmark(
+                new BenchmarkRunRequest(
+                        scidFilePath,
+                        rebuildExistingContract,
+                        true,
+                        progress -> printImportProgress(output, progress, timerFor(importTimer), importFinished),
+                        progress -> printDataBuildProgress(output, progress, timerFor(dataBuildTimer), dataBuildFinished),
+                        progress -> printEventStatisticsProgress(output, progress, timerFor(eventStatisticsTimer), eventStatisticsFinished),
+                        progress -> printBacktestProgress(output, progress, timerFor(backtestTimer), backtestFinished)
+                )
+        );
+
+        output.printBlankLine();
+        output.printLine("Benchmark complete:");
+        output.printLine("Contract: " + result.getImportResult().getContractSymbol());
+        output.printLine("Rows imported: " + result.getImportResult().getImportedRows());
+        output.printLine("Ticks read for derived data: " + result.getDatabaseBuildResult().getTicksRead());
+        output.printLine("Backtest ticks processed: " + result.getBacktestResult().getTicksProcessed());
+        output.printLine("Total benchmark time: " + formatDuration(result.getElapsedTime()));
+        output.printBlankLine();
+        input.readString("Press Enter or type anything to return to Select Action");
     }
 
     private Set<DerivedDataBuildOption> selectDerivedDataBuildOptions(UserInput input, UserOutput output) {
@@ -513,73 +597,97 @@ public class CliApplicationController {
         return String.format("%d.%03ds", seconds, millis);
     }
 
-    private void printImportProgress(UserOutput output, ImportProgress progress) {
-        output.printStatusLine(renderImportProgress(progress));
+    private void printImportProgress(
+            UserOutput output,
+            ImportProgress progress,
+            StatusTimer timer,
+            boolean[] finished
+    ) {
+        if (finished[0]) {
+            return;
+        }
+        output.printStatusLine(renderImportProgress(progress, timer));
         if (progress.getProcessedRecords() == progress.getTotalRecords()) {
             output.finishStatusLine();
+            finished[0] = true;
         }
     }
 
-    private String renderImportProgress(ImportProgress progress) {
+    private String renderImportProgress(ImportProgress progress, StatusTimer timer) {
         return "Importing " + progress.getContractSymbol() +
                 " [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
-                progress.getProcessedRecords() + "/" + progress.getTotalRecords();
+                progress.getProcessedRecords() + "/" + progress.getTotalRecords() +
+                " elapsed " + formatDuration(timer.elapsed());
     }
 
-    private void printBacktestProgress(UserOutput output, BacktestProgress progress) {
-        output.printStatusLine(renderBacktestProgress(progress));
+    private void printBacktestProgress(
+            UserOutput output,
+            BacktestProgress progress,
+            StatusTimer timer,
+            boolean[] finished
+    ) {
+        if (finished[0]) {
+            return;
+        }
+        output.printStatusLine(renderBacktestProgress(progress, timer));
         if (progress.getProcessedTicks() == progress.getTotalTicks()) {
             output.finishStatusLine();
+            finished[0] = true;
         }
     }
 
-    private String renderBacktestProgress(BacktestProgress progress) {
+    private String renderBacktestProgress(BacktestProgress progress, StatusTimer timer) {
         return "Running backtest [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
-                progress.getProcessedTicks() + "/" + progress.getTotalTicks();
+                progress.getProcessedTicks() + "/" + progress.getTotalTicks() +
+                " elapsed " + formatDuration(timer.elapsed());
     }
 
     private void printEventStatisticsProgress(
             UserOutput output,
             EventStatisticsProgress progress,
+            StatusTimer timer,
             boolean[] finished
     ) {
         if (finished[0]) {
             return;
         }
-        output.printStatusLine(renderEventStatisticsProgress(progress));
+        output.printStatusLine(renderEventStatisticsProgress(progress, timer));
         if (progress.getProcessedTicks() == progress.getTotalTicks()) {
             output.finishStatusLine();
             finished[0] = true;
         }
     }
 
-    private String renderEventStatisticsProgress(EventStatisticsProgress progress) {
+    private String renderEventStatisticsProgress(EventStatisticsProgress progress, StatusTimer timer) {
         return "Running event statistics [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
-                progress.getProcessedTicks() + "/" + progress.getTotalTicks();
+                progress.getProcessedTicks() + "/" + progress.getTotalTicks() +
+                " elapsed " + formatDuration(timer.elapsed());
     }
 
     private void printDataBuildProgress(
             UserOutput output,
             DataBuildProgress progress,
+            StatusTimer timer,
             boolean[] finished
     ) {
         if (finished[0]) {
             return;
         }
-        output.printStatusLine(renderDataBuildProgress(progress));
+        output.printStatusLine(renderDataBuildProgress(progress, timer));
         if (progress.getProcessedTicks() == progress.getTotalTicks()) {
             output.finishStatusLine();
             finished[0] = true;
         }
     }
 
-    private String renderDataBuildProgress(DataBuildProgress progress) {
+    private String renderDataBuildProgress(DataBuildProgress progress, StatusTimer timer) {
         return "Building derived data [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
-                progress.getProcessedTicks() + "/" + progress.getTotalTicks();
+                progress.getProcessedTicks() + "/" + progress.getTotalTicks() +
+                " elapsed " + formatDuration(timer.elapsed());
     }
 
     private String renderProgressBar(double completionRatio) {
@@ -590,6 +698,13 @@ public class CliApplicationController {
             bar.append(index < filledWidth ? '#' : '-');
         }
         return bar.toString();
+    }
+
+    private StatusTimer timerFor(StatusTimer[] timer) {
+        if (timer[0] == null) {
+            timer[0] = StatusTimer.start();
+        }
+        return timer[0];
     }
 
     private void configureDatabase(UserInput input, UserOutput output) {
@@ -634,5 +749,21 @@ public class CliApplicationController {
         output.printLine(SECTION_SEPARATOR);
         output.printLine(title);
         output.printLine(SECTION_SEPARATOR);
+    }
+
+    private static class StatusTimer {
+        private final long startedAtNanos;
+
+        private StatusTimer(long startedAtNanos) {
+            this.startedAtNanos = startedAtNanos;
+        }
+
+        private static StatusTimer start() {
+            return new StatusTimer(System.nanoTime());
+        }
+
+        private Duration elapsed() {
+            return Duration.ofNanos(System.nanoTime() - startedAtNanos);
+        }
     }
 }

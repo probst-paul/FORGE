@@ -71,9 +71,13 @@ Select Action
 │  ├─ Choose whether to rebuild existing derived rows
 │  ├─ Review the build plan
 │  └─ Build selected derived data with a single-line status bar
+├─ Run Benchmark Workflow
+│  └─ Run import, derived data, event statistics, and backtest with compact progress/timing output
 └─ Configure Database
    └─ Set PostgreSQL host, port, database, maintenance database, username, and password
 ```
+
+The benchmark workflow takes a SCID file, runs import, derived-data build, event statistics, and backtest through the normal application facades, and displays only progress bars/timers plus a compact summary. It is intended for refactoring benchmarks and can be removed without affecting core workflows.
 
 At the `Select action` prompt, enter `quit` to exit the program. After the backtest setup summary is displayed, press Enter or type anything to return to `Select Action`, or enter `quit` to exit.
 
@@ -113,6 +117,7 @@ The MVP execution layer fills generated orders at the current tick price. This i
 
 ```text
 src/forge/app        Application facade, requests, console input/output abstractions
+src/forge/benchmark  Optional benchmark workflow over import, derived data, statistics, and backtest
 src/forge/cli        CLI controller and selection services
 src/forge/config     Backtest configuration objects
 src/forge/data       Data facade
