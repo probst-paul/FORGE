@@ -1,6 +1,7 @@
 package forge.feature;
 
 import forge.data.market.TradeTick;
+import forge.data.market.TradeTickStreamProcessor;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -29,10 +30,24 @@ public class SessionRangeFeatureCalculator {
             throw new IllegalArgumentException("ticks is required");
         }
 
-        Map<FeatureKey, RangeAccumulator> accumulators = new HashMap<>();
+        Accumulator accumulator = newAccumulator();
         for (TradeTick tick : ticks) {
+            accumulator.onTick(tick);
+        }
+        return accumulator.getFeatures();
+    }
+
+    public Accumulator newAccumulator() {
+        return new Accumulator();
+    }
+
+    public class Accumulator implements TradeTickStreamProcessor {
+        private final Map<FeatureKey, RangeAccumulator> accumulators = new HashMap<>();
+
+        @Override
+        public void onTick(TradeTick tick) {
             if (tick == null) {
-                continue;
+                return;
             }
 
             TradingDayContext context = tradingDayClassifier.classify(tick.getTradeDateTime());
@@ -50,30 +65,55 @@ public class SessionRangeFeatureCalculator {
             }
         }
 
-        List<SessionRangeFeature> features = new ArrayList<>();
-        for (Map.Entry<FeatureKey, RangeAccumulator> entry : accumulators.entrySet()) {
-            RangeAccumulator accumulator = entry.getValue();
-            if (!accumulator.hasCompleteRanges()) {
-                continue;
+        public List<SessionRangeFeature> getFeatures() {
+            List<SessionRangeFeature> features = new ArrayList<>();
+            for (Map.Entry<FeatureKey, RangeAccumulator> entry : accumulators.entrySet()) {
+                RangeAccumulator accumulator = entry.getValue();
+                if (!accumulator.hasCompleteRanges()) {
+                    continue;
+                }
+
+                FeatureKey key = entry.getKey();
+                features.add(new SessionRangeFeature(
+                        key.contractSymbol,
+                        key.tradingDay,
+                        accumulator.overnight.lowTicks,
+                        accumulator.overnight.highTicks,
+                        accumulator.firstHour.lowTicks,
+                        accumulator.firstHour.highTicks,
+                        accumulator.rth.lowTicks,
+                        accumulator.rth.highTicks
+                ));
             }
 
-            FeatureKey key = entry.getKey();
-            features.add(new SessionRangeFeature(
-                    key.contractSymbol,
-                    key.tradingDay,
-                    accumulator.overnight.lowTicks,
-                    accumulator.overnight.highTicks,
-                    accumulator.firstHour.lowTicks,
-                    accumulator.firstHour.highTicks,
-                    accumulator.rth.lowTicks,
-                    accumulator.rth.highTicks
-            ));
-        }
-
-        features.sort(Comparator
+            features.sort(Comparator
                 .comparing(SessionRangeFeature::getContractSymbol)
                 .thenComparing(SessionRangeFeature::getSessionDate));
-        return features;
+            return features;
+        }
+
+        public boolean hasFirstHourRange(String contractSymbol, LocalDate tradingDay) {
+            RangeAccumulator accumulator = accumulators.get(new FeatureKey(contractSymbol, tradingDay));
+            return accumulator != null && accumulator.firstHour.hasValues();
+        }
+
+        public long getFirstHourLowTicks(String contractSymbol, LocalDate tradingDay) {
+            RangeAccumulator accumulator = requireFirstHourRange(contractSymbol, tradingDay);
+            return accumulator.firstHour.lowTicks;
+        }
+
+        public long getFirstHourHighTicks(String contractSymbol, LocalDate tradingDay) {
+            RangeAccumulator accumulator = requireFirstHourRange(contractSymbol, tradingDay);
+            return accumulator.firstHour.highTicks;
+        }
+
+        private RangeAccumulator requireFirstHourRange(String contractSymbol, LocalDate tradingDay) {
+            RangeAccumulator accumulator = accumulators.get(new FeatureKey(contractSymbol, tradingDay));
+            if (accumulator == null || !accumulator.firstHour.hasValues()) {
+                throw new IllegalStateException("First-hour range is not available for " + contractSymbol + " " + tradingDay);
+            }
+            return accumulator;
+        }
     }
 
     private static class FeatureKey {

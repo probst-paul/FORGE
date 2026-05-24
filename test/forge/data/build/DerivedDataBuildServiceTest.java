@@ -72,17 +72,19 @@ class DerivedDataBuildServiceTest {
         void buildsSessionRangesAndFirstHourBreachConditions() {
             InMemoryBuildStore store = new InMemoryBuildStore();
             DerivedDataBuildService service = service(store);
+            List<String> progressUpdates = new ArrayList<>();
 
             DatabaseBuildResult result = service.runBuild(new DatabaseBuildRequest(
                     WINDOWS,
                     EnumSet.of(DerivedDataBuildOption.SESSION_RANGES, DerivedDataBuildOption.FIRST_HOUR_BREACH_EVENTS),
                     false,
                     2
-            ), DataBuildProgressListener.NO_OP);
+            ), progress -> progressUpdates.add(progress.getProcessedTicks() + "/" + progress.getTotalTicks()));
 
             assertEquals(4, result.getTicksRead());
             assertEquals(1, result.getSessionRangesBuilt());
             assertEquals(1, result.getMarketConditionOccurrencesBuilt());
+            assertEquals(List.of("0/4", "2/4", "4/4"), progressUpdates);
             assertTrue(store.sessionRangesBuilt);
             assertTrue(store.marketEventsBuilt);
             assertEquals(1, store.sessionRanges.size());

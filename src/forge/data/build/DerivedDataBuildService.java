@@ -2,6 +2,7 @@ package forge.data.build;
 
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
+import forge.data.market.TradeTickStreamProcessor;
 import forge.condition.ConditionBuildService;
 import forge.condition.FirstHourBreachCondition;
 import forge.condition.MarketConditionOccurrence;
@@ -10,7 +11,6 @@ import forge.feature.SessionRangeFeature;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 public class DerivedDataBuildService {
@@ -86,10 +86,38 @@ public class DerivedDataBuildService {
             return new DatabaseBuildResult(plan, 0, 0, 0, Duration.between(startedAt, Instant.now()));
         }
 
-        List<TradeTick> ticks = readTicks(request, plan.getTotalTicks(), listener);
-        List<SessionRangeFeature> sessionRangeFeatures = plan.willBuildSessionRanges()
-                ? featureBuildService.calculateSessionRanges(ticks)
-                : buildStore.loadSessionRanges(request.getContractWindows());
+        int streamPasses = streamPasses(plan);
+        long totalProgressTicks = plan.getTotalTicks() * streamPasses;
+        long processedProgressTicks = 0;
+        listener.onProgress(new DataBuildProgress(0, totalProgressTicks));
+
+        List<SessionRangeFeature> sessionRangeFeatures;
+        List<MarketConditionOccurrence> marketConditionOccurrences = null;
+        if (plan.willBuildSessionRanges() && plan.willBuildFirstHourBreachConditions()) {
+            forge.feature.SessionRangeFeatureCalculator.Accumulator sessionRangeAccumulator =
+                    featureBuildService.newSessionRangeAccumulator();
+            forge.condition.FirstHourBreachConditionDetector.LiveAccumulator eventAccumulator =
+                    eventBuildService.newLiveFirstHourBreachAccumulator(sessionRangeAccumulator);
+            long ticksReadForPass = streamTicks(
+                    request,
+                    listener,
+                    processedProgressTicks,
+                    totalProgressTicks,
+                    new CompositeTradeTickStreamProcessor(sessionRangeAccumulator, eventAccumulator)
+            );
+            processedProgressTicks += ticksReadForPass;
+            sessionRangeFeatures = sessionRangeAccumulator.getFeatures();
+            marketConditionOccurrences = eventAccumulator.getEvents();
+        } else if (plan.willBuildSessionRanges()) {
+            forge.feature.SessionRangeFeatureCalculator.Accumulator sessionRangeAccumulator =
+                    featureBuildService.newSessionRangeAccumulator();
+            long ticksReadForPass = streamTicks(request, listener, processedProgressTicks, totalProgressTicks, sessionRangeAccumulator);
+            processedProgressTicks += ticksReadForPass;
+            sessionRangeFeatures = sessionRangeAccumulator.getFeatures();
+        } else {
+            sessionRangeFeatures = buildStore.loadSessionRanges(request.getContractWindows());
+        }
+
         long sessionRangesBuilt = 0;
         if (plan.willBuildSessionRanges()) {
             if (request.isRebuildExisting()) {
@@ -103,7 +131,13 @@ public class DerivedDataBuildService {
 
         long marketEventsBuilt = 0;
         if (plan.willBuildFirstHourBreachConditions()) {
-            List<MarketConditionOccurrence> events = eventBuildService.detectFirstHourBreachConditions(sessionRangeFeatures, ticks);
+            List<MarketConditionOccurrence> events = marketConditionOccurrences;
+            if (events == null) {
+                forge.condition.FirstHourBreachConditionDetector.Accumulator eventAccumulator =
+                        eventBuildService.newFirstHourBreachAccumulator(sessionRangeFeatures);
+                streamTicks(request, listener, processedProgressTicks, totalProgressTicks, eventAccumulator);
+                events = eventAccumulator.getEvents();
+            }
             if (request.isRebuildExisting()) {
                 buildStore.clearMarketConditionOccurrences(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
             }
@@ -114,33 +148,68 @@ public class DerivedDataBuildService {
 
         return new DatabaseBuildResult(
                 plan,
-                ticks.size(),
+                plan.getTotalTicks(),
                 sessionRangesBuilt,
                 marketEventsBuilt,
                 Duration.between(startedAt, Instant.now())
         );
     }
 
-    private List<TradeTick> readTicks(
+    private int streamPasses(DatabaseBuildPlan plan) {
+        return plan.hasWorkToRun() ? 1 : 0;
+    }
+
+    private long streamTicks(
             DatabaseBuildRequest request,
-            long totalTicks,
-            DataBuildProgressListener listener
+            DataBuildProgressListener listener,
+            long processedBeforePass,
+            long totalProgressTicks,
+            TradeTickStreamProcessor processor
     ) {
-        listener.onProgress(new DataBuildProgress(0, totalTicks));
         TradeBatchReader reader = tradeSource.openTradeBatchReader(
                 request.getContractWindows(),
                 request.getBatchSize()
         );
-        List<TradeTick> ticks = new ArrayList<>();
         long processedTicks = 0;
         while (true) {
             List<TradeTick> batch = reader.readNextBatch();
             if (batch.isEmpty()) {
-                return ticks;
+                processor.onComplete();
+                return processedTicks;
             }
-            ticks.addAll(batch);
+            for (TradeTick tick : batch) {
+                processor.onTick(tick);
+            }
             processedTicks += batch.size();
-            listener.onProgress(new DataBuildProgress(Math.min(processedTicks, totalTicks), totalTicks));
+            listener.onProgress(new DataBuildProgress(
+                    Math.min(processedBeforePass + processedTicks, totalProgressTicks),
+                    totalProgressTicks
+            ));
+        }
+    }
+
+    private static class CompositeTradeTickStreamProcessor implements TradeTickStreamProcessor {
+        private final TradeTickStreamProcessor firstProcessor;
+        private final TradeTickStreamProcessor secondProcessor;
+
+        private CompositeTradeTickStreamProcessor(
+                TradeTickStreamProcessor firstProcessor,
+                TradeTickStreamProcessor secondProcessor
+        ) {
+            this.firstProcessor = firstProcessor;
+            this.secondProcessor = secondProcessor;
+        }
+
+        @Override
+        public void onTick(TradeTick tick) {
+            firstProcessor.onTick(tick);
+            secondProcessor.onTick(tick);
+        }
+
+        @Override
+        public void onComplete() {
+            firstProcessor.onComplete();
+            secondProcessor.onComplete();
         }
     }
 }

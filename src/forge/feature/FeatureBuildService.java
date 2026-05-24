@@ -26,4 +26,8 @@ public class FeatureBuildService {
     public List<SessionRangeFeature> calculateSessionRanges(Collection<TradeTick> ticks) {
         return sessionRangeFeatureCalculator.calculate(ticks);
     }
+
+    public SessionRangeFeatureCalculator.Accumulator newSessionRangeAccumulator() {
+        return sessionRangeFeatureCalculator.newAccumulator();
+    }
 }

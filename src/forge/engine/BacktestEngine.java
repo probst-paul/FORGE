@@ -9,7 +9,9 @@ import forge.data.market.ContractTradeWindow;
 import forge.data.market.TickDataProvider;
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
+import forge.data.market.TradeTickStreamProcessor;
 import forge.condition.ConditionBuildService;
+import forge.condition.FirstHourBreachCondition;
 import forge.condition.MarketConditionOccurrence;
 import forge.trade.ExecutionEngine;
 import forge.trade.FacadeForgeTrade;
@@ -31,7 +33,6 @@ import forge.strategy.StrategyContext;
 import forge.strategy.StrategyDecision;
 import forge.strategy.StrategyRequirements;
 import forge.strategy.TradingStrategy;
-import forge.trade.FacadeForgeTrade;
 import forge.trade.TradeLifecycleEngine;
 import forge.trade.TradePlan;
 import forge.trade.TradeResult;
@@ -167,59 +168,55 @@ public class BacktestEngine {
         StrategyRequirements requirements = strategy.getRequirements();
         strategy.onBacktestStart();
         long totalTicks = tradeBatchReaderFactory.countTicks(request.getContractWindows());
-        listener.onProgress(new BacktestProgress(0, totalTicks));
-        List<TradeTick> ticks = readTicks(request, listener, totalTicks);
-        List<SessionRangeFeature> sessionRangeFeatures = buildSessionRangeFeatures(requirements, ticks);
-        List<MarketConditionOccurrence> marketEvents = buildMarketConditionOccurrences(requirements, sessionRangeFeatures, ticks);
+        int streamPasses = streamPasses(requirements, request);
+        long totalProgressTicks = totalTicks * streamPasses;
+        long processedProgressTicks = 0;
+        listener.onProgress(new BacktestProgress(0, totalProgressTicks));
+
+        List<SessionRangeFeature> sessionRangeFeatures = loadOrBuildSessionRangeFeatures(
+                request,
+                requirements,
+                listener,
+                processedProgressTicks,
+                totalProgressTicks
+        );
+        if (shouldStreamSessionRangeFeatures(request, requirements)) {
+            processedProgressTicks += totalTicks;
+        }
+
+        List<MarketConditionOccurrence> marketEvents = loadOrBuildMarketConditionOccurrences(
+                request,
+                requirements,
+                sessionRangeFeatures,
+                listener,
+                processedProgressTicks,
+                totalProgressTicks
+        );
+        if (shouldStreamMarketConditionOccurrences(request, requirements)) {
+            processedProgressTicks += totalTicks;
+        }
+
         Map<SessionKey, SessionRangeFeature> featuresBySession = indexFeatures(sessionRangeFeatures);
         Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession = indexEvents(marketEvents);
         Map<String, FuturesInstrumentSpec> specsByInstrument = new HashMap<>();
         Map<String, ContractRunAccumulator> contractAccumulators = initializeContractAccumulators(request);
         Map<String, TradeLifecycleEngine> lifecycleEngines = initializeLifecycleEngines(request);
 
-        for (TradeTick tick : ticks) {
-            ContractRunAccumulator accumulator = contractAccumulators.computeIfAbsent(
-                    tick.getContractSymbol(),
-                    contractSymbol -> new ContractRunAccumulator(
-                            contractNameResolver.resolveInstrumentSymbol(contractSymbol),
-                            contractSymbol
-                    )
-            );
-            TradeLifecycleEngine lifecycleEngine = lifecycleEngines.computeIfAbsent(
-                    tick.getContractSymbol(),
-                    ignored -> createTradeLifecycleEngine()
-            );
-            lifecycleEngine.onTick(tick).ifPresent(accumulator::addTrade);
-            TradingDayContext tradingDayContext = tradingDayClassifier.classify(tick.getTradeDateTime());
-            SessionKey sessionKey = new SessionKey(tick.getContractSymbol(), tradingDayContext.getTradingDay());
-            MarketContext marketContext = toMarketContext(tick, specsByInstrument, lifecycleEngine.hasOpenPosition());
-            StrategyContext strategyContext = new StrategyContext(
-                    marketContext,
-                    tick,
-                    tradingDayContext,
-                    tpoPeriodClassifier.classify(tick.getTradeDateTime()),
-                    featuresBySession.get(sessionKey),
-                    eventsForTick(tick, eventsBySession.get(sessionKey))
-            );
-            accumulator.incrementTicksProcessed();
-            if (!requirements.shouldEvaluate(strategyContext)) {
-                continue;
-            }
-            StrategyDecision decision = strategy.evaluate(strategyContext);
-            Optional<OrderRequest> orderRequest = decision.getOrderRequest();
-            if (orderRequest.isPresent()) {
-                accumulator.incrementOrderSignalsGenerated();
-                Optional<TradePlan> tradePlan = decision.getTradePlan();
-                if (tradePlan.isPresent() && !lifecycleEngine.hasOpenPosition()) {
-                    Optional<Fill> fill = executionEngine.execute(orderRequest.get(), tick);
-                    fill.ifPresent(entryFill -> lifecycleEngine.openPosition(
-                            entryFill,
-                            tradePlan.get(),
-                            specFor(tick, specsByInstrument)
-                    ));
-                }
-            }
-        }
+        streamTicks(
+                request,
+                listener,
+                processedProgressTicks,
+                totalProgressTicks,
+                new BacktestRunProcessor(
+                        strategy,
+                        requirements,
+                        featuresBySession,
+                        eventsBySession,
+                        specsByInstrument,
+                        contractAccumulators,
+                        lifecycleEngines
+                )
+        );
 
         for (Map.Entry<String, TradeLifecycleEngine> entry : lifecycleEngines.entrySet()) {
             ContractRunAccumulator accumulator = contractAccumulators.get(entry.getKey());
@@ -234,49 +231,117 @@ public class BacktestEngine {
         );
     }
 
-    private List<SessionRangeFeature> buildSessionRangeFeatures(
+    private List<SessionRangeFeature> loadOrBuildSessionRangeFeatures(
+            BacktestRequest request,
             StrategyRequirements requirements,
-            List<TradeTick> ticks
+            BacktestProgressListener listener,
+            long processedBeforePass,
+            long totalProgressTicks
     ) {
         if (requirements.getRequiredFeatureNames().isEmpty() && requirements.getRequiredEventNames().isEmpty()) {
             return List.of();
         }
-        if (requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME)
-                || requirements.requiresEvent(forge.condition.FirstHourBreachCondition.EVENT_NAME)) {
-            return featureBuildService.calculateSessionRanges(ticks);
+        if (!requiresSessionRangeFeatures(requirements)) {
+            return List.of();
         }
-        return List.of();
+        if (areSessionRangesBuilt(request)) {
+            return FacadeForgeData.getTheInstance().forgeDataAccess().loadSessionRanges(request.getContractWindows());
+        }
+        forge.feature.SessionRangeFeatureCalculator.Accumulator accumulator = featureBuildService.newSessionRangeAccumulator();
+        streamTicks(request, listener, processedBeforePass, totalProgressTicks, accumulator);
+        return accumulator.getFeatures();
     }
 
-    private List<MarketConditionOccurrence> buildMarketConditionOccurrences(
+    private List<MarketConditionOccurrence> loadOrBuildMarketConditionOccurrences(
+            BacktestRequest request,
             StrategyRequirements requirements,
             List<SessionRangeFeature> sessionRangeFeatures,
-            List<TradeTick> ticks
+            BacktestProgressListener listener,
+            long processedBeforePass,
+            long totalProgressTicks
     ) {
-        if (requirements.requiresEvent(forge.condition.FirstHourBreachCondition.EVENT_NAME)) {
-            return eventBuildService.detectFirstHourBreachConditions(sessionRangeFeatures, ticks);
+        if (!requirements.requiresEvent(FirstHourBreachCondition.EVENT_NAME)) {
+            return List.of();
         }
-        return List.of();
+        if (areMarketConditionOccurrencesBuilt(request)) {
+            return FacadeForgeData.getTheInstance()
+                    .forgeDataAccess()
+                    .loadMarketConditionOccurrences(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
+        }
+        forge.condition.FirstHourBreachConditionDetector.Accumulator accumulator =
+                eventBuildService.newFirstHourBreachAccumulator(sessionRangeFeatures);
+        streamTicks(request, listener, processedBeforePass, totalProgressTicks, accumulator);
+        return accumulator.getEvents();
     }
 
-    private List<TradeTick> readTicks(
+    private int streamPasses(StrategyRequirements requirements, BacktestRequest request) {
+        int passes = 1;
+        if (shouldStreamSessionRangeFeatures(request, requirements)) {
+            passes++;
+        }
+        if (shouldStreamMarketConditionOccurrences(request, requirements)) {
+            passes++;
+        }
+        return passes;
+    }
+
+    private boolean shouldStreamSessionRangeFeatures(BacktestRequest request, StrategyRequirements requirements) {
+        return requiresSessionRangeFeatures(requirements)
+                && !areSessionRangesBuilt(request);
+    }
+
+    private boolean shouldStreamMarketConditionOccurrences(BacktestRequest request, StrategyRequirements requirements) {
+        return requirements.requiresEvent(FirstHourBreachCondition.EVENT_NAME)
+                && !areMarketConditionOccurrencesBuilt(request);
+    }
+
+    private boolean areSessionRangesBuilt(BacktestRequest request) {
+        try {
+            return FacadeForgeData.getTheInstance().forgeDataAccess().areSessionRangesBuilt(request.getContractWindows());
+        } catch (IllegalStateException exception) {
+            return false;
+        }
+    }
+
+    private boolean areMarketConditionOccurrencesBuilt(BacktestRequest request) {
+        try {
+            return FacadeForgeData.getTheInstance()
+                    .forgeDataAccess()
+                    .areMarketConditionOccurrencesBuilt(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
+        } catch (IllegalStateException exception) {
+            return false;
+        }
+    }
+
+    private boolean requiresSessionRangeFeatures(StrategyRequirements requirements) {
+        return requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME)
+                || requirements.requiresEvent(FirstHourBreachCondition.EVENT_NAME);
+    }
+
+    private long streamTicks(
             BacktestRequest request,
             BacktestProgressListener listener,
-            long totalTicks
+            long processedBeforePass,
+            long totalProgressTicks,
+            TradeTickStreamProcessor processor
     ) {
-        List<TradeTick> ticks = new ArrayList<>();
         long processedTicks = 0;
         TradeBatchReader reader = tradeBatchReaderFactory.openReader(request.getContractWindows(), DEFAULT_BATCH_SIZE);
         while (true) {
             List<TradeTick> batch = reader.readNextBatch();
             if (batch.isEmpty()) {
-                break;
+                processor.onComplete();
+                return processedTicks;
             }
-            ticks.addAll(batch);
+            for (TradeTick tick : batch) {
+                processor.onTick(tick);
+            }
             processedTicks += batch.size();
-            listener.onProgress(new BacktestProgress(Math.min(processedTicks, totalTicks), totalTicks));
+            listener.onProgress(new BacktestProgress(
+                    Math.min(processedBeforePass + processedTicks, totalProgressTicks),
+                    totalProgressTicks
+            ));
         }
-        return ticks;
     }
 
     private Map<SessionKey, SessionRangeFeature> indexFeatures(List<SessionRangeFeature> features) {
@@ -401,6 +466,82 @@ public class BacktestEngine {
                  | InvocationTargetException
                  | NoSuchMethodException exception) {
             throw new IllegalStateException("Unable to create strategy " + strategyClass.getSimpleName(), exception);
+        }
+    }
+
+    private class BacktestRunProcessor implements TradeTickStreamProcessor {
+        private final TradingStrategy strategy;
+        private final StrategyRequirements requirements;
+        private final Map<SessionKey, SessionRangeFeature> featuresBySession;
+        private final Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession;
+        private final Map<String, FuturesInstrumentSpec> specsByInstrument;
+        private final Map<String, ContractRunAccumulator> contractAccumulators;
+        private final Map<String, TradeLifecycleEngine> lifecycleEngines;
+
+        private BacktestRunProcessor(
+                TradingStrategy strategy,
+                StrategyRequirements requirements,
+                Map<SessionKey, SessionRangeFeature> featuresBySession,
+                Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession,
+                Map<String, FuturesInstrumentSpec> specsByInstrument,
+                Map<String, ContractRunAccumulator> contractAccumulators,
+                Map<String, TradeLifecycleEngine> lifecycleEngines
+        ) {
+            this.strategy = strategy;
+            this.requirements = requirements;
+            this.featuresBySession = featuresBySession;
+            this.eventsBySession = eventsBySession;
+            this.specsByInstrument = specsByInstrument;
+            this.contractAccumulators = contractAccumulators;
+            this.lifecycleEngines = lifecycleEngines;
+        }
+
+        @Override
+        public void onTick(TradeTick tick) {
+            if (tick == null) {
+                return;
+            }
+            ContractRunAccumulator accumulator = contractAccumulators.computeIfAbsent(
+                    tick.getContractSymbol(),
+                    contractSymbol -> new ContractRunAccumulator(
+                            contractNameResolver.resolveInstrumentSymbol(contractSymbol),
+                            contractSymbol
+                    )
+            );
+            TradeLifecycleEngine lifecycleEngine = lifecycleEngines.computeIfAbsent(
+                    tick.getContractSymbol(),
+                    ignored -> createTradeLifecycleEngine()
+            );
+            lifecycleEngine.onTick(tick).ifPresent(accumulator::addTrade);
+            TradingDayContext tradingDayContext = tradingDayClassifier.classify(tick.getTradeDateTime());
+            SessionKey sessionKey = new SessionKey(tick.getContractSymbol(), tradingDayContext.getTradingDay());
+            MarketContext marketContext = toMarketContext(tick, specsByInstrument, lifecycleEngine.hasOpenPosition());
+            StrategyContext strategyContext = new StrategyContext(
+                    marketContext,
+                    tick,
+                    tradingDayContext,
+                    tpoPeriodClassifier.classify(tick.getTradeDateTime()),
+                    featuresBySession.get(sessionKey),
+                    eventsForTick(tick, eventsBySession.get(sessionKey))
+            );
+            accumulator.incrementTicksProcessed();
+            if (!requirements.shouldEvaluate(strategyContext)) {
+                return;
+            }
+            StrategyDecision decision = strategy.evaluate(strategyContext);
+            Optional<OrderRequest> orderRequest = decision.getOrderRequest();
+            if (orderRequest.isPresent()) {
+                accumulator.incrementOrderSignalsGenerated();
+                Optional<TradePlan> tradePlan = decision.getTradePlan();
+                if (tradePlan.isPresent() && !lifecycleEngine.hasOpenPosition()) {
+                    Optional<Fill> fill = executionEngine.execute(orderRequest.get(), tick);
+                    fill.ifPresent(entryFill -> lifecycleEngine.openPosition(
+                            entryFill,
+                            tradePlan.get(),
+                            specFor(tick, specsByInstrument)
+                    ));
+                }
+            }
         }
     }
 
