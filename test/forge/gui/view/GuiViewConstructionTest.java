@@ -1,6 +1,7 @@
 package forge.gui.view;
 
 import forge.gui.controller.ImportDataController;
+import forge.gui.controller.BacktestController;
 import forge.gui.controller.DatabaseConfigController;
 import forge.gui.controller.DerivedDataController;
 import forge.gui.controller.EventStatisticsController;
@@ -20,8 +21,20 @@ class GuiViewConstructionTest {
     class PlaceholderViews {
         @Test
         void canConstructWorkflowViews() {
-            assertNotNull(new BacktestView());
             assertNotNull(new BenchmarkView());
+        }
+    }
+
+    @Nested
+    class Backtest {
+        @Test
+        void requiresController() {
+            assertThrows(IllegalArgumentException.class, () -> new BacktestView(null));
+        }
+
+        @Test
+        void canConstructWithController() {
+            assertNotNull(new BacktestView(new BacktestController()));
         }
     }
 

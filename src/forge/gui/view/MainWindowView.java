@@ -97,6 +97,10 @@ public class MainWindowView {
             content.getChildren().add(new EventStatisticsView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .createEventStatisticsController()).createView());
+        } else if (workflowType == GuiWorkflowType.BACKTEST) {
+            content.getChildren().add(new BacktestView(FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .createBacktestController()).createView());
         } else if (workflowType == GuiWorkflowType.DATABASE_CONFIG) {
             content.getChildren().add(new DatabaseConfigView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()

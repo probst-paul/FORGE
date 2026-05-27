@@ -2,32 +2,135 @@ package forge.gui.controller;
 
 import forge.app.FacadeForgeApplication;
 import forge.config.BacktestRequest;
+import forge.config.FacadeForgeConfig;
+import forge.config.MarketConditionOptions;
+import forge.config.RiskSettings;
+import forge.config.StrategyOptions;
+import forge.config.TargetSettings;
+import forge.condition.FacadeForgeCondition;
+import forge.condition.MarketCondition;
+import forge.data.FacadeForgeData;
+import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
+import forge.data.market.ContractTradeWindow;
 import forge.gui.viewmodel.BacktestViewModel;
 import forge.gui.viewmodel.GuiProgressBindings;
 import forge.reporting.BacktestResult;
+import forge.strategy.FacadeForgeStrategy;
+import forge.strategy.StrategyConfigurationProfile;
+import forge.strategy.TradingStrategy;
 import javafx.concurrent.Task;
+
+import java.util.List;
 
 public class BacktestController {
     private final FacadeForgeApplication forgeApplication;
+    private final FacadeForgeData forgeData;
+    private final FacadeForgeStrategy forgeStrategy;
+    private final FacadeForgeCondition forgeCondition;
+    private final FacadeForgeConfig forgeConfig;
     private final BacktestViewModel viewModel;
 
     public BacktestController() {
-        this(FacadeForgeApplication.getTheInstance(), new BacktestViewModel());
+        this(
+                FacadeForgeApplication.getTheInstance(),
+                FacadeForgeData.getTheInstance(),
+                FacadeForgeStrategy.getTheInstance(),
+                FacadeForgeCondition.getTheInstance(),
+                FacadeForgeConfig.getTheInstance(),
+                new BacktestViewModel()
+        );
     }
 
     public BacktestController(FacadeForgeApplication forgeApplication, BacktestViewModel viewModel) {
+        this(
+                forgeApplication,
+                FacadeForgeData.getTheInstance(),
+                FacadeForgeStrategy.getTheInstance(),
+                FacadeForgeCondition.getTheInstance(),
+                FacadeForgeConfig.getTheInstance(),
+                viewModel
+        );
+    }
+
+    public BacktestController(
+            FacadeForgeApplication forgeApplication,
+            FacadeForgeData forgeData,
+            FacadeForgeStrategy forgeStrategy,
+            FacadeForgeCondition forgeCondition,
+            FacadeForgeConfig forgeConfig,
+            BacktestViewModel viewModel
+    ) {
         if (forgeApplication == null) {
             throw new IllegalArgumentException("forgeApplication is required");
+        }
+        if (forgeData == null) {
+            throw new IllegalArgumentException("forgeData is required");
+        }
+        if (forgeStrategy == null) {
+            throw new IllegalArgumentException("forgeStrategy is required");
+        }
+        if (forgeCondition == null) {
+            throw new IllegalArgumentException("forgeCondition is required");
+        }
+        if (forgeConfig == null) {
+            throw new IllegalArgumentException("forgeConfig is required");
         }
         if (viewModel == null) {
             throw new IllegalArgumentException("viewModel is required");
         }
         this.forgeApplication = forgeApplication;
+        this.forgeData = forgeData;
+        this.forgeStrategy = forgeStrategy;
+        this.forgeCondition = forgeCondition;
+        this.forgeConfig = forgeConfig;
         this.viewModel = viewModel;
     }
 
     public BacktestViewModel getViewModel() {
         return viewModel;
+    }
+
+    public List<AvailableContractData> getAvailableContracts() {
+        return forgeData.forgeDataAccess().getAvailableContracts();
+    }
+
+    public List<Class<? extends TradingStrategy>> getAvailableStrategies() {
+        return forgeStrategy.forgeStrategyAccess().findAvailableStrategies();
+    }
+
+    public String getStrategyDisplayName(Class<? extends TradingStrategy> strategyClass) {
+        return forgeStrategy.forgeStrategyAccess().getDisplayName(strategyClass);
+    }
+
+    public String getStrategyDescription(Class<? extends TradingStrategy> strategyClass) {
+        return forgeStrategy.forgeStrategyAccess().getDescription(strategyClass);
+    }
+
+    public StrategyConfigurationProfile getStrategyConfigurationProfile(Class<? extends TradingStrategy> strategyClass) {
+        return forgeStrategy.forgeStrategyAccess().getConfigurationProfile(strategyClass);
+    }
+
+    public String getConditionDisplayName(Class<? extends MarketCondition> conditionClass) {
+        return forgeCondition.forgeConditionAccess().getDisplayName(conditionClass);
+    }
+
+    public BacktestRequest createBacktestRequest(
+            Class<? extends TradingStrategy> strategyClass,
+            List<ContractTradeWindow> contractWindows,
+            Class<? extends MarketCondition> conditionClass,
+            RiskSettings riskSettings,
+            TargetSettings targetSettings
+    ) {
+        StrategyOptions strategyOptions = forgeStrategy.forgeStrategyAccess().createStrategyOptions(strategyClass);
+        MarketConditionOptions conditionOptions = forgeCondition.forgeConditionAccess().createConditionOptions(conditionClass);
+        return forgeConfig.forgeConfigAccess().createBacktestRequest(
+                strategyOptions,
+                contractWindows,
+                conditionOptions,
+                riskSettings,
+                targetSettings,
+                forgeConfig.forgeConfigAccess().defaultOrderSettings()
+        );
     }
 
     public BacktestResult runBacktest(BacktestRequest request) {
