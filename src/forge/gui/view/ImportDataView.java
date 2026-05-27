@@ -1,4 +1,147 @@
 package forge.gui.view;
 
+import forge.data.importing.DataImportPlan;
+import forge.data.importing.DataImportResult;
+import forge.gui.controller.ImportDataController;
+import forge.gui.viewmodel.ImportDataViewModel;
+import javafx.concurrent.Task;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Parent;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
+
+import java.io.File;
+import java.util.Optional;
+
 public class ImportDataView {
+    private final ImportDataController controller;
+
+    public ImportDataView(ImportDataController controller) {
+        if (controller == null) {
+            throw new IllegalArgumentException("controller is required");
+        }
+        this.controller = controller;
+    }
+
+    public Parent createView(Window owner) {
+        ImportDataViewModel viewModel = controller.getViewModel();
+
+        Label heading = new Label("Import Data");
+        heading.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+
+        TextField filePathField = new TextField();
+        filePathField.setPromptText("Select a Sierra Chart .scid file");
+        filePathField.setEditable(false);
+
+        Button browseButton = new Button("Browse...");
+        Button importButton = new Button("Import");
+        importButton.disableProperty().bind(filePathField.textProperty().isEmpty().or(viewModel.runningProperty()));
+        browseButton.disableProperty().bind(viewModel.runningProperty());
+
+        ProgressBar progressBar = new ProgressBar(0);
+        progressBar.progressProperty().bind(viewModel.progressProperty());
+        progressBar.setMaxWidth(Double.MAX_VALUE);
+
+        Label statusLabel = new Label();
+        statusLabel.textProperty().bind(viewModel.statusMessageProperty());
+
+        TextArea resultText = new TextArea();
+        resultText.setEditable(false);
+        resultText.setWrapText(true);
+        resultText.setPrefRowCount(7);
+        resultText.textProperty().bind(viewModel.resultSummaryProperty());
+
+        Label errorLabel = new Label();
+        errorLabel.textProperty().bind(viewModel.errorMessageProperty());
+        errorLabel.setStyle("-fx-text-fill: #b00020;");
+
+        browseButton.setOnAction(event -> {
+            File selectedFile = chooseScidFile(owner);
+            if (selectedFile != null) {
+                filePathField.setText(selectedFile.getAbsolutePath());
+                viewModel.setScidFilePath(selectedFile.getAbsolutePath());
+                viewModel.setStatusMessage("Selected " + selectedFile.getName() + ".");
+            }
+        });
+
+        importButton.setOnAction(event -> importSelectedFile(owner, filePathField.getText()));
+
+        HBox fileSelection = new HBox(8, filePathField, browseButton);
+        fileSelection.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(filePathField, javafx.scene.layout.Priority.ALWAYS);
+
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(4));
+        root.setAlignment(Pos.TOP_LEFT);
+        root.getChildren().addAll(
+                heading,
+                new Label("SCID data file"),
+                fileSelection,
+                importButton,
+                progressBar,
+                statusLabel,
+                resultText,
+                errorLabel
+        );
+        return root;
+    }
+
+    private File chooseScidFile(Window owner) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Select SCID Data File");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Sierra Chart SCID files", "*.scid")
+        );
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("All files", "*")
+        );
+        return fileChooser.showOpenDialog(owner);
+    }
+
+    private void importSelectedFile(Window owner, String scidFilePath) {
+        try {
+            DataImportPlan plan = controller.planImport(scidFilePath);
+            if (plan.hasExistingContractTable() && !confirmRebuild(owner, plan)) {
+                controller.getViewModel().setStatusMessage("Import canceled.");
+                return;
+            }
+
+            Task<DataImportResult> task = controller.importDataTask(scidFilePath, true);
+            Thread thread = new Thread(task, "forge-gui-import-data");
+            thread.setDaemon(true);
+            thread.start();
+        } catch (RuntimeException exception) {
+            controller.getViewModel().markFailed("Could not start import.", exception);
+        }
+    }
+
+    private boolean confirmRebuild(Window owner, DataImportPlan plan) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.initOwner(owner);
+        alert.setTitle("Confirm Rebuild");
+        alert.setHeaderText("Existing data found for " + plan.getContractSymbol());
+        alert.setContentText(
+                "Table: " + plan.getTableName()
+                        + "\nRows: " + plan.getExistingRows()
+                        + "\nCurrent source: " + displayValue(plan.getCurrentSourceFileName())
+                        + "\nStatus: " + displayValue(plan.getCurrentImportStatus())
+                        + "\n\nWipe and rebuild this contract from the selected SCID file?"
+        );
+        Optional<ButtonType> selection = alert.showAndWait();
+        return selection.isPresent() && selection.get() == ButtonType.OK;
+    }
+
+    private String displayValue(String value) {
+        return value == null || value.trim().isEmpty() ? "None" : value.trim();
+    }
 }

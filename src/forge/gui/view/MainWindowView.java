@@ -1,5 +1,6 @@
 package forge.gui.view;
 
+import forge.gui.FacadeForgeGui;
 import forge.gui.viewmodel.GuiWorkflowType;
 import forge.gui.viewmodel.MainWindowViewModel;
 import javafx.geometry.Insets;
@@ -12,6 +13,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 
 public class MainWindowView {
     public void render(MainWindowViewModel viewModel) {
@@ -30,8 +32,8 @@ public class MainWindowView {
         }
 
         BorderPane root = new BorderPane();
-        root.setLeft(createNavigation(viewModel, root));
-        root.setCenter(createWorkflowContent(viewModel.getActiveWorkflow()));
+        root.setLeft(createNavigation(stage, viewModel, root));
+        root.setCenter(createWorkflowContent(stage, viewModel.getActiveWorkflow()));
         root.setBottom(createStatusBar(viewModel));
 
         Scene scene = new Scene(root, 1180, 760);
@@ -42,7 +44,7 @@ public class MainWindowView {
         stage.show();
     }
 
-    private VBox createNavigation(MainWindowViewModel viewModel, BorderPane root) {
+    private VBox createNavigation(Window owner, MainWindowViewModel viewModel, BorderPane root) {
         VBox navigation = new VBox(8);
         navigation.setPadding(new Insets(14));
         navigation.setPrefWidth(230);
@@ -52,12 +54,12 @@ public class MainWindowView {
         title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
 
         navigation.getChildren().add(title);
-        navigation.getChildren().add(createNavigationButton("Import Data", GuiWorkflowType.IMPORT_DATA, viewModel, root));
-        navigation.getChildren().add(createNavigationButton("Derived Data", GuiWorkflowType.DERIVED_DATA, viewModel, root));
-        navigation.getChildren().add(createNavigationButton("Event Statistics", GuiWorkflowType.EVENT_STATISTICS, viewModel, root));
-        navigation.getChildren().add(createNavigationButton("Backtest", GuiWorkflowType.BACKTEST, viewModel, root));
-        navigation.getChildren().add(createNavigationButton("Benchmark", GuiWorkflowType.BENCHMARK, viewModel, root));
-        navigation.getChildren().add(createNavigationButton("Database Config", GuiWorkflowType.DATABASE_CONFIG, viewModel, root));
+        navigation.getChildren().add(createNavigationButton("Import Data", GuiWorkflowType.IMPORT_DATA, owner, viewModel, root));
+        navigation.getChildren().add(createNavigationButton("Derived Data", GuiWorkflowType.DERIVED_DATA, owner, viewModel, root));
+        navigation.getChildren().add(createNavigationButton("Event Statistics", GuiWorkflowType.EVENT_STATISTICS, owner, viewModel, root));
+        navigation.getChildren().add(createNavigationButton("Backtest", GuiWorkflowType.BACKTEST, owner, viewModel, root));
+        navigation.getChildren().add(createNavigationButton("Benchmark", GuiWorkflowType.BENCHMARK, owner, viewModel, root));
+        navigation.getChildren().add(createNavigationButton("Database Config", GuiWorkflowType.DATABASE_CONFIG, owner, viewModel, root));
         VBox.setVgrow(navigation.getChildren().get(navigation.getChildren().size() - 1), Priority.NEVER);
         return navigation;
     }
@@ -65,6 +67,7 @@ public class MainWindowView {
     private Button createNavigationButton(
             String label,
             GuiWorkflowType workflowType,
+            Window owner,
             MainWindowViewModel viewModel,
             BorderPane root
     ) {
@@ -73,16 +76,22 @@ public class MainWindowView {
         button.setAlignment(Pos.CENTER_LEFT);
         button.setOnAction(event -> {
             viewModel.setActiveWorkflow(workflowType);
-            root.setCenter(createWorkflowContent(workflowType));
+            root.setCenter(createWorkflowContent(owner, workflowType));
             viewModel.setStatusMessage(label + " selected.");
         });
         return button;
     }
 
-    private StackPane createWorkflowContent(GuiWorkflowType workflowType) {
+    private StackPane createWorkflowContent(Window owner, GuiWorkflowType workflowType) {
         StackPane content = new StackPane();
         content.setPadding(new Insets(28));
-        content.getChildren().add(createPlaceholder(workflowType));
+        if (workflowType == GuiWorkflowType.IMPORT_DATA) {
+            content.getChildren().add(new ImportDataView(FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .createImportDataController()).createView(owner));
+        } else {
+            content.getChildren().add(createPlaceholder(workflowType));
+        }
         return content;
     }
 
