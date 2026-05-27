@@ -89,6 +89,10 @@ public class MainWindowView {
             content.getChildren().add(new ImportDataView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .createImportDataController()).createView(owner));
+        } else if (workflowType == GuiWorkflowType.DATABASE_CONFIG) {
+            content.getChildren().add(new DatabaseConfigView(FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .createDatabaseConfigController()).createView());
         } else {
             content.getChildren().add(createPlaceholder(workflowType));
         }
