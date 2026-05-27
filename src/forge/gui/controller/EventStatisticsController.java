@@ -2,35 +2,80 @@ package forge.gui.controller;
 
 import forge.app.EventStatisticsRequest;
 import forge.app.FacadeForgeApplication;
+import forge.data.FacadeForgeData;
+import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.engine.EventStatisticsReport;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.gui.viewmodel.GuiProgressBindings;
+import forge.study.FacadeForgeStudy;
+import forge.study.MarketStudy;
 import javafx.concurrent.Task;
 
 import java.util.List;
 
 public class EventStatisticsController {
     private final FacadeForgeApplication forgeApplication;
+    private final FacadeForgeData forgeData;
+    private final FacadeForgeStudy forgeStudy;
     private final EventStatisticsViewModel viewModel;
 
     public EventStatisticsController() {
-        this(FacadeForgeApplication.getTheInstance(), new EventStatisticsViewModel());
+        this(
+                FacadeForgeApplication.getTheInstance(),
+                FacadeForgeData.getTheInstance(),
+                FacadeForgeStudy.getTheInstance(),
+                new EventStatisticsViewModel()
+        );
     }
 
     public EventStatisticsController(FacadeForgeApplication forgeApplication, EventStatisticsViewModel viewModel) {
+        this(
+                forgeApplication,
+                FacadeForgeData.getTheInstance(),
+                FacadeForgeStudy.getTheInstance(),
+                viewModel
+        );
+    }
+
+    public EventStatisticsController(
+            FacadeForgeApplication forgeApplication,
+            FacadeForgeData forgeData,
+            FacadeForgeStudy forgeStudy,
+            EventStatisticsViewModel viewModel
+    ) {
         if (forgeApplication == null) {
             throw new IllegalArgumentException("forgeApplication is required");
+        }
+        if (forgeData == null) {
+            throw new IllegalArgumentException("forgeData is required");
+        }
+        if (forgeStudy == null) {
+            throw new IllegalArgumentException("forgeStudy is required");
         }
         if (viewModel == null) {
             throw new IllegalArgumentException("viewModel is required");
         }
         this.forgeApplication = forgeApplication;
+        this.forgeData = forgeData;
+        this.forgeStudy = forgeStudy;
         this.viewModel = viewModel;
     }
 
     public EventStatisticsViewModel getViewModel() {
         return viewModel;
+    }
+
+    public List<AvailableContractData> getAvailableContracts() {
+        return forgeData.forgeDataAccess().getAvailableContracts();
+    }
+
+    public List<String> getSupportedStudyNames() {
+        return forgeStudy.forgeStudyAccess().getSupportedStudyNames();
+    }
+
+    public MarketStudy getStudy(String studyName) {
+        return forgeStudy.forgeStudyAccess().getStudy(studyName);
     }
 
     public EventStatisticsReport runEventStatistics(List<ContractTradeWindow> contractWindows, String eventName) {
