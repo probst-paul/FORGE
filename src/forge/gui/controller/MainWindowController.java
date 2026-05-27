@@ -2,6 +2,7 @@ package forge.gui.controller;
 
 import forge.gui.view.MainWindowView;
 import forge.gui.viewmodel.MainWindowViewModel;
+import javafx.stage.Stage;
 
 public class MainWindowController {
     private final MainWindowViewModel viewModel;
@@ -25,5 +26,13 @@ public class MainWindowController {
     public void show() {
         viewModel.setStatusMessage("JavaFX GUI placeholder is ready.");
         view.render(viewModel);
+    }
+
+    public void show(Stage stage) {
+        if (stage == null) {
+            throw new IllegalArgumentException("stage is required");
+        }
+        viewModel.setStatusMessage("Ready.");
+        view.render(stage, viewModel);
     }
 }
