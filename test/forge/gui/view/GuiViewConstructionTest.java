@@ -2,6 +2,7 @@ package forge.gui.view;
 
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.DatabaseConfigController;
+import forge.gui.controller.DerivedDataController;
 import forge.gui.viewmodel.MainWindowViewModel;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,6 @@ class GuiViewConstructionTest {
         void canConstructWorkflowViews() {
             assertNotNull(new BacktestView());
             assertNotNull(new BenchmarkView());
-            assertNotNull(new DerivedDataView());
             assertNotNull(new EventStatisticsView());
         }
     }
@@ -35,6 +35,19 @@ class GuiViewConstructionTest {
         @Test
         void canConstructWithController() {
             assertNotNull(new ImportDataView(new ImportDataController()));
+        }
+    }
+
+    @Nested
+    class DerivedData {
+        @Test
+        void requiresController() {
+            assertThrows(IllegalArgumentException.class, () -> new DerivedDataView(null));
+        }
+
+        @Test
+        void canConstructWithController() {
+            assertNotNull(new DerivedDataView(new DerivedDataController()));
         }
     }
 

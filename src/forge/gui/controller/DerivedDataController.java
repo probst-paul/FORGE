@@ -5,6 +5,7 @@ import forge.data.build.DatabaseBuildPlan;
 import forge.data.build.DatabaseBuildRequest;
 import forge.data.build.DatabaseBuildResult;
 import forge.data.build.DerivedDataBuildOption;
+import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.gui.viewmodel.DerivedDataViewModel;
 import forge.gui.viewmodel.GuiProgressBindings;
@@ -34,6 +35,10 @@ public class DerivedDataController {
 
     public DerivedDataViewModel getViewModel() {
         return viewModel;
+    }
+
+    public List<AvailableContractData> getAvailableContracts() {
+        return forgeData.forgeDataAccess().getAvailableContracts();
     }
 
     public DatabaseBuildPlan planBuild(
