@@ -12,6 +12,8 @@ public class BenchmarkRunResult {
     private final DatabaseBuildResult databaseBuildResult;
     private final EventStatisticsReport eventStatisticsReport;
     private final BacktestResult backtestResult;
+    private final Duration eventStatisticsElapsedTime;
+    private final Duration backtestElapsedTime;
     private final Duration elapsedTime;
 
     public BenchmarkRunResult(
@@ -19,6 +21,8 @@ public class BenchmarkRunResult {
             DatabaseBuildResult databaseBuildResult,
             EventStatisticsReport eventStatisticsReport,
             BacktestResult backtestResult,
+            Duration eventStatisticsElapsedTime,
+            Duration backtestElapsedTime,
             Duration elapsedTime
     ) {
         if (importResult == null) {
@@ -33,6 +37,12 @@ public class BenchmarkRunResult {
         if (backtestResult == null) {
             throw new IllegalArgumentException("backtestResult is required");
         }
+        if (eventStatisticsElapsedTime == null || eventStatisticsElapsedTime.isNegative()) {
+            throw new IllegalArgumentException("eventStatisticsElapsedTime is required");
+        }
+        if (backtestElapsedTime == null || backtestElapsedTime.isNegative()) {
+            throw new IllegalArgumentException("backtestElapsedTime is required");
+        }
         if (elapsedTime == null || elapsedTime.isNegative()) {
             throw new IllegalArgumentException("elapsedTime is required");
         }
@@ -40,6 +50,8 @@ public class BenchmarkRunResult {
         this.databaseBuildResult = databaseBuildResult;
         this.eventStatisticsReport = eventStatisticsReport;
         this.backtestResult = backtestResult;
+        this.eventStatisticsElapsedTime = eventStatisticsElapsedTime;
+        this.backtestElapsedTime = backtestElapsedTime;
         this.elapsedTime = elapsedTime;
     }
 
@@ -57,6 +69,14 @@ public class BenchmarkRunResult {
 
     public BacktestResult getBacktestResult() {
         return backtestResult;
+    }
+
+    public Duration getEventStatisticsElapsedTime() {
+        return eventStatisticsElapsedTime;
+    }
+
+    public Duration getBacktestElapsedTime() {
+        return backtestElapsedTime;
     }
 
     public Duration getElapsedTime() {

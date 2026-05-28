@@ -101,6 +101,10 @@ public class MainWindowView {
             content.getChildren().add(new BacktestView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .createBacktestController()).createView());
+        } else if (workflowType == GuiWorkflowType.BENCHMARK) {
+            content.getChildren().add(new BenchmarkView(FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .createBenchmarkController()).createView(owner));
         } else if (workflowType == GuiWorkflowType.DATABASE_CONFIG) {
             content.getChildren().add(new DatabaseConfigView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()

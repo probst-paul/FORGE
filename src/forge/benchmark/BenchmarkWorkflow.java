@@ -85,6 +85,7 @@ public class BenchmarkWorkflow {
                 request.getDataBuildProgressListener()
         );
 
+        Instant eventStatisticsStartedAt = Instant.now();
         EventStatisticsReport eventStatisticsReport = forgeApplication.forgeApplicationAccess().runEventStatistics(
                 new EventStatisticsRequest(
                         contractWindows,
@@ -92,17 +93,22 @@ public class BenchmarkWorkflow {
                         request.getEventStatisticsProgressListener()
                 )
         );
+        Duration eventStatisticsElapsedTime = Duration.between(eventStatisticsStartedAt, Instant.now());
 
+        Instant backtestStartedAt = Instant.now();
         BacktestResult backtestResult = forgeApplication.forgeApplicationAccess().runBacktest(
                 createDefaultBacktestRequest(contractWindows),
                 request.getBacktestProgressListener()
         );
+        Duration backtestElapsedTime = Duration.between(backtestStartedAt, Instant.now());
 
         return new BenchmarkRunResult(
                 importResult,
                 databaseBuildResult,
                 eventStatisticsReport,
                 backtestResult,
+                eventStatisticsElapsedTime,
+                backtestElapsedTime,
                 Duration.between(startedAt, Instant.now())
         );
     }

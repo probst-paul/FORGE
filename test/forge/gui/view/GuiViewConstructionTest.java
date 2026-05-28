@@ -2,6 +2,7 @@ package forge.gui.view;
 
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.BacktestController;
+import forge.gui.controller.BenchmarkController;
 import forge.gui.controller.DatabaseConfigController;
 import forge.gui.controller.DerivedDataController;
 import forge.gui.controller.EventStatisticsController;
@@ -18,10 +19,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GuiViewConstructionTest {
     @Nested
-    class PlaceholderViews {
+    class Benchmark {
         @Test
-        void canConstructWorkflowViews() {
-            assertNotNull(new BenchmarkView());
+        void requiresController() {
+            assertThrows(IllegalArgumentException.class, () -> new BenchmarkView(null));
+        }
+
+        @Test
+        void canConstructWithController() {
+            assertNotNull(new BenchmarkView(new BenchmarkController()));
         }
     }
 

@@ -7,6 +7,10 @@ public class BenchmarkViewModel extends GuiWorkflowViewModel {
     private long rowsImported;
     private long derivedDataTicksRead;
     private long backtestTicksProcessed;
+    private final BenchmarkPhaseProgress importProgress = new BenchmarkPhaseProgress("Import");
+    private final BenchmarkPhaseProgress derivedDataProgress = new BenchmarkPhaseProgress("Derived Data");
+    private final BenchmarkPhaseProgress eventStatisticsProgress = new BenchmarkPhaseProgress("Event Statistics");
+    private final BenchmarkPhaseProgress backtestProgress = new BenchmarkPhaseProgress("Backtest");
 
     public String getScidFilePath() {
         return scidFilePath;
@@ -54,5 +58,35 @@ public class BenchmarkViewModel extends GuiWorkflowViewModel {
 
     public void setBacktestTicksProcessed(long backtestTicksProcessed) {
         this.backtestTicksProcessed = requireNonNegative(backtestTicksProcessed, "backtestTicksProcessed");
+    }
+
+    public BenchmarkPhaseProgress getImportProgress() {
+        return importProgress;
+    }
+
+    public BenchmarkPhaseProgress getDerivedDataProgress() {
+        return derivedDataProgress;
+    }
+
+    public BenchmarkPhaseProgress getEventStatisticsProgress() {
+        return eventStatisticsProgress;
+    }
+
+    public BenchmarkPhaseProgress getBacktestProgress() {
+        return backtestProgress;
+    }
+
+    public void resetPhaseProgress() {
+        importProgress.reset();
+        derivedDataProgress.reset();
+        eventStatisticsProgress.reset();
+        backtestProgress.reset();
+    }
+
+    public void refreshPhaseElapsedTimes() {
+        importProgress.refreshElapsedTime();
+        derivedDataProgress.refreshElapsedTime();
+        eventStatisticsProgress.refreshElapsedTime();
+        backtestProgress.refreshElapsedTime();
     }
 }
