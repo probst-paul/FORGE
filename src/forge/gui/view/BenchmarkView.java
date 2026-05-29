@@ -2,6 +2,8 @@ package forge.gui.view;
 
 import forge.benchmark.BenchmarkRunResult;
 import forge.gui.controller.BenchmarkController;
+import forge.gui.preset.GuiPreferencesStore;
+import forge.gui.preset.GuiUserPreferences;
 import forge.gui.viewmodel.BenchmarkPhaseProgress;
 import forge.gui.viewmodel.BenchmarkViewModel;
 import javafx.animation.KeyFrame;
@@ -31,16 +33,26 @@ import java.time.Duration;
 
 public class BenchmarkView {
     private final BenchmarkController controller;
+    private final GuiPreferencesStore preferencesStore;
 
     public BenchmarkView(BenchmarkController controller) {
+        this(controller, new GuiPreferencesStore());
+    }
+
+    public BenchmarkView(BenchmarkController controller, GuiPreferencesStore preferencesStore) {
         if (controller == null) {
             throw new IllegalArgumentException("controller is required");
         }
+        if (preferencesStore == null) {
+            throw new IllegalArgumentException("preferencesStore is required");
+        }
         this.controller = controller;
+        this.preferencesStore = preferencesStore;
     }
 
     public Parent createView(Window owner) {
         BenchmarkViewModel viewModel = controller.getViewModel();
+        GuiUserPreferences preferences = preferencesStore.load();
         StringBuilder benchmarkHistory = new StringBuilder();
         StringProperty totalElapsedMessage = new SimpleStringProperty("total elapsed 0.000s");
         long[] benchmarkStartedAtNanos = {0};
@@ -56,6 +68,10 @@ public class BenchmarkView {
         TextField filePathField = new TextField();
         filePathField.setPromptText("Select a Sierra Chart .scid file");
         filePathField.setEditable(false);
+        if (!preferences.getBenchmarkScidFilePath().isEmpty()) {
+            filePathField.setText(preferences.getBenchmarkScidFilePath());
+            viewModel.setScidFilePath(preferences.getBenchmarkScidFilePath());
+        }
 
         Button browseButton = new Button("Browse...");
         browseButton.disableProperty().bind(viewModel.runningProperty());
@@ -65,6 +81,7 @@ public class BenchmarkView {
                 filePathField.setText(selectedFile.getAbsolutePath());
                 viewModel.setScidFilePath(selectedFile.getAbsolutePath());
                 viewModel.setStatusMessage("Selected " + selectedFile.getName() + ".");
+                saveBenchmarkPath(selectedFile.getAbsolutePath());
             }
         });
 
@@ -73,11 +90,11 @@ public class BenchmarkView {
         HBox.setHgrow(filePathField, Priority.ALWAYS);
 
         CheckBox rebuildExistingContractCheckBox = new CheckBox("Rebuild existing contract data");
-        rebuildExistingContractCheckBox.setSelected(true);
+        rebuildExistingContractCheckBox.setSelected(preferences.shouldBenchmarkRebuildExistingContract());
         rebuildExistingContractCheckBox.disableProperty().bind(viewModel.runningProperty());
 
         CheckBox rebuildDerivedDataCheckBox = new CheckBox("Rebuild derived data");
-        rebuildDerivedDataCheckBox.setSelected(viewModel.isRebuildDerivedData());
+        rebuildDerivedDataCheckBox.setSelected(preferences.shouldBenchmarkRebuildDerivedData());
         rebuildDerivedDataCheckBox.disableProperty().bind(viewModel.runningProperty());
 
         Button runButton = new Button("Run Benchmark");
@@ -128,6 +145,7 @@ public class BenchmarkView {
     private File chooseScidFile(Window owner) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Select Benchmark SCID Data File");
+        configureInitialDirectory(fileChooser);
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("Sierra Chart SCID files", "*.scid")
         );
@@ -248,6 +266,7 @@ public class BenchmarkView {
     ) {
         BenchmarkViewModel viewModel = controller.getViewModel();
         try {
+            saveBenchmarkPreferences(scidFilePath, rebuildExistingContract, rebuildDerivedData);
             benchmarkHistory.setLength(0);
             viewModel.setResultSummary("");
             benchmarkStartedAtNanos[0] = System.nanoTime();
@@ -319,5 +338,47 @@ public class BenchmarkView {
 
     private String formatDuration(Duration duration) {
         return String.format("%.3fs", duration.toMillis() / 1000.0);
+    }
+
+    private void configureInitialDirectory(FileChooser fileChooser) {
+        String lastDirectory = preferencesStore.load().getLastScidDirectory();
+        if (lastDirectory.isEmpty()) {
+            return;
+        }
+        File directory = new File(lastDirectory);
+        if (directory.isDirectory()) {
+            fileChooser.setInitialDirectory(directory);
+        }
+    }
+
+    private void saveBenchmarkPreferences(
+            String scidFilePath,
+            boolean rebuildExistingContract,
+            boolean rebuildDerivedData
+    ) {
+        GuiUserPreferences preferences = preferencesStore.load();
+        if (scidFilePath != null && !scidFilePath.trim().isEmpty()) {
+            File selectedFile = new File(scidFilePath.trim());
+            preferences.setBenchmarkScidFilePath(selectedFile.getAbsolutePath());
+            if (selectedFile.getParentFile() != null) {
+                preferences.setLastScidDirectory(selectedFile.getParentFile().getAbsolutePath());
+            }
+        }
+        preferences.setBenchmarkRebuildExistingContract(rebuildExistingContract);
+        preferences.setBenchmarkRebuildDerivedData(rebuildDerivedData);
+        preferencesStore.save(preferences);
+    }
+
+    private void saveBenchmarkPath(String scidFilePath) {
+        if (scidFilePath == null || scidFilePath.trim().isEmpty()) {
+            return;
+        }
+        GuiUserPreferences preferences = preferencesStore.load();
+        File selectedFile = new File(scidFilePath.trim());
+        preferences.setBenchmarkScidFilePath(selectedFile.getAbsolutePath());
+        if (selectedFile.getParentFile() != null) {
+            preferences.setLastScidDirectory(selectedFile.getParentFile().getAbsolutePath());
+        }
+        preferencesStore.save(preferences);
     }
 }

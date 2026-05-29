@@ -3,6 +3,8 @@ package forge.gui.view;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.gui.controller.ImportDataController;
+import forge.gui.preset.GuiPreferencesStore;
+import forge.gui.preset.GuiUserPreferences;
 import forge.gui.viewmodel.ImportDataViewModel;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -25,16 +27,26 @@ import java.util.Optional;
 
 public class ImportDataView {
     private final ImportDataController controller;
+    private final GuiPreferencesStore preferencesStore;
 
     public ImportDataView(ImportDataController controller) {
+        this(controller, new GuiPreferencesStore());
+    }
+
+    public ImportDataView(ImportDataController controller, GuiPreferencesStore preferencesStore) {
         if (controller == null) {
             throw new IllegalArgumentException("controller is required");
         }
+        if (preferencesStore == null) {
+            throw new IllegalArgumentException("preferencesStore is required");
+        }
         this.controller = controller;
+        this.preferencesStore = preferencesStore;
     }
 
     public Parent createView(Window owner) {
         ImportDataViewModel viewModel = controller.getViewModel();
+        GuiUserPreferences preferences = preferencesStore.load();
 
         Label heading = new Label("Import Data");
         heading.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
@@ -42,6 +54,10 @@ public class ImportDataView {
         TextField filePathField = new TextField();
         filePathField.setPromptText("Select a Sierra Chart .scid file");
         filePathField.setEditable(false);
+        if (!preferences.getImportScidFilePath().isEmpty()) {
+            filePathField.setText(preferences.getImportScidFilePath());
+            viewModel.setScidFilePath(preferences.getImportScidFilePath());
+        }
 
         Button browseButton = new Button("Browse...");
         Button importButton = new Button("Import");
@@ -71,6 +87,7 @@ public class ImportDataView {
                 filePathField.setText(selectedFile.getAbsolutePath());
                 viewModel.setScidFilePath(selectedFile.getAbsolutePath());
                 viewModel.setStatusMessage("Selected " + selectedFile.getName() + ".");
+                saveScidSelection(selectedFile, true);
             }
         });
 
@@ -99,6 +116,7 @@ public class ImportDataView {
     private File chooseScidFile(Window owner) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Select SCID Data File");
+        configureInitialDirectory(fileChooser);
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("Sierra Chart SCID files", "*.scid")
         );
@@ -110,6 +128,7 @@ public class ImportDataView {
 
     private void importSelectedFile(Window owner, String scidFilePath) {
         try {
+            saveScidPath(scidFilePath, true);
             DataImportPlan plan = controller.planImport(scidFilePath);
             if (plan.hasExistingContractTable() && !confirmRebuild(owner, plan)) {
                 controller.getViewModel().setStatusMessage("Import canceled.");
@@ -143,5 +162,38 @@ public class ImportDataView {
 
     private String displayValue(String value) {
         return value == null || value.trim().isEmpty() ? "None" : value.trim();
+    }
+
+    private void configureInitialDirectory(FileChooser fileChooser) {
+        String lastDirectory = preferencesStore.load().getLastScidDirectory();
+        if (lastDirectory.isEmpty()) {
+            return;
+        }
+        File directory = new File(lastDirectory);
+        if (directory.isDirectory()) {
+            fileChooser.setInitialDirectory(directory);
+        }
+    }
+
+    private void saveScidSelection(File selectedFile, boolean importPath) {
+        if (selectedFile == null) {
+            return;
+        }
+        saveScidPath(selectedFile.getAbsolutePath(), importPath);
+    }
+
+    private void saveScidPath(String scidFilePath, boolean importPath) {
+        if (scidFilePath == null || scidFilePath.trim().isEmpty()) {
+            return;
+        }
+        GuiUserPreferences preferences = preferencesStore.load();
+        File selectedFile = new File(scidFilePath.trim());
+        if (selectedFile.getParentFile() != null) {
+            preferences.setLastScidDirectory(selectedFile.getParentFile().getAbsolutePath());
+        }
+        if (importPath) {
+            preferences.setImportScidFilePath(selectedFile.getAbsolutePath());
+        }
+        preferencesStore.save(preferences);
     }
 }

@@ -2,8 +2,11 @@ package forge.gui.view;
 
 import forge.app.DatabaseConnectionRequest;
 import forge.gui.controller.DatabaseConfigController;
+import forge.gui.preset.GuiPreferencesStore;
+import forge.gui.preset.GuiUserPreferences;
 import forge.gui.viewmodel.DatabaseConfigViewModel;
 import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
@@ -20,25 +23,40 @@ import javafx.scene.layout.VBox;
 
 public class DatabaseConfigView {
     private final DatabaseConfigController controller;
+    private final GuiPreferencesStore preferencesStore;
 
     public DatabaseConfigView(DatabaseConfigController controller) {
+        this(controller, new GuiPreferencesStore());
+    }
+
+    public DatabaseConfigView(DatabaseConfigController controller, GuiPreferencesStore preferencesStore) {
         if (controller == null) {
             throw new IllegalArgumentException("controller is required");
         }
+        if (preferencesStore == null) {
+            throw new IllegalArgumentException("preferencesStore is required");
+        }
         this.controller = controller;
+        this.preferencesStore = preferencesStore;
     }
 
     public Parent createView() {
         DatabaseConfigViewModel viewModel = controller.getViewModel();
+        GuiUserPreferences preferences = preferencesStore.load();
 
         Label heading = new Label("Database Config");
         heading.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
 
-        TextField hostField = new TextField(defaultValue(viewModel.getHost(), "localhost"));
-        TextField portField = new TextField(String.valueOf(viewModel.getPort()));
-        TextField databaseNameField = new TextField(viewModel.getDatabaseName());
-        TextField maintenanceDatabaseField = new TextField(viewModel.getMaintenanceDatabaseName());
-        TextField usernameField = new TextField(viewModel.getUsername());
+        TextField hostField = new TextField(defaultValue(viewModel.getHost(), preferences.getDatabaseHost()));
+        TextField portField = new TextField(String.valueOf(viewModel.getPort() == 5432
+                ? preferences.getDatabasePort()
+                : viewModel.getPort()));
+        TextField databaseNameField = new TextField(defaultValue(viewModel.getDatabaseName(), preferences.getDatabaseName()));
+        TextField maintenanceDatabaseField = new TextField(defaultValue(
+                viewModel.getMaintenanceDatabaseName(),
+                preferences.getMaintenanceDatabaseName()
+        ));
+        TextField usernameField = new TextField(defaultValue(viewModel.getUsername(), preferences.getDatabaseUsername()));
         PasswordField passwordField = new PasswordField();
 
         hostField.setPromptText("localhost");
@@ -165,6 +183,16 @@ public class DatabaseConfigView {
                     resolvedUsername,
                     password
             );
+            task.addEventHandler(
+                    WorkerStateEvent.WORKER_STATE_SUCCEEDED,
+                    event -> saveDatabasePreferences(
+                            resolvedHost,
+                            port,
+                            resolvedDatabaseName,
+                            resolvedMaintenanceDatabaseName,
+                            resolvedUsername
+                    )
+            );
             Thread thread = new Thread(task, "forge-gui-database-config");
             thread.setDaemon(true);
             thread.start();
@@ -176,5 +204,21 @@ public class DatabaseConfigView {
 
     private String defaultValue(String value, String fallback) {
         return value == null || value.trim().isEmpty() ? fallback : value;
+    }
+
+    private void saveDatabasePreferences(
+            String host,
+            int port,
+            String databaseName,
+            String maintenanceDatabaseName,
+            String username
+    ) {
+        GuiUserPreferences preferences = preferencesStore.load();
+        preferences.setDatabaseHost(host);
+        preferences.setDatabasePort(port);
+        preferences.setDatabaseName(databaseName);
+        preferences.setMaintenanceDatabaseName(maintenanceDatabaseName);
+        preferences.setDatabaseUsername(username);
+        preferencesStore.save(preferences);
     }
 }
