@@ -88,6 +88,40 @@ class TradeLifecycleEngineTest {
         }
 
         @Test
+        void calculatesTradeMathFromNormalizedTickCounts() {
+            TradeLifecycleEngine engine = new TradeLifecycleEngine();
+            engine.openPosition(
+                    fill(OrderSide.BUY, 1, 25907, 1),
+                    new TradePlan(OrderSide.BUY, 25915, 25903, LocalTime.of(16, 0), UTC),
+                    ES_SPEC
+            );
+
+            TradeResult trade = engine.onTick(tick(25915, 2)).orElseThrow();
+
+            assertEquals(8, trade.getGrossTicks());
+            assertEquals(100.0, trade.getGrossDollars());
+            assertEquals(100.0, trade.getMaxFavorableExcursionDollars());
+            assertEquals(0.0, trade.getMaxAdverseExcursionDollars());
+        }
+
+        @Test
+        void normalizesCentScaledTickCountsForTradeMath() {
+            TradeLifecycleEngine engine = new TradeLifecycleEngine();
+            engine.openPosition(
+                    fill(OrderSide.SELL, 1, 2_493_300, 1),
+                    new TradePlan(OrderSide.SELL, 2_491_900, 2_494_700, LocalTime.of(16, 0), UTC),
+                    ES_SPEC
+            );
+
+            TradeResult trade = engine.onTick(tick(2_494_700, 2)).orElseThrow();
+
+            assertEquals(-14, trade.getGrossTicks());
+            assertEquals(-175.0, trade.getGrossDollars());
+            assertEquals(0.0, trade.getMaxFavorableExcursionDollars());
+            assertEquals(-175.0, trade.getMaxAdverseExcursionDollars());
+        }
+
+        @Test
         void rejectsOpeningAnotherPositionWhileOpen() {
             TradeLifecycleEngine engine = new TradeLifecycleEngine();
             TradePlan plan = new TradePlan(OrderSide.BUY, 105, 95, LocalTime.of(16, 0), UTC);

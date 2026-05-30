@@ -1,5 +1,6 @@
 package forge.trade;
 
+import forge.model.FuturesInstrumentSpec;
 import forge.trade.TradeResult;
 import forge.trade.OrderSide;
 
@@ -13,6 +14,7 @@ public class Position {
     private final Instant entryTime;
     private final long entryPriceTicks;
     private final int quantity;
+    private final double tickSize;
     private final double tickDollarValue;
     private long maxFavorableExcursionTicks;
     private long maxAdverseExcursionTicks;
@@ -24,6 +26,7 @@ public class Position {
             Instant entryTime,
             long entryPriceTicks,
             int quantity,
+            double tickSize,
             double tickDollarValue
     ) {
         /*
@@ -42,11 +45,15 @@ public class Position {
         if (quantity <= 0) {
             throw new IllegalArgumentException("quantity must be greater than zero");
         }
+        if (tickSize <= 0) {
+            throw new IllegalArgumentException("tickSize must be greater than zero");
+        }
         if (tickDollarValue <= 0) {
             throw new IllegalArgumentException("tickDollarValue must be greater than zero");
         }
         this.entryPriceTicks = entryPriceTicks;
         this.quantity = quantity;
+        this.tickSize = tickSize;
         this.tickDollarValue = tickDollarValue;
     }
 
@@ -60,14 +67,19 @@ public class Position {
         if (priceTicks <= 0) {
             throw new IllegalArgumentException("priceTicks must be greater than zero");
         }
+        long signedMovementTicks = FuturesInstrumentSpec.contractTicksBetween(
+                entryPriceTicks,
+                priceTicks,
+                tickSize
+        );
         long favorableTicks;
         long adverseTicks;
         if (side == OrderSide.BUY) {
-            favorableTicks = Math.max(0, priceTicks - entryPriceTicks);
-            adverseTicks = Math.max(0, entryPriceTicks - priceTicks);
+            favorableTicks = Math.max(0, signedMovementTicks);
+            adverseTicks = Math.max(0, -signedMovementTicks);
         } else {
-            favorableTicks = Math.max(0, entryPriceTicks - priceTicks);
-            adverseTicks = Math.max(0, priceTicks - entryPriceTicks);
+            favorableTicks = Math.max(0, -signedMovementTicks);
+            adverseTicks = Math.max(0, signedMovementTicks);
         }
         maxFavorableExcursionTicks = Math.max(maxFavorableExcursionTicks, favorableTicks);
         maxAdverseExcursionTicks = Math.max(maxAdverseExcursionTicks, adverseTicks);
@@ -85,9 +97,14 @@ public class Position {
             throw new IllegalArgumentException("exitPriceTicks must be greater than zero");
         }
         updateExcursion(exitPriceTicks);
+        long signedMovementTicks = FuturesInstrumentSpec.contractTicksBetween(
+                entryPriceTicks,
+                exitPriceTicks,
+                tickSize
+        );
         long grossTicks = side == OrderSide.BUY
-                ? (exitPriceTicks - entryPriceTicks) * quantity
-                : (entryPriceTicks - exitPriceTicks) * quantity;
+                ? signedMovementTicks * quantity
+                : -signedMovementTicks * quantity;
         return new TradeResult(
                 instrumentSymbol,
                 contractSymbol,

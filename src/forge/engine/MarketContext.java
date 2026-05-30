@@ -1,5 +1,7 @@
 package forge.engine;
 
+import forge.model.FuturesInstrumentSpec;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -108,11 +110,11 @@ public class MarketContext {
         /*
          * Intent: Convert integer tick price into display price for strategy/reporting compatibility.
          * Precondition: Last price ticks and tick size must be positive.
-         * Returns: Display price as ticks multiplied by tick size.
+         * Returns: Display price using the same tick/fixed-point conversion as reporting.
          * Postcondition: No context state is changed.
          */
         validatePositive(tickSize, "tickSize");
-        return lastPriceTicks * tickSize;
+        return FuturesInstrumentSpec.displayPrice(lastPriceTicks, tickSize);
     }
 
     private double validatePositive(double value, String name) {

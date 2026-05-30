@@ -56,6 +56,7 @@ public class TradeLifecycleEngine {
                 entryTick.getTradeDateTime(),
                 entryTick.getPriceTicks(),
                 orderRequest.getQuantity(),
+                instrumentSpec.getTickSize(),
                 instrumentSpec.getTickDollarAmount()
         );
         this.lastTick = entryTick;
@@ -90,6 +91,7 @@ public class TradeLifecycleEngine {
                 entryFill.getFillTime(),
                 entryFill.getFillPriceTicks(),
                 entryFill.getQuantity(),
+                instrumentSpec.getTickSize(),
                 instrumentSpec.getTickDollarAmount()
         );
         openPosition.updateExcursion(entryFill.getFillPriceTicks());

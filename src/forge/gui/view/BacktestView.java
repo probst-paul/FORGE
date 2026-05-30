@@ -8,13 +8,19 @@ import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.gui.controller.BacktestController;
 import forge.gui.viewmodel.BacktestViewModel;
+import forge.model.FuturesInstrumentSpec;
+import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.reporting.BacktestResult;
 import forge.reporting.ContractBacktestResult;
 import forge.reporting.InstrumentBacktestResult;
 import forge.reporting.PerformanceMetrics;
 import forge.strategy.StrategyConfigurationProfile;
 import forge.strategy.TradingStrategy;
+import forge.trade.TradeResult;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.binding.Bindings;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.geometry.Insets;
@@ -28,6 +34,8 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.FlowPane;
@@ -35,11 +43,14 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 public class BacktestView {
     private final BacktestController controller;
+    private final StaticFuturesInstrumentSpecProvider instrumentSpecProvider = new StaticFuturesInstrumentSpecProvider();
 
     public BacktestView(BacktestController controller) {
         if (controller == null) {
@@ -415,6 +426,7 @@ public class BacktestView {
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabPane.getTabs().add(createSummaryTab(null));
+        tabPane.getTabs().add(createTradesTab(null));
         tabPane.getTabs().add(createPlaceholderTab("Tables", "Tabular backtest results will be added here."));
         tabPane.getTabs().add(createPlaceholderTab("Charts", "Equity curves and performance charts will be added here."));
         tabPane.getTabs().add(createExportTab(viewModel));
@@ -442,6 +454,89 @@ public class BacktestView {
         Tab tab = new Tab("Summary");
         tab.setContent(scrollPane);
         return tab;
+    }
+
+    private Tab createTradesTab(BacktestResult result) {
+        /*
+         * Intent: Create a tabular view of every simulated trade from a backtest result.
+         * Precondition: result may be null before the first backtest run.
+         * Returns: Tab containing either placeholder text or a populated trade table.
+         * Postcondition: Backtest result data is read but not modified.
+         */
+        Tab tab = new Tab("Trades");
+        if (result == null) {
+            VBox placeholder = new VBox(8);
+            placeholder.setPadding(new Insets(12));
+            placeholder.getChildren().add(new Label("Run a backtest to populate simulated trades."));
+            tab.setContent(placeholder);
+            return tab;
+        }
+
+        ObservableList<TradeResult> trades = FXCollections.observableArrayList(allTrades(result));
+        if (trades.isEmpty()) {
+            VBox emptyState = new VBox(8);
+            emptyState.setPadding(new Insets(12));
+            emptyState.getChildren().add(new Label("No trades were simulated for this backtest."));
+            tab.setContent(emptyState);
+            return tab;
+        }
+
+        TableView<TradeResult> table = new TableView<>(trades);
+        table.setPrefHeight(360);
+        table.getColumns().add(textColumn("Instrument", trade -> trade.getInstrumentSymbol()));
+        table.getColumns().add(textColumn("Contract", trade -> trade.getContractSymbol()));
+        table.getColumns().add(textColumn("Side", trade -> trade.getSide().name()));
+        table.getColumns().add(textColumn("Entry Time", trade -> trade.getEntryTime().toString()));
+        table.getColumns().add(textColumn("Exit Time", trade -> trade.getExitTime().toString()));
+        table.getColumns().add(textColumn("Max Pos", trade -> Integer.toString(trade.getQuantity())));
+        table.getColumns().add(textColumn("Entry Price", trade -> formatPrice(trade, trade.getEntryPriceTicks())));
+        table.getColumns().add(textColumn("Exit Price", trade -> formatPrice(trade, trade.getExitPriceTicks())));
+        table.getColumns().add(textColumn("Gross Ticks", trade -> Long.toString(trade.getGrossTicks())));
+        table.getColumns().add(textColumn("P/L", trade -> String.format("$%.2f", trade.getGrossDollars())));
+        table.getColumns().add(textColumn("MFE", trade -> String.format("$%.2f", trade.getMaxFavorableExcursionDollars())));
+        table.getColumns().add(textColumn("MAE", trade -> String.format("$%.2f", trade.getMaxAdverseExcursionDollars())));
+        table.getColumns().add(textColumn("Exit Reason", TradeResult::getExitReason));
+
+        VBox content = new VBox(8, table);
+        content.setPadding(new Insets(10));
+        tab.setContent(content);
+        return tab;
+    }
+
+    private TableColumn<TradeResult, String> textColumn(
+            String title,
+            Function<TradeResult, String> valueProvider
+    ) {
+        /*
+         * Intent: Create a string-backed table column for the Trades tab.
+         * Precondition: title and valueProvider must describe one TradeResult field.
+         * Returns: Configured TableColumn.
+         * Postcondition: Column values are derived on demand from immutable trade results.
+         */
+        TableColumn<TradeResult, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(valueProvider.apply(cell.getValue())));
+        return column;
+    }
+
+    private String formatPrice(TradeResult trade, long priceTicks) {
+        /*
+         * Intent: Display normalized tick prices as human-readable futures prices.
+         * Precondition: trade must identify a supported instrument symbol and priceTicks must be positive.
+         * Returns: Actual price derived from the instrument's stored-price conversion rules.
+         * Postcondition: Trade result state remains unchanged.
+         */
+        FuturesInstrumentSpec spec = instrumentSpecProvider.getBySymbol(trade.getInstrumentSymbol());
+        return String.format("%." + priceDecimalPlaces(spec) + "f", spec.displayPrice(priceTicks));
+    }
+
+    private int priceDecimalPlaces(FuturesInstrumentSpec spec) {
+        /*
+         * Intent: Match displayed precision to an instrument's tick size.
+         * Precondition: spec must be a supported futures instrument.
+         * Returns: Decimal places needed to display one tick, such as 0 for YM and 2 for ES.
+         * Postcondition: Instrument specification state remains unchanged.
+         */
+        return Math.max(0, BigDecimal.valueOf(spec.getTickSize()).stripTrailingZeros().scale());
     }
 
     private VBox createRunSummary(BacktestResult result) {
@@ -569,12 +664,13 @@ public class BacktestView {
 
     private void renderReport(TabPane resultsTabs, BacktestResult result) {
         /*
-         * Intent: Replace the summary tab with cards from the completed backtest.
-         * Precondition: resultsTabs must contain the summary tab at index 0.
+         * Intent: Replace result tabs with views from the completed backtest.
+         * Precondition: resultsTabs must contain summary at index 0 and trades at index 1.
          * Returns: Nothing.
-         * Postcondition: The summary tab displays the latest backtest result.
+         * Postcondition: Summary and trades tabs display the latest backtest result.
          */
         resultsTabs.getTabs().set(0, createSummaryTab(result));
+        resultsTabs.getTabs().set(1, createTradesTab(result));
         resultsTabs.getSelectionModel().select(0);
     }
 
@@ -694,6 +790,20 @@ public class BacktestView {
             contractResults.addAll(instrumentResult.getContractResults());
         }
         return contractResults;
+    }
+
+    private List<TradeResult> allTrades(BacktestResult result) {
+        /*
+         * Intent: Flatten instrument/contract results into one trade list for the Trades tab.
+         * Precondition: result must be a completed backtest result.
+         * Returns: List of all simulated trades in report traversal order.
+         * Postcondition: Reporting result objects are not modified.
+         */
+        List<TradeResult> trades = new ArrayList<>();
+        for (ContractBacktestResult contractResult : allContractResults(result)) {
+            trades.addAll(contractResult.getTrades());
+        }
+        return trades;
     }
 
     private record ContractSelection(CheckBox checkBox, ContractTradeWindow window) {

@@ -54,4 +54,39 @@ class StaticFuturesInstrumentSpecProviderTest {
             assertTrue(provider.supports("ES"));
         }
     }
+
+    @Nested
+    class PriceConversion {
+        @Test
+        void displaysNormalizedTickPrices() {
+            FuturesInstrumentSpec es = provider.getBySymbol("ES");
+
+            assertEquals(6476.75, es.displayPrice(25907));
+            assertEquals(8, es.contractTicksBetween(25907, 25915));
+        }
+
+        @Test
+        void treatsStoredValuesAsNormalizedTickCounts() {
+            FuturesInstrumentSpec es = provider.getBySymbol("ES");
+
+            assertEquals(161918.75, es.displayPrice(647675));
+            assertEquals(200, es.contractTicksBetween(647675, 647875));
+        }
+
+        @Test
+        void displaysCentScaledTickCounts() {
+            FuturesInstrumentSpec es = provider.getBySymbol("ES");
+
+            assertEquals(6233.25, es.displayPrice(2_493_300));
+            assertEquals(14, es.contractTicksBetween(2_493_300, 2_494_700));
+        }
+
+        @Test
+        void displaysWholePointInstrumentPricesWithoutScaling() {
+            FuturesInstrumentSpec ym = provider.getBySymbol("YM");
+
+            assertEquals(46934.0, ym.displayPrice(46934));
+            assertEquals(-27, ym.contractTicksBetween(46934, 46907));
+        }
+    }
 }
