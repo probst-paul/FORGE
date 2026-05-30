@@ -39,6 +39,12 @@ public class EventStatisticsView {
     }
 
     public Parent createView() {
+        /*
+         * Intent: Build the event-statistics screen and wire study/contract selections.
+         * Precondition: Controller must be initialized and derived event data may be available.
+         * Returns: JavaFX parent node for the statistics workflow.
+         * Postcondition: View controls are bound to the statistics view model.
+         */
         EventStatisticsViewModel viewModel = controller.getViewModel();
 
         Label heading = new Label("Event Statistics");
@@ -112,6 +118,12 @@ public class EventStatisticsView {
     }
 
     private void loadStudies(ComboBox<StudySelection> studyComboBox, Label studyDescription) {
+        /*
+         * Intent: Populate the study selector from supported study definitions.
+         * Precondition: studyComboBox and studyDescription must belong to the active view.
+         * Returns: Nothing.
+         * Postcondition: The first available study is selected and described when available.
+         */
         studyComboBox.getItems().clear();
         try {
             for (String studyName : controller.getSupportedStudyNames()) {
@@ -127,6 +139,12 @@ public class EventStatisticsView {
     }
 
     private void loadAvailableContracts(VBox contractList, List<ContractSelection> contractSelections) {
+        /*
+         * Intent: Refresh selectable contract windows for the statistics run.
+         * Precondition: contractList and contractSelections must be the active UI state containers.
+         * Returns: Nothing.
+         * Postcondition: The checkbox list mirrors currently available imported contract windows.
+         */
         contractList.getChildren().clear();
         contractSelections.clear();
 
@@ -247,6 +265,12 @@ public class EventStatisticsView {
     }
 
     private void renderReport(TabPane resultsTabs, EventStatisticsReport report) {
+        /*
+         * Intent: Replace the summary tab with cards from the completed report.
+         * Precondition: resultsTabs must contain the summary tab at index 0.
+         * Returns: Nothing.
+         * Postcondition: The summary tab displays the latest statistics report.
+         */
         resultsTabs.getTabs().set(0, createSummaryTab(report));
         resultsTabs.getSelectionModel().select(0);
     }
@@ -256,6 +280,12 @@ public class EventStatisticsView {
             StudySelection studySelection,
             TabPane resultsTabs
     ) {
+        /*
+         * Intent: Validate statistics selections and start a background statistics task.
+         * Precondition: User should have selected at least one contract window and one study.
+         * Returns: Nothing.
+         * Postcondition: A daemon statistics thread is started, or the view model reports validation/failure.
+         */
         EventStatisticsViewModel viewModel = controller.getViewModel();
         List<ContractTradeWindow> selectedWindows = selectedWindows(contractSelections);
 
@@ -299,6 +329,12 @@ public class EventStatisticsView {
     }
 
     private String formatReport(EventStatisticsReport report) {
+        /*
+         * Intent: Create a text export for the latest event statistics report.
+         * Precondition: report must be complete.
+         * Returns: Multi-line text summary for instrument and contract results.
+         * Postcondition: Report data is not modified.
+         */
         StringBuilder builder = new StringBuilder();
         builder.append("Event: ").append(report.getEventName()).append(System.lineSeparator()).append(System.lineSeparator());
         appendSection(builder, "Instrument Results", report.getInstrumentResults());

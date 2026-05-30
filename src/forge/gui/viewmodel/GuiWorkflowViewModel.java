@@ -99,6 +99,12 @@ public class GuiWorkflowViewModel {
     }
 
     public void bindToTask(Task<?> task) {
+        /*
+         * Intent: Bind this view model to a JavaFX background task.
+         * Precondition: task must be non-null and should be the active workflow task.
+         * Returns: Nothing.
+         * Postcondition: Status, progress, unit counts, and running state mirror the task.
+         */
         if (task == null) {
             throw new IllegalArgumentException("task is required");
         }
@@ -111,6 +117,12 @@ public class GuiWorkflowViewModel {
     }
 
     public void unbindTask() {
+        /*
+         * Intent: Detach task bindings so direct property updates are legal again.
+         * Precondition: Properties may or may not currently be bound.
+         * Returns: Nothing.
+         * Postcondition: Workflow properties can be set manually by controller/view code.
+         */
         statusMessage.unbind();
         progress.unbind();
         processedUnits.unbind();
@@ -119,6 +131,12 @@ public class GuiWorkflowViewModel {
     }
 
     public void markStarted(String statusMessage) {
+        /*
+         * Intent: Reset shared workflow state at the start of an operation.
+         * Precondition: statusMessage should describe the operation being started.
+         * Returns: Nothing.
+         * Postcondition: Progress, result, error, and running properties reflect a fresh run.
+         */
         unbindTask();
         setRunning(true);
         setProgress(0.0);
@@ -130,6 +148,12 @@ public class GuiWorkflowViewModel {
     }
 
     public void markSucceeded(String statusMessage, String resultSummary) {
+        /*
+         * Intent: Mark the active workflow as successfully completed.
+         * Precondition: resultSummary should describe the completed operation.
+         * Returns: Nothing.
+         * Postcondition: Running is false, progress is complete, and error text is cleared.
+         */
         unbindTask();
         setRunning(false);
         setProgress(1.0);
@@ -142,6 +166,12 @@ public class GuiWorkflowViewModel {
     }
 
     public void markFailed(String statusMessage, RuntimeException exception) {
+        /*
+         * Intent: Mark the active workflow as failed and expose the failure message.
+         * Precondition: exception may be null if only a status message is available.
+         * Returns: Nothing.
+         * Postcondition: Running is false and the GUI error label can display the failure.
+         */
         unbindTask();
         setRunning(false);
         setStatusMessage(statusMessage);
@@ -149,6 +179,12 @@ public class GuiWorkflowViewModel {
     }
 
     public void updateProgress(long processed, long total) {
+        /*
+         * Intent: Update shared progress using domain-specific processed/total counts.
+         * Precondition: processed and total must be non-negative and processed cannot exceed total.
+         * Returns: Nothing.
+         * Postcondition: Progress ratio and unit-count properties are synchronized.
+         */
         if (processed < 0) {
             throw new IllegalArgumentException("processed cannot be negative");
         }

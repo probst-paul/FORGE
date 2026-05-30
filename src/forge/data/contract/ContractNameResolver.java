@@ -9,6 +9,12 @@ public class ContractNameResolver {
     private static final Pattern CONTRACT_PATTERN = Pattern.compile("^([A-Z]{1,3})([FGHJKMNQUVXZ])([0-9]{1,2})$");
 
     public String resolveFromScidPath(String scidFilePath) {
+        /*
+         * Intent: Derive a futures contract symbol from a Sierra Chart SCID file path.
+         * Precondition: Path must be nonblank, end in .scid, and begin with a futures contract code.
+         * Returns: Uppercase contract symbol such as ESU25.
+         * Postcondition: No filesystem access is performed; only the path text is parsed.
+         */
         if (scidFilePath == null || scidFilePath.trim().isEmpty()) {
             throw new IllegalArgumentException("SCID file path is required");
         }
@@ -50,6 +56,12 @@ public class ContractNameResolver {
     }
 
     public FuturesContractCode resolveContractCode(String contractSymbol) {
+        /*
+         * Intent: Parse a contract symbol into root, month code, and four-digit year components.
+         * Precondition: Contract symbol must match the supported futures contract pattern.
+         * Returns: FuturesContractCode value object.
+         * Postcondition: Resolver state is unchanged.
+         */
         Matcher matcher = matchContract(contractSymbol);
         return new FuturesContractCode(
                 matcher.group(1),
@@ -67,6 +79,12 @@ public class ContractNameResolver {
     }
 
     private Matcher matchContract(String contractSymbol) {
+        /*
+         * Intent: Validate and parse a contract symbol using the shared contract pattern.
+         * Precondition: Contract symbol must be nonblank.
+         * Returns: Matcher positioned on the parsed symbol groups.
+         * Postcondition: Invalid symbols fail before downstream root/month/year logic runs.
+         */
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");
         }

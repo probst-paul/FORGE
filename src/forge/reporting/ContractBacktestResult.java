@@ -18,6 +18,12 @@ public class ContractBacktestResult {
             long orderSignalsGenerated,
             List<TradeResult> trades
     ) {
+        /*
+         * Intent: Capture backtest results for one futures contract.
+         * Precondition: contractSymbol must be present; counts must be non-negative; trades must be non-null.
+         * Returns: Constructed ContractBacktestResult.
+         * Postcondition: Trades are defensively copied and contract-level metrics are calculated once.
+         */
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");
         }

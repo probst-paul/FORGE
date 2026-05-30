@@ -20,6 +20,12 @@ public class TradePlan {
             LocalTime timeStop,
             ZoneId timeZone
     ) {
+        /*
+         * Intent: Define the target, stop, and time-stop rules for one simulated trade.
+         * Precondition: Side, time stop, and time zone must exist; target and stop prices must be positive tick values.
+         * Returns: A constructed TradePlan instance.
+         * Postcondition: Trade exit rules are immutable and ready for lifecycle evaluation.
+         */
         this.side = Objects.requireNonNull(side, "side is required");
         if (targetPriceTicks <= 0) {
             throw new IllegalArgumentException("targetPriceTicks must be greater than zero");

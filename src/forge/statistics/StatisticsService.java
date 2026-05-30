@@ -35,6 +35,12 @@ public class StatisticsService {
             Collection<SessionRangeFeature> sessionRangeFeatures,
             Collection<MarketConditionOccurrence> events
     ) {
+        /*
+         * Intent: Summarize occurrences for a named market study.
+         * Precondition: study must be non-null; feature/event collections are validated by summarizeEventStatistics().
+         * Returns: EventStatisticsReport grouped by instrument and contract.
+         * Postcondition: Input feature and event collections are not modified.
+         */
         if (study == null) {
             throw new IllegalArgumentException("study is required");
         }
@@ -50,6 +56,12 @@ public class StatisticsService {
             Collection<SessionRangeFeature> sessionRangeFeatures,
             Collection<MarketConditionOccurrence> events
     ) {
+        /*
+         * Intent: Aggregate event counts by instrument and contract for one event query.
+         * Precondition: query, sessionRangeFeatures, and events must be non-null.
+         * Returns: EventStatisticsReport with session counts, long counts, and short counts.
+         * Postcondition: Null collection entries are ignored and source collections are unchanged.
+         */
         if (query == null) {
             throw new IllegalArgumentException("query is required");
         }
@@ -91,6 +103,12 @@ public class StatisticsService {
     }
 
     private List<EventStatisticsResult> toResults(String eventName, Map<String, EventCounts> countsByScope) {
+        /*
+         * Intent: Convert mutable count buckets into sorted report results.
+         * Precondition: eventName and countsByScope must represent one completed aggregation.
+         * Returns: Results sorted by scope name.
+         * Postcondition: Count buckets are read but not modified.
+         */
         List<EventStatisticsResult> results = new ArrayList<>();
         for (Map.Entry<String, EventCounts> entry : countsByScope.entrySet()) {
             EventCounts counts = entry.getValue();
@@ -112,6 +130,12 @@ public class StatisticsService {
         private long shortEventCount;
 
         private void include(ConditionSide side) {
+            /*
+             * Intent: Count a directional event occurrence.
+             * Precondition: side may be null or a non-directional value.
+             * Returns: Nothing.
+             * Postcondition: LONG and SHORT counters are incremented when applicable.
+             */
             if (side == ConditionSide.LONG) {
                 longEventCount++;
             } else if (side == ConditionSide.SHORT) {

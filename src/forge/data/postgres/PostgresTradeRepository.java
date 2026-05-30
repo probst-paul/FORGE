@@ -41,6 +41,12 @@ public class PostgresTradeRepository {
     private final PostgresDatabaseSettings settings;
 
     public PostgresTradeRepository(PostgresDatabaseSettings settings) {
+        /*
+         * Intent: Create a repository for PostgreSQL trade, import, and derived-data storage.
+         * Precondition: Database settings must be valid.
+         * Returns: A constructed PostgresTradeRepository instance.
+         * Postcondition: Repository methods use the supplied database settings.
+         */
         if (settings == null) {
             throw new IllegalArgumentException("settings is required");
         }
@@ -48,6 +54,12 @@ public class PostgresTradeRepository {
     }
 
     public void ensureDatabaseExists() {
+        /*
+         * Intent: Create the primary FORGE PostgreSQL database if it does not already exist.
+         * Precondition: Maintenance database connection settings must be valid.
+         * Returns: Nothing.
+         * Postcondition: Primary database exists or an exception explains why it could not be prepared.
+         */
         try (Connection connection = DriverManager.getConnection(
                 settings.maintenanceJdbcUrl(),
                 settings.getUsername(),
@@ -64,6 +76,12 @@ public class PostgresTradeRepository {
     }
 
     public void ensureContractTradesTableExists(String tableName) {
+        /*
+         * Intent: Prepare a contract-specific authoritative trade table and migrate older compatible schemas.
+         * Precondition: Table name must be a validated contract symbol from upstream import code.
+         * Returns: Nothing.
+         * Postcondition: Contract table stores prices in tick-space and permits null side values.
+         */
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -141,6 +159,12 @@ public class PostgresTradeRepository {
     }
 
     public void ensureContractRecordUniqueIndex(String tableName) {
+        /*
+         * Intent: Enforce one stored row per SCID record index inside a contract table.
+         * Precondition: Contract table must exist.
+         * Returns: Nothing.
+         * Postcondition: Unique index protects against duplicate imported records.
+         */
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -159,6 +183,12 @@ public class PostgresTradeRepository {
     }
 
     public void ensureImportCheckpointTableExists() {
+        /*
+         * Intent: Prepare the contract-level import checkpoint/metadata table.
+         * Precondition: Primary database must exist.
+         * Returns: Nothing.
+         * Postcondition: Import metadata can track source file, resume index, row count, and date bounds.
+         */
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -193,6 +223,12 @@ public class PostgresTradeRepository {
     }
 
     public void ensureDerivedDataTablesExist() {
+        /*
+         * Intent: Prepare tables used to cache derived session features and condition occurrences.
+         * Precondition: Primary database must exist.
+         * Returns: Nothing.
+         * Postcondition: Derived-data tables and build marker table exist.
+         */
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -252,6 +288,12 @@ public class PostgresTradeRepository {
     }
 
     public DataImportPlan planImport(String contractSymbol, String tableName) {
+        /*
+         * Intent: Inspect existing table/checkpoint state before deciding whether an import should rebuild.
+         * Precondition: Contract symbol and table name must describe the same contract.
+         * Returns: DataImportPlan with table existence, row count, source file, and status.
+         * Postcondition: No contract trade rows are changed.
+         */
         ensureImportCheckpointTableExists();
 
         try (Connection connection = DriverManager.getConnection(
@@ -276,6 +318,12 @@ public class PostgresTradeRepository {
     }
 
     public List<ContractDataSummary> listImportedContractData() {
+        /*
+         * Intent: List completed imported contract tables from metadata for catalog construction.
+         * Precondition: Database and import checkpoint table must be available.
+         * Returns: Contract summaries with imported date bounds.
+         * Postcondition: Incomplete or invalid contract table metadata is ignored.
+         */
         ensureDatabaseExists();
         ensureImportCheckpointTableExists();
 
@@ -324,6 +372,12 @@ public class PostgresTradeRepository {
             long lastModifiedMillis,
             boolean rebuildExistingContract
     ) {
+        /*
+         * Intent: Prepare or resume import metadata according to the authoritative contract-table policy.
+         * Precondition: Contract table/checkpoint table must exist and source metadata must describe selected file.
+         * Returns: ImportCheckpoint indicating the next SCID record index to read.
+         * Postcondition: Existing data may be truncated only when rebuildExistingContract is true.
+         */
         ensureImportCheckpointTableExists();
 
         try (Connection connection = DriverManager.getConnection(
@@ -374,6 +428,12 @@ public class PostgresTradeRepository {
     }
 
     public void markImportComplete(String tableName, String sourceFileName) {
+        /*
+         * Intent: Mark a contract import checkpoint as complete after all SCID records are processed.
+         * Precondition: Checkpoint row must exist for the table/source.
+         * Returns: Nothing.
+         * Postcondition: Import status is COMPLETE and update timestamp is refreshed.
+         */
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -399,6 +459,12 @@ public class PostgresTradeRepository {
             List<TradeRow> trades,
             long nextRecordIndex
     ) {
+        /*
+         * Intent: Insert one batch of trades with PostgreSQL COPY and atomically advance the import checkpoint.
+         * Precondition: Trades must belong to the target contract table and nextRecordIndex must follow the batch.
+         * Returns: Number of rows inserted by COPY.
+         * Postcondition: Trade rows and checkpoint update commit together or fail together.
+         */
         if (trades == null || trades.isEmpty()) {
             return 0;
         }
@@ -433,6 +499,12 @@ public class PostgresTradeRepository {
     }
 
     public void advanceImportCheckpoint(String tableName, String sourceFileName, long nextRecordIndex) {
+        /*
+         * Intent: Advance import metadata when a batch produces no stored rows after filtering.
+         * Precondition: Checkpoint row must exist for the table.
+         * Returns: Nothing.
+         * Postcondition: Resume point moves forward even though row count is unchanged.
+         */
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -456,10 +528,22 @@ public class PostgresTradeRepository {
     }
 
     public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Check whether cached session range features exist for all selected windows.
+         * Precondition: Windows may be empty; empty windows are treated as already built.
+         * Returns: True when all requested windows have build markers.
+         * Postcondition: Database data is unchanged.
+         */
         return areDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, windows);
     }
 
     public List<SessionRangeFeature> loadSessionRanges(List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Load cached session range features for selected contract windows.
+         * Precondition: Derived-data tables must be available; empty windows are allowed.
+         * Returns: Immutable list of matching SessionRangeFeature rows.
+         * Postcondition: Database data is unchanged.
+         */
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return Collections.emptyList();
@@ -514,6 +598,12 @@ public class PostgresTradeRepository {
     }
 
     public void saveSessionRanges(Collection<SessionRangeFeature> sessionRangeFeatures) {
+        /*
+         * Intent: Upsert computed session range features into the derived-data cache.
+         * Precondition: Feature collection may be null/empty; non-empty features must be valid.
+         * Returns: Nothing.
+         * Postcondition: Existing feature rows for the same contract/session/version are updated.
+         */
         ensureDerivedDataTablesExist();
         if (sessionRangeFeatures == null || sessionRangeFeatures.isEmpty()) {
             return;
@@ -566,10 +656,22 @@ public class PostgresTradeRepository {
     }
 
     public void markSessionRangesBuilt(List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Mark session range features as built for selected windows.
+         * Precondition: Windows should describe the derived-data coverage that was persisted.
+         * Returns: Nothing.
+         * Postcondition: Future build plans can skip session ranges unless rebuild is requested.
+         */
         markDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, windows);
     }
 
     public void clearSessionRanges(List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Delete cached session range features and build markers for selected windows.
+         * Precondition: Windows may be null/empty.
+         * Returns: Nothing.
+         * Postcondition: Selected session range cache is removed when windows are supplied.
+         */
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return;
@@ -589,10 +691,22 @@ public class PostgresTradeRepository {
     }
 
     public boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+        /*
+         * Intent: Check whether cached market condition occurrences exist for all selected windows.
+         * Precondition: Event name should identify a supported derived condition.
+         * Returns: True when all requested windows have build markers for the event.
+         * Postcondition: Database data is unchanged.
+         */
         return areDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
 
     public List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
+        /*
+         * Intent: Load cached market condition occurrences for selected windows and event name.
+         * Precondition: Derived-data tables must be available; empty windows are allowed.
+         * Returns: Immutable list of matching occurrence rows.
+         * Postcondition: Database data is unchanged.
+         */
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return Collections.emptyList();
@@ -645,6 +759,12 @@ public class PostgresTradeRepository {
     }
 
     public void saveMarketConditionOccurrences(Collection<MarketConditionOccurrence> marketEvents) {
+        /*
+         * Intent: Upsert computed market condition occurrences into the derived-data cache.
+         * Precondition: Event collection may be null/empty; non-empty events must be valid.
+         * Returns: Nothing.
+         * Postcondition: Existing event rows for the same contract/session/name/version are updated.
+         */
         ensureDerivedDataTablesExist();
         if (marketEvents == null || marketEvents.isEmpty()) {
             return;
@@ -691,10 +811,22 @@ public class PostgresTradeRepository {
     }
 
     public void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+        /*
+         * Intent: Mark market condition occurrences as built for selected windows and event name.
+         * Precondition: Windows and event name should describe the data that was persisted.
+         * Returns: Nothing.
+         * Postcondition: Future build plans/statistics can use cached event occurrences.
+         */
         markDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
 
     public void clearMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
+        /*
+         * Intent: Delete cached market condition occurrences and build markers for selected windows.
+         * Precondition: Windows may be null/empty; event name should match the cached event family.
+         * Returns: Nothing.
+         * Postcondition: Selected market-event cache is removed when windows are supplied.
+         */
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return;

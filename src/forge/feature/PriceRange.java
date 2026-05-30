@@ -5,6 +5,12 @@ public class PriceRange {
     private final long highPriceTicks;
 
     public PriceRange(long lowPriceTicks, long highPriceTicks) {
+        /*
+         * Intent: Represent a low/high price range in normalized tick space.
+         * Precondition: High price ticks must be greater than or equal to low price ticks.
+         * Returns: A constructed PriceRange instance.
+         * Postcondition: Range is immutable and safe for strategy calculations.
+         */
         if (highPriceTicks < lowPriceTicks) {
             throw new IllegalArgumentException("highPriceTicks must be greater than or equal to lowPriceTicks");
         }
@@ -21,15 +27,33 @@ public class PriceRange {
     }
 
     public long getRangeTicks() {
+        /*
+         * Intent: Calculate the width of the range in ticks.
+         * Precondition: PriceRange must be constructed with ordered bounds.
+         * Returns: High ticks minus low ticks.
+         * Postcondition: PriceRange state is unchanged.
+         */
         return highPriceTicks - lowPriceTicks;
     }
 
     public double getLowPrice(double tickSize) {
+        /*
+         * Intent: Convert the low tick price into display-price space.
+         * Precondition: Tick size must be positive.
+         * Returns: Low price as ticks multiplied by tick size.
+         * Postcondition: PriceRange state is unchanged.
+         */
         validateTickSize(tickSize);
         return lowPriceTicks * tickSize;
     }
 
     public double getHighPrice(double tickSize) {
+        /*
+         * Intent: Convert the high tick price into display-price space.
+         * Precondition: Tick size must be positive.
+         * Returns: High price as ticks multiplied by tick size.
+         * Postcondition: PriceRange state is unchanged.
+         */
         validateTickSize(tickSize);
         return highPriceTicks * tickSize;
     }

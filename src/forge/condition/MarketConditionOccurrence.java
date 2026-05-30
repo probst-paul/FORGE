@@ -21,6 +21,12 @@ public class MarketConditionOccurrence {
             Instant eventTime,
             long eventPriceTicks
     ) {
+        /*
+         * Intent: Record one detected market condition occurrence for derived data and statistics.
+         * Precondition: Contract/session/event identity, side, timestamp, and price must be valid.
+         * Returns: A constructed MarketConditionOccurrence instance.
+         * Postcondition: Occurrence is immutable and contract symbol/event name are normalized.
+         */
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");
         }

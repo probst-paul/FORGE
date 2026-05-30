@@ -59,6 +59,12 @@ public class CliApplicationController {
     private final TargetSettingsSelectionService targetSettingsSelectionService;
 
     public CliApplicationController() {
+        /*
+         * Intent: Create the CLI controller with default package facades and selection services.
+         * Precondition: Default facade singletons must be available.
+         * Returns: A constructed CliApplicationController instance.
+         * Postcondition: Controller is wired for normal command-line execution.
+         */
         this(
                 FacadeForgeApplication.getTheInstance(),
                 FacadeForgeConfig.getTheInstance(),
@@ -79,6 +85,12 @@ public class CliApplicationController {
             ConditionSelectionService conditionSelectionService,
             TargetSettingsSelectionService targetSettingsSelectionService
     ) {
+        /*
+         * Intent: Create the CLI controller with explicit dependencies for tests or alternate wiring.
+         * Precondition: Dependencies should be non-null and satisfy their package contracts.
+         * Returns: A constructed CliApplicationController instance.
+         * Postcondition: Controller delegates workflow work to the supplied dependencies.
+         */
         this.forgeApplication = forgeApplication;
         this.forgeConfig = forgeConfig;
         this.instrumentSelectionService = instrumentSelectionService;
@@ -88,10 +100,22 @@ public class CliApplicationController {
         this.targetSettingsSelectionService = targetSettingsSelectionService;
     }
 
+    /*
+     * Intent: Run the CLI using System.in and console output.
+     * Precondition: Standard input/output must be available.
+     * Returns: Nothing.
+     * Postcondition: CLI workflow runs until user exit.
+     */
     public void run() {
         run(new ConsoleUserInput(new Scanner(System.in)), new ConsoleUserOutput());
     }
 
+    /*
+     * Intent: Run the top-level CLI menu loop using injected input/output adapters.
+     * Precondition: Input and output adapters must exist and be usable.
+     * Returns: Nothing.
+     * Postcondition: Menu repeats after each action until the user enters the quit command.
+     */
     public void run(UserInput input, UserOutput output) {
         try {
             printTitle(output);
@@ -106,6 +130,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Display the main menu, dispatch the selected action, and indicate whether the CLI should continue.
+     * Precondition: Input/output adapters must be active.
+     * Returns: True when the menu should be shown again.
+     * Postcondition: Selected action is attempted and failures are handled without terminating the menu loop.
+     */
     private boolean selectAction(UserInput input, UserOutput output) {
         printSection(output, "Select Action");
         output.printLine("1. Run Backtest");
@@ -152,6 +182,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Run one menu action with consistent CLI exception handling.
+     * Precondition: Action name should describe the operation and action must not be null.
+     * Returns: Nothing.
+     * Postcondition: User quit is propagated; expected failures are reported and control returns to the menu.
+     */
     private void runCliAction(String actionName, UserOutput output, Runnable action) {
         try {
             action.run();
@@ -170,6 +206,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Configure and run a backtest from CLI selections.
+     * Precondition: Imported contract windows, strategies, and required config options must be available.
+     * Returns: Nothing.
+     * Postcondition: Backtest result is printed and the user is prompted before returning to the main menu.
+     */
     private void runBacktestSetup(UserInput input, UserOutput output) {
         BacktestRequest request = configureBacktest(input, output);
         StatusTimer timer = StatusTimer.start();
@@ -187,6 +229,12 @@ public class CliApplicationController {
         input.readString("Press Enter or type anything to return to Select Action");
     }
 
+    /*
+     * Intent: Gather all CLI inputs needed to build a BacktestRequest.
+     * Precondition: Available contracts, strategy metadata, condition metadata, and target defaults must exist.
+     * Returns: Fully assembled BacktestRequest.
+     * Postcondition: No backtest has run yet; selections are converted into config objects.
+     */
     private BacktestRequest configureBacktest(UserInput input, UserOutput output) {
         printSection(output, "Select Instrument(s)");
         SelectedBacktestContracts selectedContracts = instrumentSelectionService.selectContracts(input, output);
@@ -225,6 +273,12 @@ public class CliApplicationController {
         );
     }
 
+    /*
+     * Intent: Run event-statistics reporting from CLI-selected contract windows and statistic name.
+     * Precondition: Imported contract windows and supported event-statistic queries must be available.
+     * Returns: Nothing.
+     * Postcondition: Event-statistics report is printed and the user is prompted before returning to the main menu.
+     */
     private void runEventStatistics(UserInput input, UserOutput output) {
         printSection(output, "Select Instrument(s)");
         SelectedBacktestContracts selectedContracts = instrumentSelectionService.selectContracts(input, output);
@@ -252,6 +306,12 @@ public class CliApplicationController {
         input.readString("Press Enter or type anything to return to Select Action");
     }
 
+    /*
+     * Intent: Let the user choose one supported event-statistics query.
+     * Precondition: Engine facade must expose at least one supported query event name.
+     * Returns: Selected event statistic name.
+     * Postcondition: Input is consumed until a valid selection is made or the user quits.
+     */
     private String selectEventStatistic(UserInput input, UserOutput output) {
         java.util.List<String> eventNames = FacadeForgeEngine.getTheInstance()
                 .forgeEngineAccess()
@@ -280,6 +340,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Print helpful guidance when a backtest technically completes but produces little or no usable output.
+     * Precondition: BacktestResult must exist.
+     * Returns: Nothing.
+     * Postcondition: Output may include diagnostic guidance; result object is unchanged.
+     */
     private void printBacktestEmptyResultGuidance(UserOutput output, BacktestResult result) {
         if (result.getTicksProcessed() == 0) {
             output.printBlankLine();
@@ -300,6 +366,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Count completed trades across all instrument-level backtest summaries.
+     * Precondition: BacktestResult must exist and expose instrument results.
+     * Returns: Total completed trade count.
+     * Postcondition: Backtest result is unchanged.
+     */
     private long totalTrades(BacktestResult result) {
         long trades = 0;
         for (forge.reporting.InstrumentBacktestResult instrumentResult : result.getInstrumentResults()) {
@@ -308,6 +380,12 @@ public class CliApplicationController {
         return trades;
     }
 
+    /*
+     * Intent: Print guidance when event statistics have no complete session results.
+     * Precondition: EventStatisticsReport must exist.
+     * Returns: Nothing.
+     * Postcondition: Output may include diagnostic guidance; report object is unchanged.
+     */
     private void printEventStatisticsEmptyResultGuidance(UserOutput output, EventStatisticsReport report) {
         if (report.getInstrumentResults().isEmpty() && report.getContractResults().isEmpty()) {
             output.printBlankLine();
@@ -316,6 +394,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Print event-statistics rows for either instrument or contract scope.
+     * Precondition: Results list must exist; title should describe the scope.
+     * Returns: Nothing.
+     * Postcondition: Results are displayed and source result objects are unchanged.
+     */
     private void printEventStatisticsResults(
             UserOutput output,
             String title,
@@ -339,6 +423,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Run the SCID import workflow from CLI input.
+     * Precondition: User must provide a valid .scid path and confirm rebuild when existing contract data is found.
+     * Returns: Nothing.
+     * Postcondition: Raw trade data may be imported/rebuilt and import summary is printed.
+     */
     private void runDataImport(UserInput input, UserOutput output) {
         printSection(output, "Import Data");
         String scidFilePath;
@@ -397,6 +487,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Build or refresh selected derived-data tables from existing imported contract data.
+     * Precondition: At least one valid contract window must be available and the user must select derived-data options.
+     * Returns: Nothing.
+     * Postcondition: Derived data may be built/rebuilt and build summary is printed.
+     */
     private void runDerivedDataBuild(UserInput input, UserOutput output) {
         printSection(output, "Build/Refresh Derived Data");
         SelectedBacktestContracts selectedContracts = instrumentSelectionService.selectContracts(input, output);
@@ -435,6 +531,12 @@ public class CliApplicationController {
         output.printLine("Build time: " + formatDuration(result.getElapsedTime()));
     }
 
+    /*
+     * Intent: Run the benchmark workflow from a SCID file path and print timing summaries.
+     * Precondition: User must provide a valid .scid path and confirm rebuild when existing contract data is found.
+     * Returns: Nothing.
+     * Postcondition: Import, derived-data build, event statistics, and backtest may run; benchmark summary is printed.
+     */
     private void runBenchmarkWorkflow(UserInput input, UserOutput output) {
         printSection(output, "Benchmark Workflow");
         String scidFilePath;
@@ -500,6 +602,12 @@ public class CliApplicationController {
         input.readString("Press Enter or type anything to return to Select Action");
     }
 
+    /*
+     * Intent: Let the user choose which derived-data families to build.
+     * Precondition: User must enter one of the displayed menu options.
+     * Returns: Set of selected DerivedDataBuildOption values.
+     * Postcondition: Invalid selections are rejected and reprompted.
+     */
     private Set<DerivedDataBuildOption> selectDerivedDataBuildOptions(UserInput input, UserOutput output) {
         output.printLine("Available derived data:");
         output.printLine("1. Session ranges");
@@ -521,6 +629,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Ask whether existing derived data should be rebuilt.
+     * Precondition: User must answer y or n, or quit.
+     * Returns: True when existing derived data should be rebuilt.
+     * Postcondition: Invalid answers are rejected and reprompted.
+     */
     private boolean confirmRebuildDerivedData(UserInput input, UserOutput output) {
         while (true) {
             String confirmation = input.readString("Rebuild existing derived data if present? (y/n)");
@@ -535,6 +649,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Print the planned derived-data build work before execution.
+     * Precondition: DatabaseBuildPlan must exist.
+     * Returns: Nothing.
+     * Postcondition: Plan is displayed and unchanged.
+     */
     private void printDatabaseBuildPlan(UserOutput output, DatabaseBuildPlan plan) {
         output.printBlankLine();
         output.printLine("Derived data build plan:");
@@ -551,6 +671,12 @@ public class CliApplicationController {
         ));
     }
 
+    /*
+     * Intent: Convert build-plan flags into compact user-facing text.
+     * Precondition: Flags must represent whether an item exists and whether it will be built.
+     * Returns: One of build, rebuild, already built, or not selected.
+     * Postcondition: No state is changed.
+     */
     private String describeBuildPlanItem(boolean alreadyBuilt, boolean willBuild) {
         if (willBuild) {
             return alreadyBuilt ? "rebuild" : "build";
@@ -558,6 +684,12 @@ public class CliApplicationController {
         return alreadyBuilt ? "already built" : "not selected";
     }
 
+    /*
+     * Intent: Confirm destructive replacement of existing imported contract data.
+     * Precondition: DataImportPlan must describe the existing target contract.
+     * Returns: True when the user confirms wipe/rebuild.
+     * Postcondition: Invalid answers are rejected and reprompted; no data is changed by this method.
+     */
     private boolean confirmWipeAndRebuild(UserInput input, UserOutput output, DataImportPlan plan) {
         while (true) {
             String confirmation = input.readString("Wipe and rebuild " + plan.getContractSymbol() + " from this file? (y/n)");
@@ -572,6 +704,12 @@ public class CliApplicationController {
         }
     }
 
+    /*
+     * Intent: Explain why a user-canceled import did not proceed.
+     * Precondition: SCID path and import plan must describe the attempted import.
+     * Returns: User-facing cancellation reason.
+     * Postcondition: No state is changed.
+     */
     private String importCanceledReason(String scidFilePath, DataImportPlan plan) {
         String requestedSourceFileName = Path.of(scidFilePath.trim().replace('\\', '/')).getFileName().toString();
         if (requestedSourceFileName.equalsIgnoreCase(plan.getCurrentSourceFileName())) {
@@ -582,6 +720,12 @@ public class CliApplicationController {
                 " data was kept. Answer y to wipe it and import the selected SCID file.";
     }
 
+    /*
+     * Intent: Format elapsed time compactly for CLI summaries and status bars.
+     * Precondition: Duration should be non-null and nonnegative.
+     * Returns: Human-readable duration string with millisecond precision.
+     * Postcondition: Duration object is unchanged.
+     */
     private String formatDuration(Duration duration) {
         long totalMillis = duration.toMillis();
         long hours = totalMillis / 3_600_000;
@@ -603,6 +747,12 @@ public class CliApplicationController {
             StatusTimer timer,
             boolean[] finished
     ) {
+        /*
+         * Intent: Render import progress as a single updating CLI status line.
+         * Precondition: Progress totals must be available and finished must be a one-element mutable flag.
+         * Returns: Nothing.
+         * Postcondition: Final progress line is closed exactly once when import reaches completion.
+         */
         if (finished[0]) {
             return;
         }
@@ -614,6 +764,12 @@ public class CliApplicationController {
     }
 
     private String renderImportProgress(ImportProgress progress, StatusTimer timer) {
+        /*
+         * Intent: Build the import progress text shown in the one-line status bar.
+         * Precondition: Progress and timer must be non-null.
+         * Returns: A formatted import progress string.
+         * Postcondition: Progress and timer state are not modified.
+         */
         return "Importing " + progress.getContractSymbol() +
                 " [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
@@ -627,6 +783,12 @@ public class CliApplicationController {
             StatusTimer timer,
             boolean[] finished
     ) {
+        /*
+         * Intent: Render backtest progress as a single updating CLI status line.
+         * Precondition: Progress totals must be available and finished must be a one-element mutable flag.
+         * Returns: Nothing.
+         * Postcondition: Final progress line is closed exactly once when the backtest reaches completion.
+         */
         if (finished[0]) {
             return;
         }
@@ -638,6 +800,12 @@ public class CliApplicationController {
     }
 
     private String renderBacktestProgress(BacktestProgress progress, StatusTimer timer) {
+        /*
+         * Intent: Build the backtest progress text shown in the one-line status bar.
+         * Precondition: Progress and timer must be non-null.
+         * Returns: A formatted backtest progress string.
+         * Postcondition: Progress and timer state are not modified.
+         */
         return "Running backtest [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
                 progress.getProcessedTicks() + "/" + progress.getTotalTicks() +
@@ -650,6 +818,12 @@ public class CliApplicationController {
             StatusTimer timer,
             boolean[] finished
     ) {
+        /*
+         * Intent: Render event-statistics progress as a single updating CLI status line.
+         * Precondition: Progress totals must be available and finished must be a one-element mutable flag.
+         * Returns: Nothing.
+         * Postcondition: Final progress line is closed exactly once when statistics processing completes.
+         */
         if (finished[0]) {
             return;
         }
@@ -661,6 +835,12 @@ public class CliApplicationController {
     }
 
     private String renderEventStatisticsProgress(EventStatisticsProgress progress, StatusTimer timer) {
+        /*
+         * Intent: Build the event-statistics progress text shown in the one-line status bar.
+         * Precondition: Progress and timer must be non-null.
+         * Returns: A formatted event-statistics progress string.
+         * Postcondition: Progress and timer state are not modified.
+         */
         return "Running event statistics [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
                 progress.getProcessedTicks() + "/" + progress.getTotalTicks() +
@@ -673,6 +853,12 @@ public class CliApplicationController {
             StatusTimer timer,
             boolean[] finished
     ) {
+        /*
+         * Intent: Render derived-data build progress as a single updating CLI status line.
+         * Precondition: Progress totals must be available and finished must be a one-element mutable flag.
+         * Returns: Nothing.
+         * Postcondition: Final progress line is closed exactly once when derived-data build completes.
+         */
         if (finished[0]) {
             return;
         }
@@ -684,6 +870,12 @@ public class CliApplicationController {
     }
 
     private String renderDataBuildProgress(DataBuildProgress progress, StatusTimer timer) {
+        /*
+         * Intent: Build the derived-data progress text shown in the one-line status bar.
+         * Precondition: Progress and timer must be non-null.
+         * Returns: A formatted derived-data progress string.
+         * Postcondition: Progress and timer state are not modified.
+         */
         return "Building derived data [" + renderProgressBar(progress.getCompletionRatio()) + "] " +
                 progress.getCompletionPercent() + "% " +
                 progress.getProcessedTicks() + "/" + progress.getTotalTicks() +
@@ -691,6 +883,12 @@ public class CliApplicationController {
     }
 
     private String renderProgressBar(double completionRatio) {
+        /*
+         * Intent: Convert a completion ratio into the fixed-width text progress bar used by CLI workflows.
+         * Precondition: Completion ratio should be between 0.0 and 1.0.
+         * Returns: A 24-character progress bar made of filled and empty segments.
+         * Postcondition: No external state is changed.
+         */
         int barWidth = 24;
         int filledWidth = (int) Math.round(completionRatio * barWidth);
         StringBuilder bar = new StringBuilder();
@@ -701,6 +899,12 @@ public class CliApplicationController {
     }
 
     private StatusTimer timerFor(StatusTimer[] timer) {
+        /*
+         * Intent: Lazily create a timer for a benchmark sub-workflow when its first progress event arrives.
+         * Precondition: Timer holder must be a one-element mutable array.
+         * Returns: Existing timer or newly started timer.
+         * Postcondition: Timer holder contains a started timer.
+         */
         if (timer[0] == null) {
             timer[0] = StatusTimer.start();
         }
@@ -708,6 +912,12 @@ public class CliApplicationController {
     }
 
     private void configureDatabase(UserInput input, UserOutput output) {
+        /*
+         * Intent: Read database connection settings from the CLI and apply them through the app facade.
+         * Precondition: User must provide valid settings or accept defaults.
+         * Returns: Nothing.
+         * Postcondition: Application data services use the accepted database configuration.
+         */
         printSection(output, "Configure Database");
         PostgresDatabaseSettings defaults = PostgresDatabaseSettings.fromEnvironment();
         DatabaseConnectionRequest request;
@@ -738,6 +948,12 @@ public class CliApplicationController {
     }
 
     private void printTitle(UserOutput output) {
+        /*
+         * Intent: Print the FORGE application title banner.
+         * Precondition: Output adapter must be usable.
+         * Returns: Nothing.
+         * Postcondition: Title banner is written to output.
+         */
         output.printLine(TITLE_SEPARATOR);
         output.printBlankLine();
         output.printLine("FORGE");
@@ -746,6 +962,12 @@ public class CliApplicationController {
     }
 
     private void printSection(UserOutput output, String title) {
+        /*
+         * Intent: Print a visually consistent CLI section header.
+         * Precondition: Output adapter must be usable and title should describe the section.
+         * Returns: Nothing.
+         * Postcondition: Section header is written to output.
+         */
         output.printLine(SECTION_SEPARATOR);
         output.printLine(title);
         output.printLine(SECTION_SEPARATOR);
@@ -755,14 +977,32 @@ public class CliApplicationController {
         private final long startedAtNanos;
 
         private StatusTimer(long startedAtNanos) {
+            /*
+             * Intent: Store a monotonic start time for elapsed-time measurement.
+             * Precondition: Start time should come from System.nanoTime().
+             * Returns: A constructed StatusTimer instance.
+             * Postcondition: Timer has an immutable start point.
+             */
             this.startedAtNanos = startedAtNanos;
         }
 
         private static StatusTimer start() {
+            /*
+             * Intent: Start a timer using the current monotonic clock reading.
+             * Precondition: System.nanoTime() must be available.
+             * Returns: New StatusTimer instance.
+             * Postcondition: Timer can report elapsed duration from this point.
+             */
             return new StatusTimer(System.nanoTime());
         }
 
         private Duration elapsed() {
+            /*
+             * Intent: Calculate elapsed time since the timer started.
+             * Precondition: Timer must have been created with a valid nanoTime value.
+             * Returns: Duration between start time and current monotonic clock reading.
+             * Postcondition: Timer start point is unchanged.
+             */
             return Duration.ofNanos(System.nanoTime() - startedAtNanos);
         }
     }

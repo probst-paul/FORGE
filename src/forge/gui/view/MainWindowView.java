@@ -24,6 +24,12 @@ public class MainWindowView {
     }
 
     public void render(Stage stage, MainWindowViewModel viewModel) {
+        /*
+         * Intent: Construct and show the main JavaFX shell for all GUI workflows.
+         * Precondition: stage and viewModel must be non-null.
+         * Returns: Nothing.
+         * Postcondition: Navigation, workflow content, and status bar are visible.
+         */
         if (stage == null) {
             throw new IllegalArgumentException("stage is required");
         }
@@ -71,6 +77,12 @@ public class MainWindowView {
             MainWindowViewModel viewModel,
             BorderPane root
     ) {
+        /*
+         * Intent: Create a navigation button that swaps the center workflow content.
+         * Precondition: workflowType and root must belong to the active main window.
+         * Returns: Configured JavaFX button.
+         * Postcondition: Clicking the button updates active workflow and status text.
+         */
         Button button = new Button(label);
         button.setMaxWidth(Double.MAX_VALUE);
         button.setAlignment(Pos.CENTER_LEFT);
@@ -83,6 +95,12 @@ public class MainWindowView {
     }
 
     private StackPane createWorkflowContent(Window owner, GuiWorkflowType workflowType) {
+        /*
+         * Intent: Build the selected workflow view through the GUI facade.
+         * Precondition: workflowType must identify a supported GUI workflow.
+         * Returns: StackPane containing the selected workflow screen.
+         * Postcondition: Workflow-specific controller/view instances are created on demand.
+         */
         StackPane content = new StackPane();
         content.setPadding(new Insets(28));
         if (workflowType == GuiWorkflowType.IMPORT_DATA) {

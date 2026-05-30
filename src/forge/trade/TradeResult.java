@@ -53,6 +53,12 @@ public class TradeResult {
             double maxAdverseExcursionDollars,
             String exitReason
     ) {
+        /*
+         * Intent: Store the final outcome of one completed simulated trade.
+         * Precondition: Symbols and exit reason must be nonblank; side/times must exist; prices and quantity must be positive.
+         * Returns: A constructed TradeResult instance.
+         * Postcondition: Trade result fields are validated and normalized for reporting.
+         */
         this.instrumentSymbol = requireText(instrumentSymbol, "instrumentSymbol is required");
         this.contractSymbol = requireText(contractSymbol, "contractSymbol is required");
         this.side = Objects.requireNonNull(side, "side is required");
@@ -129,6 +135,12 @@ public class TradeResult {
         return exitReason;
     }
 
+    /*
+     * Intent: Validate and normalize required report text.
+     * Precondition: Value must not be null, empty, or whitespace-only.
+     * Returns: Trimmed uppercase text.
+     * Postcondition: Callers receive canonical text or an exception before invalid state is stored.
+     */
     private static String requireText(String value, String message) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(message);

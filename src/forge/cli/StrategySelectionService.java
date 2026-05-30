@@ -12,9 +12,21 @@ public class StrategySelectionService {
     private final FacadeForgeStrategy facadeStrategy;
 
     public StrategySelectionService(FacadeForgeStrategy facadeStrategy) {
+        /*
+         * Intent: Create a CLI strategy selection service backed by the strategy facade.
+         * Precondition: Strategy facade should be available.
+         * Returns: A constructed StrategySelectionService instance.
+         * Postcondition: Future strategy choices query strategy metadata through the supplied facade.
+         */
         this.facadeStrategy = facadeStrategy;
     }
 
+    /*
+     * Intent: Let the user choose one available trading strategy.
+     * Precondition: At least one strategy must be registered in the strategy facade.
+     * Returns: Selected TradingStrategy class.
+     * Postcondition: Input is consumed until a valid selection is made or the user quits.
+     */
     public Class<? extends TradingStrategy> selectStrategy(UserInput input, UserOutput output) {
         List<Class<? extends TradingStrategy>> strategies = facadeStrategy.forgeStrategyAccess().findAvailableStrategies();
         if (strategies.isEmpty()) {

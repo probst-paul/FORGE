@@ -50,15 +50,33 @@ public class FuturesContract extends Instrument {
     }
 
     public boolean isExpiredOn(LocalDate date) {
+        /*
+         * Intent: Determine whether this contract is expired on a given date.
+         * Precondition: date must be non-null.
+         * Returns: true when date is on or after the contract expiration date.
+         * Postcondition: Contract state is unchanged.
+         */
         Objects.requireNonNull(date, "date is required");
         return !date.isBefore(expirationDate);
     }
 
     public double calculateDollarValueForTicks(double ticks) {
+        /*
+         * Intent: Convert a tick count into the contract's dollar value.
+         * Precondition: ticks may be positive, negative, or zero.
+         * Returns: Dollar value represented by the tick movement.
+         * Postcondition: Contract state is unchanged.
+         */
         return ticks * tickDollarAmount;
     }
 
     public double calculateTicksForPriceMove(double priceMove) {
+        /*
+         * Intent: Convert a price movement into instrument ticks.
+         * Precondition: priceMove should be expressed in this contract's price units.
+         * Returns: Tick movement represented by the price move.
+         * Postcondition: Contract state is unchanged.
+         */
         return priceMove / tickSize;
     }
 

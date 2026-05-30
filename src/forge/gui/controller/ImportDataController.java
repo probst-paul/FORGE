@@ -32,11 +32,23 @@ public class ImportDataController {
     }
 
     public DataImportPlan planImport(String scidFilePath) {
+        /*
+         * Intent: Inspect the selected SCID file before import so the GUI can confirm rebuilds.
+         * Precondition: scidFilePath must identify a readable SCID file.
+         * Returns: Import plan describing the target contract and existing data state.
+         * Postcondition: The view model remembers the selected SCID path.
+         */
         viewModel.setScidFilePath(scidFilePath);
         return forgeApplication.forgeApplicationAccess().planDataImport(new DataImportRequest(scidFilePath));
     }
 
     public DataImportResult importData(String scidFilePath, boolean rebuildExistingContract) {
+        /*
+         * Intent: Run SCID import synchronously for tests or non-task GUI callers.
+         * Precondition: scidFilePath must be valid and rebuildExistingContract must reflect user confirmation.
+         * Returns: Completed import result.
+         * Postcondition: The view model is marked succeeded or failed with import details.
+         */
         viewModel.setScidFilePath(scidFilePath);
         viewModel.setRebuildExistingContract(rebuildExistingContract);
         viewModel.markStarted("Importing data...");
@@ -55,6 +67,12 @@ public class ImportDataController {
     }
 
     public Task<DataImportResult> importDataTask(String scidFilePath, boolean rebuildExistingContract) {
+        /*
+         * Intent: Create a JavaFX task for importing SCID data off the UI thread.
+         * Precondition: scidFilePath must be valid and rebuildExistingContract must reflect user confirmation.
+         * Returns: Task that yields the import result.
+         * Postcondition: Task progress callbacks update the view model through JavaFX bindings.
+         */
         viewModel.setScidFilePath(scidFilePath);
         viewModel.setRebuildExistingContract(rebuildExistingContract);
         return GuiControllerTasks.create(
@@ -71,6 +89,12 @@ public class ImportDataController {
     }
 
     private void applyImportResult(DataImportResult result) {
+        /*
+         * Intent: Copy completed import details into GUI state.
+         * Precondition: result must be a successful import result.
+         * Returns: Nothing.
+         * Postcondition: The view model exposes row counts, contract information, and success text.
+         */
         viewModel.setContractSymbol(result.getContractSymbol());
         viewModel.setTableName(result.getTableName());
         viewModel.setRowsImported(result.getImportedRows());

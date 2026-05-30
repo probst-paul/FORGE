@@ -20,6 +20,12 @@ public class EventStatisticsRequest {
             String eventName,
             EventStatisticsProgressListener progressListener
     ) {
+        /*
+         * Intent: Package the selected contract windows, statistic/event name, and progress callback for an event-statistics run.
+         * Precondition: At least one non-null contract window is required; event name must be nonblank; progress listener must exist.
+         * Returns: A constructed EventStatisticsRequest instance.
+         * Postcondition: Contract windows are defensively copied into an immutable list and event name is trimmed.
+         */
         if (contractWindows == null || contractWindows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
         }

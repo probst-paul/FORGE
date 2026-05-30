@@ -25,6 +25,12 @@ public class EventStatisticsQueryRunner {
             ConditionBuildService eventBuildService,
             QueryService queryService
     ) {
+        /*
+         * Intent: Create the event-statistics runner from tick source, derived-data cache, builders, and query service.
+         * Precondition: All dependencies must be non-null.
+         * Returns: A constructed EventStatisticsQueryRunner instance.
+         * Postcondition: Runner can load/build derived data before summarizing statistics.
+         */
         if (tradeTickSource == null) {
             throw new IllegalArgumentException("tradeTickSource is required");
         }
@@ -48,6 +54,12 @@ public class EventStatisticsQueryRunner {
     }
 
     public EventStatisticsReport run(EventStatisticsQueryRequest request) {
+        /*
+         * Intent: Run event statistics using cached derived data when available and building missing data when needed.
+         * Precondition: Request must identify supported event name and valid contract windows.
+         * Returns: EventStatisticsReport.
+         * Postcondition: Missing session ranges or condition occurrences may be saved and marked built.
+         */
         if (request == null) {
             throw new IllegalArgumentException("request is required");
         }
@@ -85,6 +97,12 @@ public class EventStatisticsQueryRunner {
     }
 
     private List<TradeTick> readTicks(EventStatisticsQueryRequest request) {
+        /*
+         * Intent: Read all selected ticks for statistics derivation while reporting progress.
+         * Precondition: Request must contain valid windows and batch size.
+         * Returns: In-memory list of ticks used by current statistics workflow.
+         * Postcondition: Progress listener reaches total tick count when all batches are read.
+         */
         long totalTicks = tradeTickSource.countTradeTicks(request.getContractWindows());
         request.getProgressListener().onProgress(new EventStatisticsProgress(0, totalTicks));
 

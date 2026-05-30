@@ -25,6 +25,12 @@ public class SessionRangeFeature extends FeatureResult {
             long rthLowTicks,
             long rthHighTicks
     ) {
+        /*
+         * Intent: Store complete overnight, first-hour, and RTH ranges for one contract trading day.
+         * Precondition: Contract/session identity must be valid and all ranges must have positive ordered tick prices.
+         * Returns: A constructed SessionRangeFeature instance.
+         * Postcondition: Feature is immutable and contract symbol is normalized to uppercase.
+         */
         super(FEATURE_NAME, FEATURE_VERSION);
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");
@@ -46,6 +52,12 @@ public class SessionRangeFeature extends FeatureResult {
     }
 
     private void validateRange(long lowTicks, long highTicks, String name) {
+        /*
+         * Intent: Validate one session's low/high tick range before storing the feature.
+         * Precondition: Low/high ticks should be positive normalized prices.
+         * Returns: Nothing.
+         * Postcondition: Invalid ranges fail before feature construction completes.
+         */
         if (lowTicks <= 0 || highTicks <= 0) {
             throw new IllegalArgumentException(name + " range prices must be greater than zero");
         }

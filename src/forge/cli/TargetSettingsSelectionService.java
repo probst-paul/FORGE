@@ -8,6 +8,12 @@ import forge.strategy.StrategyConfigurationProfile;
 import java.util.List;
 
 public class TargetSettingsSelectionService {
+    /*
+     * Intent: Select a target mode while honoring the selected strategy's configuration profile.
+     * Precondition: Strategy profile must define default and allowed target modes.
+     * Returns: Default target mode when selection is locked, otherwise the user's selected allowed mode.
+     * Postcondition: User cannot select a target mode outside the strategy profile.
+     */
     public String selectTargetMode(
             UserInput input,
             UserOutput output,
@@ -36,6 +42,12 @@ public class TargetSettingsSelectionService {
         }
     }
 
+    /*
+     * Intent: Read CLI target settings for the selected target mode, using strategy defaults where possible.
+     * Precondition: Target mode must be supported by the strategy profile.
+     * Returns: TargetSettings for fixed target or fixed risk/reward mode.
+     * Postcondition: Invalid numeric settings are rejected and reprompted without changing data state.
+     */
     public TargetSettings readTargetSettings(
             UserInput input,
             UserOutput output,

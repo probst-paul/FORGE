@@ -41,6 +41,12 @@ public class DatabaseConfigView {
     }
 
     public Parent createView() {
+        /*
+         * Intent: Build the database configuration screen and apply saved defaults.
+         * Precondition: Controller and preference store must be initialized.
+         * Returns: JavaFX parent node for the database configuration workflow.
+         * Postcondition: Form controls are populated and bound to workflow status output.
+         */
         DatabaseConfigViewModel viewModel = controller.getViewModel();
         GuiUserPreferences preferences = preferencesStore.load();
 
@@ -160,6 +166,12 @@ public class DatabaseConfigView {
             String username,
             String password
     ) {
+        /*
+         * Intent: Validate form input and start database configuration off the UI thread.
+         * Precondition: portText must parse as an integer; blank optional fields use defaults.
+         * Returns: Nothing.
+         * Postcondition: A daemon config thread is started, or validation/failure is shown.
+         */
         DatabaseConfigViewModel viewModel = controller.getViewModel();
         int port;
         try {
@@ -213,6 +225,12 @@ public class DatabaseConfigView {
             String maintenanceDatabaseName,
             String username
     ) {
+        /*
+         * Intent: Persist successful database settings for later GUI launches.
+         * Precondition: Values must be the resolved settings used for a successful connection.
+         * Returns: Nothing.
+         * Postcondition: The preferences .dat file stores the latest database defaults.
+         */
         GuiUserPreferences preferences = preferencesStore.load();
         preferences.setDatabaseHost(host);
         preferences.setDatabasePort(port);

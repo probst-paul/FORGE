@@ -74,6 +74,12 @@ public class StrategyConfigurationProfile {
     }
 
     public TargetSettings getDefaultTargetSettings(String targetMode) {
+        /*
+         * Intent: Retrieve the default target settings for a target mode allowed by this strategy.
+         * Precondition: targetMode must match one configured target mode.
+         * Returns: TargetSettings for that mode.
+         * Postcondition: Profile state is unchanged.
+         */
         TargetSettings settings = defaultTargetSettingsByTarget.get(targetMode);
         if (settings == null) {
             throw new IllegalArgumentException("No default target settings configured for " + targetMode);
@@ -89,6 +95,12 @@ public class StrategyConfigurationProfile {
     }
 
     private <T> List<T> validateChoices(List<? extends T> choices, String name, Function<T, T> normalizer) {
+        /*
+         * Intent: Validate and normalize a generic strategy configuration choice list.
+         * Precondition: choices must be non-null/non-empty and normalizer must return valid choices.
+         * Returns: Immutable normalized list preserving choice order.
+         * Postcondition: Invalid or mutable caller-owned choice lists cannot leak into the profile.
+         */
         Objects.requireNonNull(choices, name + " is required");
         if (choices.isEmpty()) {
             throw new IllegalArgumentException(name + " must contain at least one choice");
@@ -105,6 +117,12 @@ public class StrategyConfigurationProfile {
             List<Class<? extends T>> allowedChoices,
             String name
     ) {
+        /*
+         * Intent: Validate that a generic class-based default is part of its allowed choices.
+         * Precondition: defaultChoice must be non-null and allowedChoices must be normalized.
+         * Returns: The accepted default class.
+         * Postcondition: Profiles cannot reference unavailable defaults.
+         */
         Objects.requireNonNull(defaultChoice, name + " is required");
         if (!allowedChoices.contains(defaultChoice)) {
             throw new IllegalArgumentException(name + " must be included in allowed choices");
@@ -116,6 +134,12 @@ public class StrategyConfigurationProfile {
             Map<String, TargetSettings> settingsByTarget,
             List<String> allowedTargets
     ) {
+        /*
+         * Intent: Ensure each allowed target mode has matching default settings.
+         * Precondition: settingsByTarget must be non-null and allowedTargets must be normalized.
+         * Returns: Unmodifiable target-mode-to-settings map.
+         * Postcondition: Missing default target settings are rejected at profile construction time.
+         */
         Objects.requireNonNull(settingsByTarget, "defaultTargetSettingsByTarget is required");
         Map<String, TargetSettings> normalized = new LinkedHashMap<>();
         for (String targetMode : allowedTargets) {

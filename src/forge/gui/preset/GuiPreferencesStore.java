@@ -27,6 +27,12 @@ public class GuiPreferencesStore {
     }
 
     public GuiUserPreferences load() {
+        /*
+         * Intent: Load saved GUI defaults from the user's preferences file.
+         * Precondition: preferencesPath may or may not exist.
+         * Returns: Saved preferences when readable, otherwise default preferences.
+         * Postcondition: Corrupt or incompatible preference files do not prevent GUI startup.
+         */
         if (!Files.exists(preferencesPath)) {
             return new GuiUserPreferences();
         }
@@ -42,6 +48,12 @@ public class GuiPreferencesStore {
     }
 
     public void save(GuiUserPreferences preferences) {
+        /*
+         * Intent: Persist GUI defaults using Java object serialization.
+         * Precondition: preferences must be non-null and serializable.
+         * Returns: Nothing.
+         * Postcondition: Parent directories exist and the .dat preferences file is written.
+         */
         if (preferences == null) {
             throw new IllegalArgumentException("preferences is required");
         }

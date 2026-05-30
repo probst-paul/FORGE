@@ -22,6 +22,12 @@ public class TradeTick {
             int side,
             long scidRecordIndex
     ) {
+        /*
+         * Intent: Represent one strategy-usable trade tick read from stored market data.
+         * Precondition: Contract, timestamp, quantity, side, and SCID record index must be valid.
+         * Returns: A constructed TradeTick instance.
+         * Postcondition: Tick is immutable and contract symbol is normalized to uppercase.
+         */
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");
         }

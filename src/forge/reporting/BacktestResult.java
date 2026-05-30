@@ -40,6 +40,12 @@ public class BacktestResult {
         if (instrumentResults == null) {
             throw new IllegalArgumentException("instrumentResults is required");
         }
+        /*
+         * Intent: Build a top-level backtest result from instrument-level results.
+         * Precondition: strategyName must be present and instrumentResults must contain valid result objects.
+         * Returns: Constructed BacktestResult.
+         * Postcondition: Contract symbols, processed ticks, and signal counts are aggregated once.
+         */
         this.strategyName = requireStrategyName(strategyName);
         this.instrumentResults = ImmutableLists.copyOfRequired(instrumentResults, "instrumentResults");
         List<String> symbols = new ArrayList<>();
@@ -58,6 +64,12 @@ public class BacktestResult {
     }
 
     private String requireStrategyName(String strategyName) {
+        /*
+         * Intent: Validate and normalize the strategy name used in reports.
+         * Precondition: strategyName must be non-null and non-blank.
+         * Returns: Trimmed strategy name.
+         * Postcondition: Report objects never store blank strategy names.
+         */
         if (strategyName == null || strategyName.trim().isEmpty()) {
             throw new IllegalArgumentException("strategyName is required");
         }
@@ -65,6 +77,12 @@ public class BacktestResult {
     }
 
     private List<String> normalizeContractSymbols(List<String> contractSymbols) {
+        /*
+         * Intent: Validate and normalize contract symbols for reporting.
+         * Precondition: contractSymbols must be non-null and contain non-blank symbols.
+         * Returns: Unmodifiable uppercase contract-symbol list.
+         * Postcondition: Report objects never expose mutable or blank contract-symbol lists.
+         */
         if (contractSymbols == null) {
             throw new IllegalArgumentException("contractSymbols is required");
         }
@@ -100,6 +118,12 @@ public class BacktestResult {
 
     @Override
     public String toString() {
+        /*
+         * Intent: Render the backtest result as CLI-friendly text.
+         * Precondition: Result fields must have been initialized by the constructor.
+         * Returns: Multi-line summary of run totals and per-scope performance metrics.
+         * Postcondition: Report state is unchanged.
+         */
         StringBuilder builder = new StringBuilder();
         builder.append("Strategy: ").append(strategyName).append(System.lineSeparator());
         builder.append("Ticks processed: ").append(ticksProcessed).append(System.lineSeparator());
@@ -116,6 +140,12 @@ public class BacktestResult {
     }
 
     private void appendSection(StringBuilder builder, String title, PerformanceMetrics metrics) {
+        /*
+         * Intent: Append one formatted performance section to a text report.
+         * Precondition: builder, title, and metrics must be non-null.
+         * Returns: Nothing.
+         * Postcondition: Builder contains formatted metrics for the requested section.
+         */
         builder.append(title).append(System.lineSeparator());
         builder.append("-------------------------").append(System.lineSeparator());
         builder.append("Total Trades: ").append(metrics.getTotalTrades()).append(System.lineSeparator());

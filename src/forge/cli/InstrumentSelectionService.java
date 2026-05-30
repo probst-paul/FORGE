@@ -16,9 +16,21 @@ public class InstrumentSelectionService {
     private final FacadeForgeData facadeData;
 
     public InstrumentSelectionService(FacadeForgeData facadeData) {
+        /*
+         * Intent: Create a CLI selection service backed by the data facade.
+         * Precondition: Data facade should be configured and available.
+         * Returns: A constructed InstrumentSelectionService instance.
+         * Postcondition: Future selections query available instruments/contracts through the supplied facade.
+         */
         this.facadeData = facadeData;
     }
 
+    /*
+     * Intent: Let the user choose either all available contracts for an instrument or specific contract windows.
+     * Precondition: Imported contract metadata must exist and include at least one valid front-month window.
+     * Returns: SelectedBacktestContracts containing the chosen contract windows.
+     * Postcondition: Input is consumed until a valid selection is made or the user quits.
+     */
     public SelectedBacktestContracts selectContracts(UserInput input, UserOutput output) {
         List<AvailableInstrumentData> instruments = facadeData.forgeDataAccess().getAvailableInstruments();
         List<AvailableContractData> contracts = facadeData.forgeDataAccess().getAvailableContracts();
@@ -55,10 +67,22 @@ public class InstrumentSelectionService {
         }
     }
 
+    /*
+     * Intent: Provide legacy/simple instrument selection as contract-symbol output.
+     * Precondition: selectContracts preconditions must be satisfied.
+     * Returns: List of selected contract symbols.
+     * Postcondition: Selection is still based on rollover-valid contract windows.
+     */
     public List<String> selectInstruments(UserInput input, UserOutput output) {
         return selectContracts(input, output).getContractSymbols();
     }
 
+    /*
+     * Intent: Let the user choose one or more specific contract windows by comma-separated menu number.
+     * Precondition: Contracts list must contain available front-month contract windows.
+     * Returns: SelectedBacktestContracts for the chosen contract windows.
+     * Postcondition: Invalid selections are rejected and reprompted without changing data state.
+     */
     private SelectedBacktestContracts selectCustomContracts(
             UserInput input,
             UserOutput output,
@@ -93,6 +117,12 @@ public class InstrumentSelectionService {
         }
     }
 
+    /*
+     * Intent: Convert catalog contract metadata into the backtest contract-window selection model.
+     * Precondition: Contracts list must contain at least one non-null available contract.
+     * Returns: SelectedBacktestContracts with ContractTradeWindow entries.
+     * Postcondition: Source catalog objects are not modified.
+     */
     private SelectedBacktestContracts toSelectedBacktestContracts(List<AvailableContractData> contracts) {
         if (contracts == null || contracts.isEmpty()) {
             throw new IllegalArgumentException("at least one contract must be selected");

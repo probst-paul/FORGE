@@ -38,6 +38,12 @@ public class RangeBreakoutStrategy implements TradingStrategy {
 
     @Override
     public StrategyDecision evaluate(StrategyContext strategyContext) {
+        /*
+         * Intent: Emit a directional market-order signal when price breaks outside the configured range.
+         * Precondition: strategyContext must be non-null; configured range must have non-zero high/low values.
+         * Returns: Buy signal above range, sell signal below range, or no action.
+         * Postcondition: Strategy state is unchanged.
+         */
         if (strategyContext == null) {
             throw new NullPointerException("strategyContext is required");
         }

@@ -26,10 +26,22 @@ public class StrategyCatalog {
     }
 
     public List<Class<? extends TradingStrategy>> findAvailableStrategies() {
+        /*
+         * Intent: Discover available trading strategy implementations.
+         * Precondition: Strategy classes must be visible on the classpath.
+         * Returns: List of concrete TradingStrategy implementation classes.
+         * Postcondition: Catalog state is unchanged.
+         */
         return strategyClasspathCatalog.findImplementations();
     }
 
     public String getDisplayName(Class<? extends TradingStrategy> strategyClass) {
+        /*
+         * Intent: Convert a strategy class name into a user-facing display name.
+         * Precondition: strategyClass must be non-null.
+         * Returns: Simple strategy name with the Strategy suffix removed when present.
+         * Postcondition: Strategy class is not instantiated.
+         */
         String simpleName = strategyClass.getSimpleName();
         if (simpleName.endsWith("Strategy")) {
             return simpleName.substring(0, simpleName.length() - "Strategy".length());
@@ -38,6 +50,12 @@ public class StrategyCatalog {
     }
 
     public String getDescription(Class<? extends TradingStrategy> strategyClass) {
+        /*
+         * Intent: Provide short CLI/GUI help text for a strategy.
+         * Precondition: strategyClass must be non-null.
+         * Returns: Strategy-specific description or a generic fallback.
+         * Postcondition: Strategy class is not instantiated.
+         */
         if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {
             return "Looks for the first RTH breach of the first-hour range after that range stays inside the overnight range.";
         }
@@ -48,6 +66,12 @@ public class StrategyCatalog {
     }
 
     public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategyClass) {
+        /*
+         * Intent: Define which conditions and target modes a strategy allows.
+         * Precondition: strategyClass must be one of the configured strategy classes.
+         * Returns: StrategyConfigurationProfile for CLI/GUI setup.
+         * Postcondition: Unsupported strategies are rejected before configuration is shown.
+         */
         if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {
             List<Class<? extends MarketCondition>> allowedConditions = List.of(PriceCrossoverCondition.class);
             List<String> allowedTargets = List.of(TargetSettings.FIXED_TARGET);

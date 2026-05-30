@@ -23,6 +23,12 @@ public class BenchmarkRunRequest {
             EventStatisticsProgressListener eventStatisticsProgressListener,
             BacktestProgressListener backtestProgressListener
     ) {
+        /*
+         * Intent: Package all inputs and progress callbacks needed for one benchmark workflow run.
+         * Precondition: SCID file path must be nonblank and end with .scid; listener arguments may be null.
+         * Returns: A constructed BenchmarkRunRequest instance.
+         * Postcondition: File path is trimmed, rebuild flags are stored, and null listeners are replaced with no-op listeners.
+         */
         if (scidFilePath == null || scidFilePath.trim().isEmpty()) {
             throw new IllegalArgumentException("SCID data file path is required");
         }

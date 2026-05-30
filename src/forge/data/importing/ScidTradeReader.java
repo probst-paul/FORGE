@@ -23,6 +23,12 @@ public class ScidTradeReader {
     private static final double PRICE_TICK_TOLERANCE = 0.01;
 
     public List<TradeRow> readTrades(Path scidFilePath, double tickSize) {
+        /*
+         * Intent: Read an entire SCID file into memory for tests or small-file workflows.
+         * Precondition: File must be a valid SCID file and tick size must be positive.
+         * Returns: List of parsed TradeRow values.
+         * Postcondition: File is closed and parsed rows use tick-normalized prices.
+         */
         List<TradeRow> trades = new ArrayList<>();
         readTrades(scidFilePath, 1, READ_BUFFER_RECORD_COUNT, tickSize, trades::addAll);
         return trades;
@@ -35,6 +41,12 @@ public class ScidTradeReader {
             double tickSize,
             Consumer<List<TradeRow>> tradeBatchConsumer
     ) {
+        /*
+         * Intent: Stream SCID records into batches without loading the full file into memory.
+         * Precondition: File must be valid SCID, start index and batch size must be positive, and tick size must be valid.
+         * Returns: Nothing.
+         * Postcondition: Each complete batch is delivered to the consumer in file order.
+         */
         if (startRecordIndex < 1) {
             throw new IllegalArgumentException("startRecordIndex must be greater than zero");
         }
@@ -88,6 +100,12 @@ public class ScidTradeReader {
     }
 
     private ScidHeader readHeader(FileChannel channel) throws IOException {
+        /*
+         * Intent: Read the fixed SCID header fields needed to parse records.
+         * Precondition: Channel must be open and positioned at the beginning of the file.
+         * Returns: Parsed ScidHeader.
+         * Postcondition: Channel position is advanced past the header bytes read.
+         */
         ByteBuffer headerBuffer = ByteBuffer.allocate(EXPECTED_HEADER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
         while (headerBuffer.hasRemaining() && channel.read(headerBuffer) != -1) {
             // Keep reading until the fixed header buffer is full or EOF is reached.
@@ -108,6 +126,12 @@ public class ScidTradeReader {
     }
 
     private void validateHeader(ScidHeader header) {
+        /*
+         * Intent: Reject SCID files whose layout does not match the parser's supported format.
+         * Precondition: Header must have been read from the file.
+         * Returns: Nothing.
+         * Postcondition: Unsupported header/record sizes stop parsing before record reads begin.
+         */
         if (!EXPECTED_HEADER_ID.equals(header.getHeaderId())) {
             throw new IllegalArgumentException("SCID file header is invalid");
         }
@@ -120,6 +144,12 @@ public class ScidTradeReader {
     }
 
     private TradeRow readTrade(ByteBuffer recordBuffer, long recordIndex, double tickSize) {
+        /*
+         * Intent: Parse one fixed-size SCID record into the database-ready TradeRow model.
+         * Precondition: Buffer must be positioned at a complete record and tick size must be valid.
+         * Returns: TradeRow with timestamps and prices normalized to integer ticks.
+         * Postcondition: Buffer position advances as fields are read.
+         */
         long scidDateTimeMicros = recordBuffer.getLong();
         recordBuffer.getFloat(); // Open is not imported yet.
         float askPrice = recordBuffer.getFloat();
@@ -143,6 +173,12 @@ public class ScidTradeReader {
     }
 
     private Instant convertDateTime(long scidDateTimeMicros) {
+        /*
+         * Intent: Convert Sierra Chart's SCID timestamp offset into a UTC Instant.
+         * Precondition: Timestamp must be expressed in microseconds since the SCID epoch.
+         * Returns: UTC Instant for the trade record.
+         * Postcondition: No parser state is changed.
+         */
         long seconds = Math.floorDiv(scidDateTimeMicros, 1_000_000L);
         long microAdjustment = Math.floorMod(scidDateTimeMicros, 1_000_000L);
         return SCID_EPOCH.plusSeconds(seconds).plusNanos(microAdjustment * 1_000L);
@@ -156,6 +192,12 @@ public class ScidTradeReader {
     }
 
     private long convertPriceToTicks(float price, double tickSize, String fieldName) {
+        /*
+         * Intent: Convert a SCID float price to exact tick-space storage.
+         * Precondition: Price must be finite and aligned to the instrument tick grid within float tolerance.
+         * Returns: Rounded integer tick price.
+         * Postcondition: Off-tick prices stop import because they indicate wrong metadata or bad source data.
+         */
         if (!Float.isFinite(price)) {
             throw new IllegalArgumentException("SCID " + fieldName + " must be finite");
         }
@@ -168,6 +210,12 @@ public class ScidTradeReader {
     }
 
     private Integer resolveSide(long numTrades, long bidVolume, long askVolume) {
+        /*
+         * Intent: Infer aggressor side from bid/ask volume without rejecting ambiguous records.
+         * Precondition: Bid and ask volume must be parsed from the SCID record.
+         * Returns: BUY_AGGRESSOR, SELL_AGGRESSOR, or null when side is ambiguous.
+         * Postcondition: Ambiguous side rows remain importable for audit but can be filtered from strategies.
+         */
         if (askVolume > 0 && bidVolume == 0) {
             return TradeRow.BUY_AGGRESSOR;
         }

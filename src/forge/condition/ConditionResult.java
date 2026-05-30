@@ -7,6 +7,12 @@ public class ConditionResult {
     private final ConditionDirection direction;
 
     private ConditionResult(boolean conditioned, ConditionDirection direction) {
+        /*
+         * Intent: Normalize and validate the relationship between condition state and trade direction.
+         * Precondition: Direction must be non-null and consistent with whether the condition is true.
+         * Returns: A constructed ConditionResult instance.
+         * Postcondition: Result is immutable and internally consistent.
+         */
         this.conditioned = conditioned;
         this.direction = Objects.requireNonNull(direction, "direction is required");
         if (!conditioned && direction != ConditionDirection.NONE) {
@@ -18,10 +24,22 @@ public class ConditionResult {
     }
 
     public static ConditionResult conditioned(ConditionDirection direction) {
+        /*
+         * Intent: Create a true condition result with a trade direction.
+         * Precondition: Direction must be LONG or SHORT.
+         * Returns: ConditionResult representing an active condition.
+         * Postcondition: Returned result is immutable.
+         */
         return new ConditionResult(true, direction);
     }
 
     public static ConditionResult notConditioned() {
+        /*
+         * Intent: Create a false condition result with no trade direction.
+         * Precondition: None.
+         * Returns: ConditionResult representing no active condition.
+         * Postcondition: Returned result is immutable.
+         */
         return new ConditionResult(false, ConditionDirection.NONE);
     }
 

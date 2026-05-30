@@ -25,6 +25,12 @@ public class DerivedDataBuildService {
             FeatureBuildService featureBuildService,
             ConditionBuildService eventBuildService
     ) {
+        /*
+         * Intent: Create the derived-data build service from streaming trade source, persistence store, and builders.
+         * Precondition: All dependencies must be non-null.
+         * Returns: A constructed DerivedDataBuildService instance.
+         * Postcondition: Service can plan and run derived-data builds without owning database-specific details.
+         */
         if (tradeSource == null) {
             throw new IllegalArgumentException("tradeSource is required");
         }
@@ -44,6 +50,12 @@ public class DerivedDataBuildService {
     }
 
     public DatabaseBuildPlan planBuild(DatabaseBuildRequest request) {
+        /*
+         * Intent: Decide which derived-data artifacts need to be built for selected contract windows.
+         * Precondition: Request must contain contract windows and selected build options.
+         * Returns: DatabaseBuildPlan with current build state, work flags, and total tick count.
+         * Postcondition: No derived data is created or deleted during planning.
+         */
         if (request == null) {
             throw new IllegalArgumentException("request is required");
         }
@@ -73,6 +85,12 @@ public class DerivedDataBuildService {
     }
 
     public DatabaseBuildResult runBuild(DatabaseBuildRequest request, DataBuildProgressListener progressListener) {
+        /*
+         * Intent: Build selected derived data by streaming trade ticks through feature/condition accumulators.
+         * Precondition: Request must be valid and underlying trade source/store must be available.
+         * Returns: DatabaseBuildResult with counts and elapsed time.
+         * Postcondition: Requested derived-data rows and build markers are persisted.
+         */
         if (request == null) {
             throw new IllegalArgumentException("request is required");
         }
@@ -156,6 +174,12 @@ public class DerivedDataBuildService {
     }
 
     private int streamPasses(DatabaseBuildPlan plan) {
+        /*
+         * Intent: Count how many full tick-stream passes are needed for the current build plan.
+         * Precondition: Build plan must be non-null.
+         * Returns: Number of stream passes used for progress totals.
+         * Postcondition: Plan is unchanged.
+         */
         return plan.hasWorkToRun() ? 1 : 0;
     }
 
@@ -166,6 +190,12 @@ public class DerivedDataBuildService {
             long totalProgressTicks,
             TradeTickStreamProcessor processor
     ) {
+        /*
+         * Intent: Stream selected contract ticks in batches through one processor while reporting progress.
+         * Precondition: Request, listener, and processor must be valid; total progress count should match planned passes.
+         * Returns: Number of ticks processed during this pass.
+         * Postcondition: Processor receives onComplete after the final batch.
+         */
         TradeBatchReader reader = tradeSource.openTradeBatchReader(
                 request.getContractWindows(),
                 request.getBatchSize()
@@ -196,18 +226,36 @@ public class DerivedDataBuildService {
                 TradeTickStreamProcessor firstProcessor,
                 TradeTickStreamProcessor secondProcessor
         ) {
+            /*
+             * Intent: Combine two stream processors so one database read can feed multiple derived-data builders.
+             * Precondition: Both processors must be ready to consume the same ordered tick stream.
+             * Returns: A constructed CompositeTradeTickStreamProcessor instance.
+             * Postcondition: Future tick and completion events are forwarded to both processors.
+             */
             this.firstProcessor = firstProcessor;
             this.secondProcessor = secondProcessor;
         }
 
         @Override
         public void onTick(TradeTick tick) {
+            /*
+             * Intent: Forward one tick to both child processors.
+             * Precondition: Tick may be null only if child processors tolerate null ticks.
+             * Returns: Nothing.
+             * Postcondition: Both processors have seen the same tick in the same order.
+             */
             firstProcessor.onTick(tick);
             secondProcessor.onTick(tick);
         }
 
         @Override
         public void onComplete() {
+            /*
+             * Intent: Signal both child processors that the ordered tick stream has ended.
+             * Precondition: Child processors must be non-null.
+             * Returns: Nothing.
+             * Postcondition: Both processors can finalize accumulated state.
+             */
             firstProcessor.onComplete();
             secondProcessor.onComplete();
         }

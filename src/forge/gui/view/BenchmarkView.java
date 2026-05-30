@@ -51,6 +51,12 @@ public class BenchmarkView {
     }
 
     public Parent createView(Window owner) {
+        /*
+         * Intent: Build the benchmark screen and wire benchmark file/options/actions.
+         * Precondition: owner may be null when no parent window is available.
+         * Returns: JavaFX parent node for the benchmark workflow.
+         * Postcondition: Benchmark controls and phase progress rows are bound to the view model.
+         */
         BenchmarkViewModel viewModel = controller.getViewModel();
         GuiUserPreferences preferences = preferencesStore.load();
         StringBuilder benchmarkHistory = new StringBuilder();
@@ -194,6 +200,12 @@ public class BenchmarkView {
             StringProperty totalElapsedMessage,
             long[] benchmarkStartedAtNanos
     ) {
+        /*
+         * Intent: Refresh live elapsed-time labels while a benchmark is running.
+         * Precondition: benchmarkStartedAtNanos[0] is set when a run starts.
+         * Returns: Nothing.
+         * Postcondition: Total and phase elapsed labels update until the run stops.
+         */
         Timeline elapsedTimer = new Timeline(new KeyFrame(
                 javafx.util.Duration.millis(250),
                 event -> {
@@ -264,6 +276,12 @@ public class BenchmarkView {
             StringProperty totalElapsedMessage,
             long[] benchmarkStartedAtNanos
     ) {
+        /*
+         * Intent: Persist benchmark options and start the benchmark workflow off the UI thread.
+         * Precondition: scidFilePath should identify a selected SCID file.
+         * Returns: Nothing.
+         * Postcondition: A daemon benchmark thread is started, or the view model reports failure.
+         */
         BenchmarkViewModel viewModel = controller.getViewModel();
         try {
             saveBenchmarkPreferences(scidFilePath, rebuildExistingContract, rebuildDerivedData);
@@ -304,6 +322,12 @@ public class BenchmarkView {
     }
 
     private String formatResult(BenchmarkRunResult result) {
+        /*
+         * Intent: Format benchmark phase counts and timings for the text output area.
+         * Precondition: result must contain all benchmark phase results.
+         * Returns: Multi-line benchmark summary.
+         * Postcondition: Result objects are not modified.
+         */
         StringBuilder builder = new StringBuilder();
         builder.append("Benchmark complete").append(System.lineSeparator());
         builder.append("-------------------------").append(System.lineSeparator());

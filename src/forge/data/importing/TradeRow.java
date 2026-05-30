@@ -26,6 +26,12 @@ public class TradeRow {
             long numTrades,
             long scidRecordIndex
     ) {
+        /*
+         * Intent: Represent one parsed SCID record in the database import format.
+         * Precondition: Timestamp and SCID record index are required; side may be null when not identifiable.
+         * Returns: A constructed TradeRow instance.
+         * Postcondition: Trade row is immutable and safe for batch insert.
+         */
         this.tradeDateTime = Objects.requireNonNull(tradeDateTime, "tradeDateTime is required");
         this.priceTicks = priceTicks;
         this.bidPriceTicks = bidPriceTicks;

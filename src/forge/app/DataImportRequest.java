@@ -18,6 +18,12 @@ public class DataImportRequest {
             boolean rebuildExistingContract,
             ImportProgressListener progressListener
     ) {
+        /*
+         * Intent: Describe a SCID import request and optional rebuild/progress behavior.
+         * Precondition: File path must be nonblank and must point to a .scid file by extension.
+         * Returns: A constructed DataImportRequest instance.
+         * Postcondition: Path is trimmed and a null progress listener is replaced with a no-op listener.
+         */
         if (scidFilePath == null || scidFilePath.trim().isEmpty()) {
             throw new IllegalArgumentException("SCID data file path is required");
         }
@@ -41,6 +47,12 @@ public class DataImportRequest {
         return progressListener;
     }
 
+    /*
+     * Intent: Provide a readable import request representation for logs and debugging.
+     * Precondition: DataImportRequest has been constructed successfully.
+     * Returns: Text containing the import path and rebuild flag.
+     * Postcondition: Object state is unchanged.
+     */
     @Override
     public String toString() {
         return "DataImportRequest{" +

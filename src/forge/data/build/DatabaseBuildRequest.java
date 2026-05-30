@@ -21,6 +21,12 @@ public class DatabaseBuildRequest {
             Set<DerivedDataBuildOption> options,
             boolean rebuildExisting
     ) {
+        /*
+         * Intent: Create a derived-data build request using the default streaming batch size.
+         * Precondition: Contract windows and build options must be valid.
+         * Returns: A constructed DatabaseBuildRequest instance.
+         * Postcondition: Request uses the standard batch size for database reads.
+         */
         this(contractWindows, options, rebuildExisting, DEFAULT_BATCH_SIZE);
     }
 
@@ -30,6 +36,12 @@ public class DatabaseBuildRequest {
             boolean rebuildExisting,
             int batchSize
     ) {
+        /*
+         * Intent: Store selected contract windows and derived-data build choices.
+         * Precondition: At least one contract window, one build option, and a positive batch size are required.
+         * Returns: A constructed DatabaseBuildRequest instance.
+         * Postcondition: Windows and options are defensively copied into immutable collections.
+         */
         if (contractWindows == null || contractWindows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
         }
@@ -54,6 +66,12 @@ public class DatabaseBuildRequest {
     }
 
     public boolean shouldBuild(DerivedDataBuildOption option) {
+        /*
+         * Intent: Check whether a specific derived-data option was requested.
+         * Precondition: Option should be non-null.
+         * Returns: True when the option is included in this request.
+         * Postcondition: Request state is unchanged.
+         */
         return options.contains(option);
     }
 

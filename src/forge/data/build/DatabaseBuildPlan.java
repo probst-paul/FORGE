@@ -28,6 +28,12 @@ public class DatabaseBuildPlan {
             boolean willBuildSessionRanges,
             boolean willBuildFirstHourBreachConditions
     ) {
+        /*
+         * Intent: Capture the derived-data build decision before running any work.
+         * Precondition: Contract windows/options must be present and total tick count cannot be negative.
+         * Returns: A constructed DatabaseBuildPlan instance.
+         * Postcondition: Plan is immutable and can be used by CLI/GUI to preview work.
+         */
         if (contractWindows == null || contractWindows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
         }
@@ -80,6 +86,12 @@ public class DatabaseBuildPlan {
     }
 
     public boolean hasWorkToRun() {
+        /*
+         * Intent: Determine whether the plan requires any derived-data processing.
+         * Precondition: Plan must be constructed.
+         * Returns: True when at least one derived-data artifact will be built.
+         * Postcondition: Plan state is unchanged.
+         */
         return willBuildSessionRanges || willBuildFirstHourBreachConditions;
     }
 }

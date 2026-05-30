@@ -7,6 +7,12 @@ public class TradingDayContext {
     private final TradingSession session;
 
     public TradingDayContext(LocalDate tradingDay, TradingSession session) {
+        /*
+         * Intent: Pair a timestamp's FORGE trading day with its classified session.
+         * Precondition: Trading day and session must be non-null.
+         * Returns: A constructed TradingDayContext instance.
+         * Postcondition: Context is immutable.
+         */
         if (tradingDay == null) {
             throw new IllegalArgumentException("tradingDay is required");
         }
@@ -34,6 +40,12 @@ public class TradingDayContext {
     }
 
     public boolean isRth() {
+        /*
+         * Intent: Treat first-hour as part of the broader regular trading hours session.
+         * Precondition: Context must be constructed.
+         * Returns: True for FIRST_HOUR or RTH.
+         * Postcondition: Context state is unchanged.
+         */
         return session == TradingSession.FIRST_HOUR || session == TradingSession.RTH;
     }
 }

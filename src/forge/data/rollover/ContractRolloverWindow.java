@@ -8,6 +8,12 @@ public class ContractRolloverWindow {
     private final LocalDate activeEndDate;
 
     public ContractRolloverWindow(String contractSymbol, LocalDate activeStartDate, LocalDate activeEndDate) {
+        /*
+         * Intent: Represent the inclusive date range where a contract is treated as front-month active.
+         * Precondition: Contract symbol and active dates must be valid and ordered.
+         * Returns: A constructed ContractRolloverWindow instance.
+         * Postcondition: Contract symbol is normalized to uppercase and window is immutable.
+         */
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");
         }

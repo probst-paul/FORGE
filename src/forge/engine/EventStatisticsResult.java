@@ -13,6 +13,12 @@ public class EventStatisticsResult {
             long longEventCount,
             long shortEventCount
     ) {
+        /*
+         * Intent: Create aggregate event statistics for an all-data scope.
+         * Precondition: Event name and counts must be valid.
+         * Returns: A constructed EventStatisticsResult instance.
+         * Postcondition: Scope defaults to All.
+         */
         this("All", eventName, sessionsAnalyzed, longEventCount, shortEventCount);
     }
 
@@ -23,6 +29,12 @@ public class EventStatisticsResult {
             long longEventCount,
             long shortEventCount
     ) {
+        /*
+         * Intent: Store occurrence counts for one instrument or contract statistics scope.
+         * Precondition: Scope/event names must be nonblank and event counts cannot exceed sessions analyzed.
+         * Returns: A constructed EventStatisticsResult instance.
+         * Postcondition: Scope name is normalized and rates can be derived from counts.
+         */
         if (scopeName == null || scopeName.trim().isEmpty()) {
             throw new IllegalArgumentException("scopeName is required");
         }
@@ -71,6 +83,12 @@ public class EventStatisticsResult {
     }
 
     public double getEventRate() {
+        /*
+         * Intent: Calculate the share of analyzed sessions where the event occurred.
+         * Precondition: Result counts must be validated.
+         * Returns: Event rate from 0.0 to 1.0, or 0.0 when no sessions were analyzed.
+         * Postcondition: Result state is unchanged.
+         */
         if (sessionsAnalyzed == 0) {
             return 0;
         }

@@ -39,10 +39,22 @@ public class FacadeForgeData {
     private final ForgeDataAccess access = new ForgeDataAccess();
 
     public static FacadeForgeData getTheInstance() {
+        /*
+         * Intent: Provide the shared data facade used by application, engine, and CLI wiring.
+         * Precondition: Static facade instance must have initialized successfully.
+         * Returns: Singleton FacadeForgeData instance.
+         * Postcondition: No new facade is created.
+         */
         return THE_INSTANCE;
     }
 
     public FacadeForgeData() {
+        /*
+         * Intent: Create the data facade from environment-based PostgreSQL settings.
+         * Precondition: PostgreSQL settings may be resolved from environment variables or defaults.
+         * Returns: A constructed FacadeForgeData instance.
+         * Postcondition: Catalog, importer, tick provider, and derived-data builder share the same repository settings.
+         */
         this(new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment()));
     }
 
@@ -74,6 +86,12 @@ public class FacadeForgeData {
             ScidDataImportService scidDataImportService,
             TickDataProvider tickDataProvider
     ) {
+        /*
+         * Intent: Create the data facade with explicit core data dependencies.
+         * Precondition: Catalog, import service, and tick provider must be non-null.
+         * Returns: A constructed FacadeForgeData instance.
+         * Postcondition: Derived-data build service is wired to the supplied tick provider and import repository.
+         */
         if (instrumentDataCatalog == null) {
             throw new IllegalArgumentException("instrumentDataCatalog is required");
         }
@@ -90,6 +108,12 @@ public class FacadeForgeData {
     }
 
     public ForgeDataAccess forgeDataAccess() {
+        /*
+         * Intent: Expose the public access object for data package operations.
+         * Precondition: Facade must be constructed.
+         * Returns: Stable ForgeDataAccess instance.
+         * Postcondition: Facade state is unchanged.
+         */
         return access;
     }
 
@@ -174,6 +198,12 @@ public class FacadeForgeData {
         }
 
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
+            /*
+             * Intent: Reconfigure all data services to use a new PostgreSQL database target.
+             * Precondition: Database settings must be valid.
+             * Returns: Nothing.
+             * Postcondition: Catalog, importer, tick provider, and derived-data builder are rebuilt around the new settings.
+             */
             if (databaseSettings == null) {
                 throw new IllegalArgumentException("databaseSettings is required");
             }
@@ -192,6 +222,12 @@ public class FacadeForgeData {
             TickDataProvider tickDataProvider,
             PostgresTradeRepository tradeRepository
     ) {
+        /*
+         * Intent: Adapt repository/tick-provider operations into the derived-data build service interfaces.
+         * Precondition: Tick provider and repository must be configured for the same database.
+         * Returns: DerivedDataBuildService wired for streaming ticks and persisting derived data.
+         * Postcondition: No derived data is built until the returned service is invoked.
+         */
         return new DerivedDataBuildService(
                 new DerivedDataBuildTradeSource() {
                     @Override

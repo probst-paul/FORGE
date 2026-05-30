@@ -56,23 +56,53 @@ public class FacadeForgeGui {
         return THE_INSTANCE;
     }
 
+    /*
+     * Intent: Expose the GUI package's simplified access surface.
+     * Precondition: The singleton facade has been initialized.
+     * Returns: Access object for launching and constructing GUI controllers.
+     * Postcondition: Callers do not need to directly wire GUI dependencies.
+     */
     public ForgeGuiAccess forgeGuiAccess() {
         return access;
     }
 
     public class ForgeGuiAccess {
+        /*
+         * Intent: Launch the JavaFX GUI from a facade call.
+         * Precondition: JavaFX runtime must be available and not already launched in this JVM.
+         * Returns: Nothing.
+         * Postcondition: Control is handed to the JavaFX application lifecycle.
+         */
         public void launch(String[] args) {
             ForgeGuiApplication.launchGui(args);
         }
 
+        /*
+         * Intent: Create the main window controller used by application startup.
+         * Precondition: None.
+         * Returns: Controller with a fresh main-window view model and view.
+         * Postcondition: The caller receives a ready-to-render main window controller.
+         */
         public MainWindowController createMainWindowController() {
             return new MainWindowController();
         }
 
+        /*
+         * Intent: Create the import-data controller with application facade access.
+         * Precondition: Application facade dependencies must be initialized.
+         * Returns: ImportDataController with a fresh view model.
+         * Postcondition: The GUI can plan and run SCID imports without wiring app services directly.
+         */
         public ImportDataController createImportDataController() {
             return new ImportDataController(forgeApplication, new ImportDataViewModel());
         }
 
+        /*
+         * Intent: Create the derived-data controller with data facade access.
+         * Precondition: Data facade dependencies must be initialized.
+         * Returns: DerivedDataController with a fresh view model.
+         * Postcondition: The GUI can plan and build derived data through the data facade.
+         */
         public DerivedDataController createDerivedDataController() {
             return new DerivedDataController(forgeData, new DerivedDataViewModel());
         }

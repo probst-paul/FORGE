@@ -22,6 +22,12 @@ public class PostgresDatabaseSettings {
             String username,
             String password
     ) {
+        /*
+         * Intent: Store PostgreSQL connection settings for repository and provider classes.
+         * Precondition: Host, database names, and username must be valid; port must be in TCP range.
+         * Returns: A constructed PostgresDatabaseSettings instance.
+         * Postcondition: Blank/null password is normalized to an empty password.
+         */
         this.host = requireText(host, "host is required");
         if (port < 1 || port > 65535) {
             throw new IllegalArgumentException("port must be between 1 and 65535");
@@ -34,6 +40,12 @@ public class PostgresDatabaseSettings {
     }
 
     public static PostgresDatabaseSettings fromEnvironment() {
+        /*
+         * Intent: Build database settings from FORGE_DB_* environment variables with local defaults.
+         * Precondition: Environment variables may be absent; port value must parse as an integer when present.
+         * Returns: PostgresDatabaseSettings instance.
+         * Postcondition: Process environment is not modified.
+         */
         return new PostgresDatabaseSettings(
                 environmentValue("FORGE_DB_HOST", DEFAULT_HOST),
                 environmentInt("FORGE_DB_PORT", DEFAULT_PORT),
@@ -69,10 +81,22 @@ public class PostgresDatabaseSettings {
     }
 
     public String primaryJdbcUrl() {
+        /*
+         * Intent: Build the JDBC URL for the primary FORGE database.
+         * Precondition: Database settings must be valid.
+         * Returns: PostgreSQL JDBC URL string.
+         * Postcondition: Settings are unchanged.
+         */
         return jdbcUrl(databaseName);
     }
 
     public String maintenanceJdbcUrl() {
+        /*
+         * Intent: Build the JDBC URL for the maintenance database used to create the primary database.
+         * Precondition: Database settings must be valid.
+         * Returns: PostgreSQL JDBC URL string.
+         * Postcondition: Settings are unchanged.
+         */
         return jdbcUrl(maintenanceDatabaseName);
     }
 
@@ -104,6 +128,12 @@ public class PostgresDatabaseSettings {
     }
 
     private static String requireDatabaseName(String value) {
+        /*
+         * Intent: Validate database names before they are used in JDBC/admin operations.
+         * Precondition: Value must be nonblank.
+         * Returns: Trimmed database name when it is a valid PostgreSQL identifier.
+         * Postcondition: Invalid names fail before SQL identifiers are built.
+         */
         String databaseName = requireText(value, "databaseName is required");
         if (!databaseName.matches("[A-Za-z_][A-Za-z0-9_]*")) {
             throw new IllegalArgumentException("databaseName must be a valid PostgreSQL identifier");

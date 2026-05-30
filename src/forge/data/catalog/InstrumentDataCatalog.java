@@ -26,10 +26,22 @@ public class InstrumentDataCatalog {
     private final ContractRolloverCalendar contractRolloverCalendar;
 
     public InstrumentDataCatalog() {
+        /*
+         * Intent: Create the instrument catalog using environment-based PostgreSQL settings.
+         * Precondition: PostgreSQL settings may be resolved from environment variables or defaults.
+         * Returns: A constructed InstrumentDataCatalog instance.
+         * Postcondition: Catalog reads availability from imported contract metadata.
+         */
         this(new PostgresTradeRepository(PostgresDatabaseSettings.fromEnvironment()));
     }
 
     public InstrumentDataCatalog(PostgresTradeRepository tradeRepository) {
+        /*
+         * Intent: Create the instrument catalog from a PostgreSQL trade repository.
+         * Precondition: Repository must expose imported contract summaries.
+         * Returns: A constructed InstrumentDataCatalog instance.
+         * Postcondition: Catalog groups imported contracts by supported futures instrument roots.
+         */
         this(
                 tradeRepository::listImportedContractData,
                 new ContractNameResolver(),
@@ -44,6 +56,12 @@ public class InstrumentDataCatalog {
             FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
             ContractRolloverCalendar contractRolloverCalendar
     ) {
+        /*
+         * Intent: Create the instrument catalog with explicit data source, contract parsing, instrument specs, and rollover rules.
+         * Precondition: All dependencies must be non-null.
+         * Returns: A constructed InstrumentDataCatalog instance.
+         * Postcondition: Availability calculations use the supplied source and calendar.
+         */
         if (contractDataSource == null) {
             throw new IllegalArgumentException("contractDataSource is required");
         }
@@ -63,10 +81,22 @@ public class InstrumentDataCatalog {
     }
 
     public List<AvailableInstrumentData> getAvailableInstruments() {
+        /*
+         * Intent: List root-level instruments that have imported front-month-valid contract data.
+         * Precondition: Contract metadata source must be available.
+         * Returns: Immutable list of available instruments with combined date coverage.
+         * Postcondition: Catalog state is unchanged.
+         */
         return Collections.unmodifiableList(new ArrayList<>(loadAvailableData().values()));
     }
 
     public List<AvailableContractData> getAvailableContracts() {
+        /*
+         * Intent: List individual imported contract windows clipped to their active front-month windows.
+         * Precondition: Contract metadata source and rollover calendar must be available.
+         * Returns: Immutable list of available contracts.
+         * Postcondition: Contracts outside active rollover windows are omitted.
+         */
         List<AvailableContractData> availableContracts = new ArrayList<>();
         for (ContractDataSummary summary : contractDataSource.get()) {
             String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(summary.getContractSymbol());
@@ -87,6 +117,12 @@ public class InstrumentDataCatalog {
     }
 
     public AvailableDateRange getSharedDateRange(List<String> symbols) {
+        /*
+         * Intent: Find overlapping availability across selected root-level instruments.
+         * Precondition: Symbols list must contain at least one available instrument symbol.
+         * Returns: Shared date range where all selected instruments have front-month-valid data.
+         * Postcondition: Catalog state is unchanged.
+         */
         if (symbols.isEmpty()) {
             throw new IllegalArgumentException("at least one instrument must be selected");
         }
@@ -111,6 +147,12 @@ public class InstrumentDataCatalog {
     }
 
     public void validateDateRange(List<String> symbols, LocalDate startDate, LocalDate endDate) {
+        /*
+         * Intent: Validate a user-selected date range against available instrument data.
+         * Precondition: Symbols and dates must be supplied.
+         * Returns: Nothing.
+         * Postcondition: Invalid ranges fail with a user-facing exception.
+         */
         if (startDate == null) {
             throw new IllegalArgumentException("startDate is required");
         }
@@ -127,6 +169,12 @@ public class InstrumentDataCatalog {
     }
 
     private Map<String, AvailableInstrumentData> loadAvailableData() {
+        /*
+         * Intent: Aggregate contract metadata into root-level instrument availability.
+         * Precondition: Contract metadata source must return parseable contract summaries.
+         * Returns: Map keyed by instrument root symbol.
+         * Postcondition: Availability is clipped to active rollover windows before aggregation.
+         */
         Map<String, InstrumentDateBounds> boundsByInstrument = new LinkedHashMap<>();
         for (ContractDataSummary summary : contractDataSource.get()) {
             String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(summary.getContractSymbol());
@@ -156,6 +204,12 @@ public class InstrumentDataCatalog {
     }
 
     private ContractDataSummary clipToActiveWindow(ContractDataSummary summary) {
+        /*
+         * Intent: Apply a rollover window when one exists for the contract's instrument family.
+         * Precondition: Summary must describe an imported contract's raw available date range.
+         * Returns: Clipped summary, original summary, or null when no valid front-month overlap exists.
+         * Postcondition: Source summary is unchanged.
+         */
         return contractRolloverCalendar.findActiveWindow(summary.getContractSymbol())
                 .map(activeWindow -> clipToActiveWindow(summary, activeWindow))
                 .orElse(summary);
@@ -179,6 +233,12 @@ public class InstrumentDataCatalog {
     }
 
     private AvailableInstrumentData getInstrumentData(Map<String, AvailableInstrumentData> availableData, String symbol) {
+        /*
+         * Intent: Resolve one selected symbol into catalog availability data.
+         * Precondition: Symbol must be nonblank and present in the loaded availability map.
+         * Returns: AvailableInstrumentData for the symbol.
+         * Postcondition: Availability map is unchanged.
+         */
         if (symbol == null || symbol.trim().isEmpty()) {
             throw new IllegalArgumentException("symbol is required");
         }
@@ -266,6 +326,12 @@ public class InstrumentDataCatalog {
         private final LocalDate endDate;
 
         public AvailableContractData(String contractSymbol, String instrumentSymbol, LocalDate startDate, LocalDate endDate) {
+            /*
+             * Intent: Represent one contract's available front-month-valid date window.
+             * Precondition: Symbols and dates must be valid and end date must not precede start date.
+             * Returns: A constructed AvailableContractData instance.
+             * Postcondition: Symbols are normalized to uppercase.
+             */
             if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
                 throw new IllegalArgumentException("contractSymbol is required");
             }
@@ -314,6 +380,12 @@ public class InstrumentDataCatalog {
         private LocalDate endDate;
 
         public void include(LocalDate candidateStartDate, LocalDate candidateEndDate) {
+            /*
+             * Intent: Expand instrument-level availability to include one contract window.
+             * Precondition: Candidate dates should be non-null and ordered.
+             * Returns: Nothing.
+             * Postcondition: Stored bounds cover both previous bounds and the candidate window.
+             */
             if (startDate == null || candidateStartDate.isBefore(startDate)) {
                 startDate = candidateStartDate;
             }

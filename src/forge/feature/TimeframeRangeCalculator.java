@@ -13,6 +13,12 @@ public class TimeframeRangeCalculator {
             Instant startInclusive,
             Instant endExclusive
     ) {
+        /*
+         * Intent: Calculate the min/max price range for ticks inside a specific time interval.
+         * Precondition: Tick collection and time bounds must be non-null, and end must be after start.
+         * Returns: PriceRange when at least one tick is inside the interval, otherwise Optional.empty().
+         * Postcondition: Source tick collection is not modified.
+         */
         Objects.requireNonNull(ticks, "ticks is required");
         Objects.requireNonNull(startInclusive, "startInclusive is required");
         Objects.requireNonNull(endExclusive, "endExclusive is required");
@@ -43,6 +49,12 @@ public class TimeframeRangeCalculator {
     }
 
     private boolean isInsideTimeframe(TradeTick tick, Instant startInclusive, Instant endExclusive) {
+        /*
+         * Intent: Determine whether a tick falls in the half-open interval [start, end).
+         * Precondition: Tick and bounds must be non-null.
+         * Returns: True when the tick timestamp is inside the timeframe.
+         * Postcondition: Tick and bounds are unchanged.
+         */
         Instant timestamp = tick.getTradeDateTime();
         return !timestamp.isBefore(startInclusive) && timestamp.isBefore(endExclusive);
     }

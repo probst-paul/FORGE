@@ -11,6 +11,12 @@ public class TpoPeriodClassifier {
     private static final int MINUTES_PER_PERIOD = 30;
 
     public TpoPeriod classify(Instant tradeDateTime) {
+        /*
+         * Intent: Classify an RTH timestamp into a 30-minute TPO period.
+         * Precondition: Timestamp must be non-null and is interpreted in America/Chicago time.
+         * Returns: TPO period A-Q during RTH, or OUTSIDE_RTH outside 08:30-17:00 Central.
+         * Postcondition: Classifier state is unchanged.
+         */
         if (tradeDateTime == null) {
             throw new IllegalArgumentException("tradeDateTime is required");
         }

@@ -20,6 +20,12 @@ public class PostgresTickDataProvider implements TickDataProvider {
     private final PostgresDatabaseSettings settings;
 
     public PostgresTickDataProvider(PostgresDatabaseSettings settings) {
+        /*
+         * Intent: Create a tick provider backed by PostgreSQL contract tables.
+         * Precondition: Database settings must be valid.
+         * Returns: A constructed PostgresTickDataProvider instance.
+         * Postcondition: Future reads use the supplied database settings.
+         */
         if (settings == null) {
             throw new IllegalArgumentException("settings is required");
         }
@@ -28,6 +34,12 @@ public class PostgresTickDataProvider implements TickDataProvider {
 
     @Override
     public TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize) {
+        /*
+         * Intent: Open a keyset-paginated reader for strategy-usable ticks in selected contract windows.
+         * Precondition: At least one window is required and batch size must be positive.
+         * Returns: TradeBatchReader that streams ticks without OFFSET.
+         * Postcondition: No database rows are read until readNextBatch is called.
+         */
         if (windows == null || windows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
         }
@@ -39,6 +51,12 @@ public class PostgresTickDataProvider implements TickDataProvider {
 
     @Override
     public long countTicks(List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Count strategy-usable ticks across selected contract windows.
+         * Precondition: At least one contract window is required.
+         * Returns: Total rows with identifiable side in the selected windows.
+         * Postcondition: Database data is unchanged.
+         */
         if (windows == null || windows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
         }
@@ -86,6 +104,12 @@ public class PostgresTickDataProvider implements TickDataProvider {
 
         @Override
         public List<TradeTick> readNextBatch() {
+            /*
+             * Intent: Read the next ordered batch from the current contract window, moving to later windows as needed.
+             * Precondition: Reader must have valid windows and batch size.
+             * Returns: Immutable tick batch or empty list after all windows are exhausted.
+             * Postcondition: Reader cursor advances using last timestamp and SCID record index.
+             */
             while (windowIndex < windows.size()) {
                 ContractTradeWindow window = windows.get(windowIndex);
                 List<TradeTick> batch = readBatch(window);
@@ -137,6 +161,12 @@ public class PostgresTickDataProvider implements TickDataProvider {
         }
 
         private String buildBatchSql(String tableName, boolean firstBatchForWindow) {
+            /*
+             * Intent: Build SQL for one keyset-paginated tick batch.
+             * Precondition: Table name must already be validated.
+             * Returns: Parameterized SQL ordered by trade time and SCID record index.
+             * Postcondition: No SQL is executed by this method.
+             */
             StringBuilder sql = new StringBuilder()
                     .append("SELECT ")
                     .append(quoteIdentifier("tradeDateTime")).append(", ")
@@ -168,6 +198,12 @@ public class PostgresTickDataProvider implements TickDataProvider {
     }
 
     private TradeTick toTradeTick(String contractSymbol, ResultSet resultSet) throws SQLException {
+        /*
+         * Intent: Map one PostgreSQL result row into the strategy-usable TradeTick model.
+         * Precondition: ResultSet must be positioned on a row with the selected columns.
+         * Returns: TradeTick value.
+         * Postcondition: ResultSet cursor position is unchanged.
+         */
         Timestamp timestamp = resultSet.getTimestamp(1);
         Long bidPriceTicks = nullableLong(resultSet, 3);
         Long askPriceTicks = nullableLong(resultSet, 4);
@@ -192,6 +228,12 @@ public class PostgresTickDataProvider implements TickDataProvider {
     }
 
     private String validateContractTableName(String tableName) {
+        /*
+         * Intent: Prevent arbitrary SQL identifiers from being used as contract table names.
+         * Precondition: Table name should be a futures contract symbol.
+         * Returns: Uppercase validated table name.
+         * Postcondition: Invalid names fail before SQL is built.
+         */
         if (tableName == null || !tableName.toUpperCase().matches("[A-Z]{1,3}[FGHJKMNQUVXZ][0-9]{1,2}")) {
             throw new IllegalArgumentException("contract table name is invalid: " + tableName);
         }

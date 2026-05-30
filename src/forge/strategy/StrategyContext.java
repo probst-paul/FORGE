@@ -29,6 +29,12 @@ public class StrategyContext {
             SessionRangeFeature sessionRangeFeature,
             List<MarketConditionOccurrence> currentEvents
     ) {
+        /*
+         * Intent: Package all per-tick strategy inputs into one immutable context.
+         * Precondition: Core context, tick, trading-day context, and TPO period must be present.
+         * Returns: Constructed StrategyContext.
+         * Postcondition: Current events are normalized into an immutable non-null list.
+         */
         this.marketContext = Objects.requireNonNull(marketContext, "marketContext is required");
         this.currentTick = Objects.requireNonNull(currentTick, "currentTick is required");
         this.tradingDayContext = Objects.requireNonNull(tradingDayContext, "tradingDayContext is required");
@@ -66,6 +72,12 @@ public class StrategyContext {
     }
 
     private List<MarketConditionOccurrence> normalizeEvents(List<MarketConditionOccurrence> events) {
+        /*
+         * Intent: Convert optional current-event input into a safe immutable list.
+         * Precondition: events may be null and may contain null entries.
+         * Returns: Empty list or unmodifiable list of non-null events.
+         * Postcondition: Strategy code can iterate events without null-list checks.
+         */
         if (events == null || events.isEmpty()) {
             return Collections.emptyList();
         }

@@ -18,6 +18,12 @@ public class MarketContext {
             double lastPrice,
             boolean hasOpenPosition
     ) {
+        /*
+         * Intent: Create a legacy market context from display-price input.
+         * Precondition: Instrument symbol, timestamp, and price must be valid.
+         * Returns: A constructed MarketContext instance.
+         * Postcondition: Price is rounded into tick space using default one-point tick metadata.
+         */
         this(
                 instrumentSymbol,
                 timestamp,
@@ -37,6 +43,12 @@ public class MarketContext {
             double tickDollarValue,
             boolean hasOpenPosition
     ) {
+        /*
+         * Intent: Create a strategy-facing market context from tick-normalized market data.
+         * Precondition: Instrument symbol, timestamp, tick price, tick size, and tick dollar value must be valid.
+         * Returns: A constructed MarketContext instance.
+         * Postcondition: Display price is derived from ticks and tick size.
+         */
         if (instrumentSymbol == null || instrumentSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("instrumentSymbol is required");
         }
@@ -61,6 +73,12 @@ public class MarketContext {
             double tickDollarValue,
             boolean hasOpenPosition
     ) {
+        /*
+         * Intent: Create a market context when both display price and tick price are already known.
+         * Precondition: Instrument symbol, timestamp, price values, tick size, and tick value must be valid.
+         * Returns: A constructed MarketContext instance.
+         * Postcondition: Context is immutable and ready for strategy evaluation.
+         */
         if (lastPriceTicks <= 0) {
             throw new IllegalArgumentException("lastPriceTicks must be greater than zero");
         }
@@ -74,6 +92,12 @@ public class MarketContext {
     }
 
     private String normalizeInstrumentSymbol(String instrumentSymbol) {
+        /*
+         * Intent: Validate and normalize instrument symbols for strategy-facing context.
+         * Precondition: Symbol must be nonblank.
+         * Returns: Trimmed uppercase symbol.
+         * Postcondition: Invalid symbols fail before context construction completes.
+         */
         if (instrumentSymbol == null || instrumentSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("instrumentSymbol is required");
         }
@@ -81,6 +105,12 @@ public class MarketContext {
     }
 
     private double calculateLastPrice(long lastPriceTicks, double tickSize) {
+        /*
+         * Intent: Convert integer tick price into display price for strategy/reporting compatibility.
+         * Precondition: Last price ticks and tick size must be positive.
+         * Returns: Display price as ticks multiplied by tick size.
+         * Postcondition: No context state is changed.
+         */
         validatePositive(tickSize, "tickSize");
         return lastPriceTicks * tickSize;
     }

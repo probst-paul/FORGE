@@ -11,6 +11,12 @@ import java.util.Optional;
 public class CrudeOilRolloverRule implements RolloverRule {
     @Override
     public Optional<ContractRolloverWindow> resolveActiveWindow(FuturesContractCode contractCode) {
+        /*
+         * Intent: Resolve the active front-month window for CL monthly futures.
+         * Precondition: Contract code must be non-null.
+         * Returns: Active window for CL contracts, otherwise Optional.empty().
+         * Postcondition: Rule state is unchanged.
+         */
         if (contractCode == null) {
             throw new IllegalArgumentException("contractCode is required");
         }
@@ -29,10 +35,22 @@ public class CrudeOilRolloverRule implements RolloverRule {
     }
 
     private LocalDate rolloverDate(FuturesContractCode contractCode) {
+        /*
+         * Intent: Calculate CL rollover as the Friday before the estimated expiration date.
+         * Precondition: Contract code must represent a CL monthly contract.
+         * Returns: Rollover date for the contract.
+         * Postcondition: Contract code is unchanged.
+         */
         return expirationDate(contractCode).with(TemporalAdjusters.previous(DayOfWeek.FRIDAY));
     }
 
     private LocalDate expirationDate(FuturesContractCode contractCode) {
+        /*
+         * Intent: Estimate CL expiration as three business days before the 25th of the prior month.
+         * Precondition: Contract code must contain a valid delivery month and year.
+         * Returns: Estimated expiration date used by the rollover rule.
+         * Postcondition: Contract code is unchanged.
+         */
         LocalDate twentyFifthOfPreviousMonth = LocalDate
                 .of(contractCode.getYear(), contractCode.getMonth(), 1)
                 .minusMonths(1)
@@ -41,6 +59,12 @@ public class CrudeOilRolloverRule implements RolloverRule {
     }
 
     private LocalDate subtractBusinessDays(LocalDate date, int businessDays) {
+        /*
+         * Intent: Move backward a fixed number of weekdays from a date.
+         * Precondition: Date must be non-null and business day count must be nonnegative.
+         * Returns: Date after subtracting the requested number of business days.
+         * Postcondition: Input date is unchanged.
+         */
         LocalDate currentDate = date;
         int remainingBusinessDays = businessDays;
         while (remainingBusinessDays > 0) {
@@ -58,6 +82,12 @@ public class CrudeOilRolloverRule implements RolloverRule {
     }
 
     private FuturesContractCode previousMonthlyContract(FuturesContractCode contractCode) {
+        /*
+         * Intent: Identify the prior monthly CL contract used to define active start date.
+         * Precondition: Contract code must contain a valid month and year.
+         * Returns: FuturesContractCode for the previous calendar month.
+         * Postcondition: Source contract code is unchanged.
+         */
         Month previousMonth = contractCode.getMonth().minus(1);
         int previousYear = contractCode.getMonth() == Month.JANUARY
                 ? contractCode.getYear() - 1

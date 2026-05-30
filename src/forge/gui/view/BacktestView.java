@@ -49,6 +49,12 @@ public class BacktestView {
     }
 
     public Parent createView() {
+        /*
+         * Intent: Build the backtest screen and wire strategy, condition, target, and contract selections.
+         * Precondition: Controller must be initialized and imported contract windows may be available.
+         * Returns: JavaFX parent node for the backtest workflow.
+         * Postcondition: View controls are bound to the backtest view model.
+         */
         BacktestViewModel viewModel = controller.getViewModel();
 
         Label heading = new Label("Backtest");
@@ -250,6 +256,12 @@ public class BacktestView {
             TextField rewardRiskRatioField,
             TextField profitTargetTicksField
     ) {
+        /*
+         * Intent: Populate strategy choices and apply defaults for the first strategy.
+         * Precondition: Selection controls must belong to the active backtest view.
+         * Returns: Nothing.
+         * Postcondition: Strategy-dependent condition and target controls are initialized.
+         */
         strategyComboBox.getItems().clear();
         try {
             for (Class<? extends TradingStrategy> strategyClass : controller.getAvailableStrategies()) {
@@ -288,6 +300,12 @@ public class BacktestView {
             TextField rewardRiskRatioField,
             TextField profitTargetTicksField
     ) {
+        /*
+         * Intent: Apply a selected strategy's configurable condition and target profile to the UI.
+         * Precondition: selection may be null during ComboBox clearing.
+         * Returns: Nothing.
+         * Postcondition: Condition and target controls reflect the strategy profile.
+         */
         conditionComboBox.getItems().clear();
         targetModeComboBox.getItems().clear();
         if (selection == null) {
@@ -359,6 +377,12 @@ public class BacktestView {
     }
 
     private void loadAvailableContracts(VBox contractList, List<ContractSelection> contractSelections) {
+        /*
+         * Intent: Refresh selectable contract windows for the backtest run.
+         * Precondition: contractList and contractSelections must be the active UI state containers.
+         * Returns: Nothing.
+         * Postcondition: The checkbox list mirrors currently available imported contract windows.
+         */
         contractList.getChildren().clear();
         contractSelections.clear();
 
@@ -544,6 +568,12 @@ public class BacktestView {
     }
 
     private void renderReport(TabPane resultsTabs, BacktestResult result) {
+        /*
+         * Intent: Replace the summary tab with cards from the completed backtest.
+         * Precondition: resultsTabs must contain the summary tab at index 0.
+         * Returns: Nothing.
+         * Postcondition: The summary tab displays the latest backtest result.
+         */
         resultsTabs.getTabs().set(0, createSummaryTab(result));
         resultsTabs.getSelectionModel().select(0);
     }
@@ -559,6 +589,12 @@ public class BacktestView {
             TextField profitTargetTicksField,
             TabPane resultsTabs
     ) {
+        /*
+         * Intent: Validate backtest inputs, create the request, and start a background backtest task.
+         * Precondition: User must select contracts, strategy, condition, target mode, and valid risk values.
+         * Returns: Nothing.
+         * Postcondition: A daemon backtest thread is started, or the view model reports validation/failure.
+         */
         BacktestViewModel viewModel = controller.getViewModel();
         List<ContractTradeWindow> selectedWindows = selectedWindows(contractSelections);
 
@@ -614,6 +650,12 @@ public class BacktestView {
             TextField rewardRiskRatioField,
             TextField profitTargetTicksField
     ) {
+        /*
+         * Intent: Convert the selected target mode and text fields into target settings.
+         * Precondition: targetMode must be one of the supported target setting names.
+         * Returns: TargetSettings for the backtest request.
+         * Postcondition: Text-field values are parsed but not modified.
+         */
         if (TargetSettings.FIXED_RISK_REWARD.equals(targetMode)) {
             return TargetSettings.fixedRiskReward(parseDouble(rewardRiskRatioField, "Reward/risk ratio"));
         }

@@ -36,6 +36,12 @@ public class DatabaseConfigController {
             String username,
             String password
     ) {
+        /*
+         * Intent: Configure database access synchronously for tests or non-task GUI callers.
+         * Precondition: Connection fields must identify a reachable PostgreSQL database setup.
+         * Returns: Applied database connection request.
+         * Postcondition: The view model is marked configured or failed.
+         */
         viewModel.setHost(host);
         viewModel.setPort(port);
         viewModel.setDatabaseName(databaseName);
@@ -70,6 +76,12 @@ public class DatabaseConfigController {
             String username,
             String password
     ) {
+        /*
+         * Intent: Create a JavaFX task for configuring database access off the UI thread.
+         * Precondition: Connection fields must identify a reachable PostgreSQL database setup.
+         * Returns: Task that yields the applied database connection request.
+         * Postcondition: Task completion updates the view model through shared task handling.
+         */
         viewModel.setHost(host);
         viewModel.setPort(port);
         viewModel.setDatabaseName(databaseName);
@@ -92,6 +104,12 @@ public class DatabaseConfigController {
     }
 
     private void applyDatabaseConnectionRequest(DatabaseConnectionRequest request) {
+        /*
+         * Intent: Reflect successful database configuration in GUI state.
+         * Precondition: request must be the applied connection request.
+         * Returns: Nothing.
+         * Postcondition: The view model is marked configured and displays the connected database.
+         */
         viewModel.setConfigured(true);
         viewModel.markSucceeded("Database configured.", "Connected to database " + request.getDatabaseName() + ".");
     }

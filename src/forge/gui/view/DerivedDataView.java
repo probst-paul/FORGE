@@ -36,6 +36,12 @@ public class DerivedDataView {
     }
 
     public Parent createView() {
+        /*
+         * Intent: Build the derived-data screen and wire contract/option selections.
+         * Precondition: Controller must be initialized and database access should be configured.
+         * Returns: JavaFX parent node for the derived-data workflow.
+         * Postcondition: View controls are bound to the derived-data view model.
+         */
         DerivedDataViewModel viewModel = controller.getViewModel();
 
         Label heading = new Label("Derived Data");
@@ -114,6 +120,12 @@ public class DerivedDataView {
     }
 
     private void loadAvailableContracts(VBox contractList, List<ContractSelection> contractSelections) {
+        /*
+         * Intent: Refresh the selectable contract windows from the data facade.
+         * Precondition: contractList and contractSelections must be the active UI state containers.
+         * Returns: Nothing.
+         * Postcondition: The checkbox list mirrors currently available imported contract windows.
+         */
         contractList.getChildren().clear();
         contractSelections.clear();
 
@@ -149,6 +161,12 @@ public class DerivedDataView {
             boolean buildFirstHourBreachEvents,
             boolean rebuildExisting
     ) {
+        /*
+         * Intent: Validate derived-data selections and start a background build task.
+         * Precondition: User should have selected at least one contract and one build option.
+         * Returns: Nothing.
+         * Postcondition: A daemon build thread is started, or the view model reports validation/failure.
+         */
         DerivedDataViewModel viewModel = controller.getViewModel();
         List<ContractTradeWindow> selectedWindows = selectedWindows(contractSelections);
         Set<DerivedDataBuildOption> selectedOptions = selectedOptions(buildSessionRanges, buildFirstHourBreachEvents);

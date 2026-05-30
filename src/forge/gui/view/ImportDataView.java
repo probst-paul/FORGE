@@ -45,6 +45,12 @@ public class ImportDataView {
     }
 
     public Parent createView(Window owner) {
+        /*
+         * Intent: Build the import-data screen and wire file selection/import actions.
+         * Precondition: owner may be null when no parent window is available.
+         * Returns: JavaFX parent node for the import-data workflow.
+         * Postcondition: View controls are bound to the import view model.
+         */
         ImportDataViewModel viewModel = controller.getViewModel();
         GuiUserPreferences preferences = preferencesStore.load();
 
@@ -114,6 +120,12 @@ public class ImportDataView {
     }
 
     private File chooseScidFile(Window owner) {
+        /*
+         * Intent: Let the user select a Sierra Chart SCID file with the system file chooser.
+         * Precondition: owner may be null; saved directory may or may not exist.
+         * Returns: Selected file, or null when the dialog is canceled.
+         * Postcondition: No import is started by file selection alone.
+         */
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Select SCID Data File");
         configureInitialDirectory(fileChooser);
@@ -127,6 +139,12 @@ public class ImportDataView {
     }
 
     private void importSelectedFile(Window owner, String scidFilePath) {
+        /*
+         * Intent: Confirm rebuild when needed and launch the import task.
+         * Precondition: scidFilePath should identify the selected SCID file.
+         * Returns: Nothing.
+         * Postcondition: A daemon import thread is started, or the view model reports cancellation/failure.
+         */
         try {
             saveScidPath(scidFilePath, true);
             DataImportPlan plan = controller.planImport(scidFilePath);
@@ -145,6 +163,12 @@ public class ImportDataView {
     }
 
     private boolean confirmRebuild(Window owner, DataImportPlan plan) {
+        /*
+         * Intent: Ask the user before wiping/rebuilding existing contract data.
+         * Precondition: plan must describe an existing target contract table.
+         * Returns: true only when the user confirms the rebuild.
+         * Postcondition: No data is modified by the dialog itself.
+         */
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.initOwner(owner);
         alert.setTitle("Confirm Rebuild");

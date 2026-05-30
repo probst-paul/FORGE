@@ -83,6 +83,12 @@ public class BenchmarkPhaseProgress {
     }
 
     public void reset() {
+        /*
+         * Intent: Clear one benchmark phase before a new benchmark run.
+         * Precondition: None.
+         * Returns: Nothing.
+         * Postcondition: Phase progress, status, elapsed time, and timer state are reset.
+         */
         setStatusMessage("Not started.");
         elapsedTime.set("elapsed 0.000s");
         processedUnits.set(0);
@@ -93,6 +99,12 @@ public class BenchmarkPhaseProgress {
     }
 
     public void updateProgress(long processed, long total, String statusMessage) {
+        /*
+         * Intent: Update one benchmark phase and keep its elapsed timer live.
+         * Precondition: processed and total must be non-negative and processed cannot exceed total.
+         * Returns: Nothing.
+         * Postcondition: Phase progress, counts, status text, and elapsed text are current.
+         */
         if (processed < 0) {
             throw new IllegalArgumentException("processed cannot be negative");
         }
@@ -111,12 +123,24 @@ public class BenchmarkPhaseProgress {
     }
 
     public void markComplete(long processed, long total, String statusMessage) {
+        /*
+         * Intent: Finalize one benchmark phase with completed counts and status.
+         * Precondition: processed and total must describe the final phase counts.
+         * Returns: Nothing.
+         * Postcondition: Phase progress is complete and its elapsed timer is stopped.
+         */
         updateProgress(processed, total, statusMessage);
         running = false;
         progress.set(1.0);
     }
 
     public void stopElapsedTimer() {
+        /*
+         * Intent: Freeze elapsed display when control moves to the next benchmark phase.
+         * Precondition: Phase may or may not currently be running.
+         * Returns: Nothing.
+         * Postcondition: Running phase timer is stopped after one final refresh.
+         */
         if (running) {
             refreshElapsedTime();
             running = false;
@@ -124,6 +148,12 @@ public class BenchmarkPhaseProgress {
     }
 
     public void refreshElapsedTime() {
+        /*
+         * Intent: Refresh live elapsed-time text without changing progress counts.
+         * Precondition: Phase must have been started for elapsed text to advance.
+         * Returns: Nothing.
+         * Postcondition: Running phases display current elapsed duration.
+         */
         if (running && startedAtNanos > 0) {
             elapsedTime.set("elapsed " + formatDuration(Duration.ofNanos(System.nanoTime() - startedAtNanos)));
         }

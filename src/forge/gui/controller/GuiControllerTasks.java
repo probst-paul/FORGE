@@ -18,6 +18,12 @@ final class GuiControllerTasks {
             Function<GuiWorkflowTask<T>, T> work,
             Consumer<T> onSucceeded
     ) {
+        /*
+         * Intent: Standardize JavaFX background task creation for GUI workflows.
+         * Precondition: viewModel, work, and success callback must be supplied.
+         * Returns: Configured Task<T> that is ready to run on a background thread.
+         * Postcondition: The view model is bound to task progress and task failure is reported consistently.
+         */
         if (viewModel == null) {
             throw new IllegalArgumentException("viewModel is required");
         }
@@ -42,6 +48,12 @@ final class GuiControllerTasks {
     }
 
     private static RuntimeException toRuntimeException(Throwable throwable) {
+        /*
+         * Intent: Normalize JavaFX task failures into runtime exceptions for view model reporting.
+         * Precondition: throwable may be null when JavaFX provides no failure cause.
+         * Returns: RuntimeException representing the task failure.
+         * Postcondition: Failure handling can display a consistent message to the GUI.
+         */
         if (throwable instanceof RuntimeException runtimeException) {
             return runtimeException;
         }

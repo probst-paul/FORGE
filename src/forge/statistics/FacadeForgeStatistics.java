@@ -34,6 +34,12 @@ public class FacadeForgeStatistics {
     }
 
     public class ForgeStatisticsAccess {
+        /*
+         * Intent: Summarize a market study through the statistics facade.
+         * Precondition: Study and source collections must be valid for StatisticsService.
+         * Returns: EventStatisticsReport grouped by instrument and contract.
+         * Postcondition: Callers do not need direct access to StatisticsService internals.
+         */
         public EventStatisticsReport summarizeStudyOccurrences(
                 MarketStudy study,
                 Collection<SessionRangeFeature> sessionRangeFeatures,
@@ -42,6 +48,12 @@ public class FacadeForgeStatistics {
             return statisticsService.summarizeStudyOccurrences(study, sessionRangeFeatures, events);
         }
 
+        /*
+         * Intent: Summarize an event query through the statistics facade.
+         * Precondition: Query and source collections must be valid for StatisticsService.
+         * Returns: EventStatisticsReport grouped by instrument and contract.
+         * Postcondition: Callers remain decoupled from statistics aggregation implementation.
+         */
         public EventStatisticsReport summarizeEventStatistics(
                 EventStatisticsQuery query,
                 Collection<SessionRangeFeature> sessionRangeFeatures,

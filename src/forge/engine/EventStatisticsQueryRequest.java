@@ -17,10 +17,22 @@ public class EventStatisticsQueryRequest {
     private final EventStatisticsProgressListener progressListener;
 
     public EventStatisticsQueryRequest(List<ContractTradeWindow> contractWindows, String eventName) {
+        /*
+         * Intent: Create an event-statistics request with default batch size and no-op progress listener.
+         * Precondition: Contract windows and event name must be valid.
+         * Returns: A constructed EventStatisticsQueryRequest instance.
+         * Postcondition: Request uses default batch size.
+         */
         this(contractWindows, eventName, DEFAULT_BATCH_SIZE);
     }
 
     public EventStatisticsQueryRequest(List<ContractTradeWindow> contractWindows, String eventName, int batchSize) {
+        /*
+         * Intent: Create an event-statistics request with explicit batch size and no-op progress listener.
+         * Precondition: Contract windows, event name, and batch size must be valid.
+         * Returns: A constructed EventStatisticsQueryRequest instance.
+         * Postcondition: Request uses the no-op progress listener.
+         */
         this(contractWindows, eventName, batchSize, EventStatisticsProgressListener.NO_OP);
     }
 
@@ -30,6 +42,12 @@ public class EventStatisticsQueryRequest {
             int batchSize,
             EventStatisticsProgressListener progressListener
     ) {
+        /*
+         * Intent: Store selected contract windows and event-statistics execution settings.
+         * Precondition: Windows must be non-empty, event name supported, batch size positive, and listener non-null.
+         * Returns: A constructed EventStatisticsQueryRequest instance.
+         * Postcondition: Contract windows are defensively copied into an immutable list.
+         */
         if (contractWindows == null || contractWindows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
         }

@@ -37,6 +37,12 @@ public class BenchmarkWorkflow {
     private final FacadeForgeConfig forgeConfig;
 
     public BenchmarkWorkflow() {
+        /*
+         * Intent: Create the benchmark workflow using the default application, data, and config facades.
+         * Precondition: Default package facade singletons must be available.
+         * Returns: A constructed BenchmarkWorkflow instance.
+         * Postcondition: Workflow is ready to run benchmark scenarios through existing package boundaries.
+         */
         this(
                 FacadeForgeApplication.getTheInstance(),
                 FacadeForgeData.getTheInstance(),
@@ -49,6 +55,12 @@ public class BenchmarkWorkflow {
             FacadeForgeData forgeData,
             FacadeForgeConfig forgeConfig
     ) {
+        /*
+         * Intent: Create the benchmark workflow with explicit dependencies for production use or tests.
+         * Precondition: Application, data, and config facades must exist.
+         * Returns: A constructed BenchmarkWorkflow instance.
+         * Postcondition: Workflow delegates all core behavior through the supplied facades.
+         */
         if (forgeApplication == null) {
             throw new IllegalArgumentException("forgeApplication is required");
         }
@@ -63,6 +75,12 @@ public class BenchmarkWorkflow {
         this.forgeConfig = forgeConfig;
     }
 
+    /*
+     * Intent: Run the full benchmark sequence: import, derived-data build, event statistics, and backtest.
+     * Precondition: Request must exist, reference a valid SCID file, and the imported contract must produce an available contract window.
+     * Returns: BenchmarkRunResult containing each workflow result and elapsed timing.
+     * Postcondition: Database may contain rebuilt raw/derived data; workflow object state is unchanged.
+     */
     public BenchmarkRunResult run(BenchmarkRunRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request is required");
@@ -113,6 +131,12 @@ public class BenchmarkWorkflow {
         );
     }
 
+    /*
+     * Intent: Find the rollover-valid contract window created or refreshed by the import step.
+     * Precondition: Contract symbol must identify an imported contract visible through the data facade.
+     * Returns: ContractTradeWindow for the imported contract.
+     * Postcondition: Workflow state is unchanged; an exception is thrown if the imported contract is not benchmarkable.
+     */
     private ContractTradeWindow resolveImportedContractWindow(String contractSymbol) {
         for (AvailableContractData contractData : forgeData.forgeDataAccess().getAvailableContracts()) {
             if (contractData.getContractSymbol().equalsIgnoreCase(contractSymbol)) {
@@ -126,6 +150,12 @@ public class BenchmarkWorkflow {
         throw new IllegalStateException("Imported contract has no rollover-valid benchmark window: " + contractSymbol);
     }
 
+    /*
+     * Intent: Build the default backtest request used by the benchmark workflow.
+     * Precondition: Contract windows must be valid for the config facade and engine.
+     * Returns: BacktestRequest using the default benchmark strategy, condition, risk, target, and order settings.
+     * Postcondition: Workflow state is unchanged.
+     */
     private BacktestRequest createDefaultBacktestRequest(List<ContractTradeWindow> contractWindows) {
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 new StrategyOptions(DEFAULT_STRATEGY_NAME),

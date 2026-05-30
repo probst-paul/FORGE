@@ -79,6 +79,12 @@ public class EventStatisticsController {
     }
 
     public EventStatisticsReport runEventStatistics(List<ContractTradeWindow> contractWindows, String eventName) {
+        /*
+         * Intent: Run event statistics synchronously for tests or non-task GUI callers.
+         * Precondition: contractWindows must be selected and eventName must name a supported study/event.
+         * Returns: Completed event statistics report.
+         * Postcondition: The view model is marked succeeded or failed with result counts.
+         */
         viewModel.setContractWindows(contractWindows);
         viewModel.setEventName(eventName);
         viewModel.markStarted("Running event statistics...");
@@ -102,6 +108,12 @@ public class EventStatisticsController {
             List<ContractTradeWindow> contractWindows,
             String eventName
     ) {
+        /*
+         * Intent: Create a JavaFX task for event statistics off the UI thread.
+         * Precondition: contractWindows must be selected and eventName must name a supported study/event.
+         * Returns: Task that yields the event statistics report.
+         * Postcondition: Task progress callbacks update the view model through JavaFX bindings.
+         */
         viewModel.setContractWindows(contractWindows);
         viewModel.setEventName(eventName);
         return GuiControllerTasks.create(
@@ -120,6 +132,12 @@ public class EventStatisticsController {
     }
 
     private void applyEventStatisticsReport(EventStatisticsReport report) {
+        /*
+         * Intent: Copy completed event statistics counts into GUI state.
+         * Precondition: report must be a successful statistics report.
+         * Returns: Nothing.
+         * Postcondition: The view model exposes instrument/contract result counts and success text.
+         */
         viewModel.setInstrumentResultCount(report.getInstrumentResults().size());
         viewModel.setContractResultCount(report.getContractResults().size());
         viewModel.markSucceeded(

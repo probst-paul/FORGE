@@ -16,6 +16,12 @@ public class OrderSettings {
             double limitOffsetTicks,
             double stopOffsetTicks
     ) {
+        /*
+         * Intent: Store order-entry settings used when a strategy signal becomes a simulated order.
+         * Precondition: Order type must be provided, quantity must be positive, and offsets cannot be negative.
+         * Returns: A constructed OrderSettings instance.
+         * Postcondition: Order settings are immutable and validated for execution use.
+         */
         if (quantity <= 0) {
             throw new IllegalArgumentException("quantity must be greater than zero");
         }
@@ -50,6 +56,12 @@ public class OrderSettings {
 
     @Override
     public String toString() {
+        /*
+         * Intent: Provide a readable diagnostic summary of order settings.
+         * Precondition: OrderSettings must be constructed.
+         * Returns: String representation of order settings.
+         * Postcondition: OrderSettings state is unchanged.
+         */
         return "OrderSettings{" +
                 "entryOrderType=" + entryOrderType +
                 ", quantity=" + quantity +

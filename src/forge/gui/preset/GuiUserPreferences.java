@@ -18,6 +18,19 @@ public class GuiUserPreferences implements Serializable {
     private boolean benchmarkRebuildExistingContract = true;
     private boolean benchmarkRebuildDerivedData = true;
 
+    /*
+     * Intent: Normalize optional text preference values before persistence.
+     * Precondition: value may be null or blank; fallback should be a valid default.
+     * Returns: Trimmed value or fallback.
+     * Postcondition: Stored preferences do not contain null or accidental blank values.
+     */
+    private String clean(String value, String fallback) {
+        if (value == null || value.trim().isEmpty()) {
+            return fallback;
+        }
+        return value.trim();
+    }
+
     public String getDatabaseHost() {
         return databaseHost;
     }
@@ -101,10 +114,4 @@ public class GuiUserPreferences implements Serializable {
         this.benchmarkRebuildDerivedData = benchmarkRebuildDerivedData;
     }
 
-    private String clean(String value, String fallback) {
-        if (value == null || value.trim().isEmpty()) {
-            return fallback;
-        }
-        return value.trim();
-    }
 }

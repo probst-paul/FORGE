@@ -69,6 +69,12 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
 
     @Override
     public StrategyDecision evaluate(StrategyContext strategyContext) {
+        /*
+         * Intent: Generate at most one opening-range continuation trade per contract session.
+         * Precondition: strategyContext must contain the current tick, session range feature, and current events.
+         * Returns: Trade decision when a valid first-hour breach occurs in the trade window; otherwise no action.
+         * Postcondition: Session is marked traded only after a trade decision is created.
+         */
         if (strategyContext == null) {
             throw new NullPointerException("strategyContext is required");
         }
@@ -108,6 +114,12 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
 
     @Override
     public void onBacktestStart() {
+        /*
+         * Intent: Reset per-session trade tracking before a new backtest run.
+         * Precondition: None.
+         * Returns: Nothing.
+         * Postcondition: Prior run state cannot suppress trades in the new run.
+         */
         tradeTakenBySession.clear();
     }
 
@@ -129,6 +141,12 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
             long stopPriceTicks,
             SessionRangeFeature feature
     ) {
+        /*
+         * Intent: Calculate target price in ticks using the selected exit style.
+         * Precondition: Side, entry, stop, and feature must describe a valid trade setup.
+         * Returns: Target price ticks for the generated TradePlan.
+         * Postcondition: Strategy state is unchanged.
+         */
         if (exitStyle == ExitStyle.RANGE) {
             return side == OrderSide.BUY
                     ? feature.getOvernightHighTicks()
@@ -146,16 +164,34 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     }
 
     private boolean isTradeWindow(MarketConditionOccurrence event) {
+        /*
+         * Intent: Restrict entries to the configured morning trade window.
+         * Precondition: event must have a valid timestamp.
+         * Returns: true when event time is from 9:30 inclusive to 10:30 exclusive Central Time.
+         * Postcondition: Event state is unchanged.
+         */
         LocalTime time = event.getEventTime().atZone(CENTRAL_TIME).toLocalTime();
         return !time.isBefore(TRADE_START) && time.isBefore(TRADE_END_EXCLUSIVE);
     }
 
     private boolean isSetupValid(SessionRangeFeature feature) {
+        /*
+         * Intent: Require the first-hour range to stay inside the overnight range.
+         * Precondition: feature must contain overnight and first-hour tick ranges.
+         * Returns: true when both first-hour boundaries are inside overnight boundaries.
+         * Postcondition: Feature state is unchanged.
+         */
         return feature.getFirstHourHighTicks() <= feature.getOvernightHighTicks()
                 && feature.getFirstHourLowTicks() >= feature.getOvernightLowTicks();
     }
 
     private MarketConditionOccurrence firstHourBreachEvent(StrategyContext context) {
+        /*
+         * Intent: Find the current tick's first-hour breach event, if one exists.
+         * Precondition: context must contain current tick and current event list.
+         * Returns: Matching directional breach event, or null when none applies.
+         * Postcondition: Event list is not modified.
+         */
         for (MarketConditionOccurrence event : context.getCurrentEvents()) {
             if (FirstHourBreachCondition.EVENT_NAME.equals(event.getEventName())
                     && event.getEventTime().equals(context.getCurrentTick().getTradeDateTime())

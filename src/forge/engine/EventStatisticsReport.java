@@ -14,6 +14,12 @@ public class EventStatisticsReport {
             List<EventStatisticsResult> instrumentResults,
             List<EventStatisticsResult> contractResults
     ) {
+        /*
+         * Intent: Store event-statistics results at instrument and contract scopes.
+         * Precondition: Event name must be nonblank and result lists must be non-null with no null elements.
+         * Returns: A constructed EventStatisticsReport instance.
+         * Postcondition: Result lists are immutable defensive copies.
+         */
         if (eventName == null || eventName.trim().isEmpty()) {
             throw new IllegalArgumentException("eventName is required");
         }

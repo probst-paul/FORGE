@@ -5,6 +5,12 @@ import forge.app.UserOutput;
 import forge.config.RiskSettings;
 
 public class RiskSettingsSelectionService {
+    /*
+     * Intent: Read risk settings from the CLI and validate them through the RiskSettings model.
+     * Precondition: User input must eventually provide valid numeric risk values.
+     * Returns: RiskSettings accepted by the config layer.
+     * Postcondition: Invalid values are rejected and reprompted without changing app state.
+     */
     public RiskSettings readRiskSettings(UserInput input, UserOutput output) {
         while (true) {
             try {

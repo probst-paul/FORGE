@@ -63,6 +63,12 @@ public class FuturesInstrumentSpec {
     }
 
     public boolean supportsMonthCode(String monthCode) {
+        /*
+         * Intent: Check whether this instrument supports a futures expiration month code.
+         * Precondition: monthCode may be null or unnormalized.
+         * Returns: true when the normalized month code is supported.
+         * Postcondition: Instrument specification state is unchanged.
+         */
         return monthCode != null && supportedMonthCodes.contains(monthCode.trim().toUpperCase());
     }
 
@@ -71,6 +77,12 @@ public class FuturesInstrumentSpec {
     }
 
     private Set<String> normalizeMonthCodes(Set<String> monthCodes) {
+        /*
+         * Intent: Validate and normalize supported futures month codes.
+         * Precondition: monthCodes must be non-null and contain non-blank month symbols.
+         * Returns: Unmodifiable set of uppercase futures month codes.
+         * Postcondition: Invalid month codes are rejected before the spec is constructed.
+         */
         Set<String> normalizedMonthCodes = new LinkedHashSet<>();
         for (String monthCode : monthCodes) {
             if (monthCode == null || monthCode.trim().isEmpty()) {

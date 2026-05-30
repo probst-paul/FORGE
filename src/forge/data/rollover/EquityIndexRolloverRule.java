@@ -14,6 +14,12 @@ public class EquityIndexRolloverRule implements RolloverRule {
 
     @Override
     public Optional<ContractRolloverWindow> resolveActiveWindow(FuturesContractCode contractCode) {
+        /*
+         * Intent: Resolve the active front-month window for quarterly CME equity index futures.
+         * Precondition: Contract code must be non-null.
+         * Returns: Active window for supported quarterly roots/months, otherwise Optional.empty().
+         * Postcondition: Rule state is unchanged.
+         */
         if (contractCode == null) {
             throw new IllegalArgumentException("contractCode is required");
         }
@@ -35,6 +41,12 @@ public class EquityIndexRolloverRule implements RolloverRule {
     }
 
     private LocalDate rolloverDate(FuturesContractCode contractCode) {
+        /*
+         * Intent: Calculate the Monday before the third Friday of the contract month.
+         * Precondition: Contract code must represent a quarterly equity index contract.
+         * Returns: Rollover date for the supplied contract.
+         * Postcondition: Contract code is unchanged.
+         */
         LocalDate thirdFriday = LocalDate
                 .of(contractCode.getYear(), contractCode.getMonth(), 1)
                 .with(TemporalAdjusters.dayOfWeekInMonth(3, DayOfWeek.FRIDAY));
@@ -42,6 +54,12 @@ public class EquityIndexRolloverRule implements RolloverRule {
     }
 
     private FuturesContractCode previousQuarterlyContract(FuturesContractCode contractCode) {
+        /*
+         * Intent: Identify the prior quarterly contract used to define this contract's active start date.
+         * Precondition: Contract month must be March, June, September, or December.
+         * Returns: FuturesContractCode for the previous quarterly expiration.
+         * Postcondition: Source contract code is unchanged.
+         */
         switch (contractCode.getMonth()) {
             case MARCH:
                 return new FuturesContractCode(contractCode.getInstrumentSymbol(), "Z", contractCode.getYear() - 1);

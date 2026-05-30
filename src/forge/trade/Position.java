@@ -26,6 +26,12 @@ public class Position {
             int quantity,
             double tickDollarValue
     ) {
+        /*
+         * Intent: Represent an open simulated position and track its excursion from entry.
+         * Precondition: Symbols must be nonblank; side/entry time must exist; entry ticks, quantity, and tick dollar value must be positive.
+         * Returns: A constructed Position instance.
+         * Postcondition: Position starts open with zero favorable/adverse excursion.
+         */
         this.instrumentSymbol = requireText(instrumentSymbol, "instrumentSymbol is required");
         this.contractSymbol = requireText(contractSymbol, "contractSymbol is required");
         this.side = Objects.requireNonNull(side, "side is required");
@@ -44,6 +50,12 @@ public class Position {
         this.tickDollarValue = tickDollarValue;
     }
 
+    /*
+     * Intent: Update maximum favorable and adverse movement seen while the position is open.
+     * Precondition: priceTicks must be positive and measured in the same tick scale as the entry.
+     * Returns: Nothing.
+     * Postcondition: MFE/MAE tick fields only increase when the new price extends prior extremes.
+     */
     public void updateExcursion(long priceTicks) {
         if (priceTicks <= 0) {
             throw new IllegalArgumentException("priceTicks must be greater than zero");
@@ -61,6 +73,12 @@ public class Position {
         maxAdverseExcursionTicks = Math.max(maxAdverseExcursionTicks, adverseTicks);
     }
 
+    /*
+     * Intent: Close the open position and convert position state into a completed trade result.
+     * Precondition: exitTime must exist, exitPriceTicks must be positive, and exitReason must be valid for TradeResult.
+     * Returns: A TradeResult containing P/L, MFE, MAE, and exit metadata.
+     * Postcondition: Position object remains readable, and excursion includes the exit price before result creation.
+     */
     public TradeResult close(Instant exitTime, long exitPriceTicks, String exitReason) {
         Objects.requireNonNull(exitTime, "exitTime is required");
         if (exitPriceTicks <= 0) {
@@ -119,6 +137,12 @@ public class Position {
         return maxAdverseExcursionTicks;
     }
 
+    /*
+     * Intent: Validate and normalize required symbol-like text.
+     * Precondition: Value must not be null, empty, or whitespace-only.
+     * Returns: Trimmed uppercase text.
+     * Postcondition: Callers receive canonical text or an exception before invalid state is stored.
+     */
     private static String requireText(String value, String message) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(message);

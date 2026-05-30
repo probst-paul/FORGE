@@ -53,6 +53,12 @@ public abstract class Instrument {
     }
 
     private static String normalizeDisplayName(String displayName, String symbolCode) {
+        /*
+         * Intent: Ensure every instrument has a usable display name.
+         * Precondition: symbolCode must already be normalized and non-blank.
+         * Returns: Trimmed display name or the symbol code fallback.
+         * Postcondition: Instrument construction never stores a blank display name.
+         */
         if (displayName == null || displayName.trim().isEmpty()) {
             return symbolCode;
         }

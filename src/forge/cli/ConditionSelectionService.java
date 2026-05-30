@@ -16,9 +16,21 @@ public class ConditionSelectionService {
     private final FacadeForgeCondition facadeCondition;
 
     public ConditionSelectionService(FacadeForgeCondition facadeCondition) {
+        /*
+         * Intent: Create a CLI condition selection service backed by the condition facade.
+         * Precondition: Condition facade should be available.
+         * Returns: A constructed ConditionSelectionService instance.
+         * Postcondition: Future condition choices query condition metadata through the supplied facade.
+         */
         this.facadeCondition = facadeCondition;
     }
 
+    /*
+     * Intent: Let the user select from all available market conditions.
+     * Precondition: At least one condition must be registered in the condition facade.
+     * Returns: Selected MarketCondition class.
+     * Postcondition: Input is consumed until a valid selection is made or the user quits.
+     */
     public Class<? extends MarketCondition> selectCondition(UserInput input, UserOutput output) {
         List<Class<? extends MarketCondition>> conditions = facadeCondition.forgeConditionAccess().findAvailableConditions();
         if (conditions.isEmpty()) {
@@ -39,6 +51,12 @@ public class ConditionSelectionService {
         }
     }
 
+    /*
+     * Intent: Select a market condition while honoring the selected strategy's configuration profile.
+     * Precondition: Strategy profile must define a default condition and any allowed condition choices.
+     * Returns: Default condition when selection is locked, otherwise the user's selected allowed condition.
+     * Postcondition: User cannot select a condition outside the strategy profile.
+     */
     public Class<? extends MarketCondition> selectCondition(
             UserInput input,
             UserOutput output,
@@ -79,6 +97,12 @@ public class ConditionSelectionService {
         return facadeCondition.forgeConditionAccess().createConditionOptions(condition);
     }
 
+    /*
+     * Intent: Read CLI configuration for a selected market condition when that condition has options.
+     * Precondition: Condition class must be supported by the condition facade.
+     * Returns: MarketConditionOptions for the selected condition.
+     * Postcondition: Invalid option values are rejected and reprompted without changing data state.
+     */
     public MarketConditionOptions readConditionOptions(
             UserInput input,
             UserOutput output,
@@ -108,6 +132,12 @@ public class ConditionSelectionService {
         }
     }
 
+    /*
+     * Intent: Read the direction option for a configurable price-crossover condition.
+     * Precondition: User must enter one of the displayed menu choices.
+     * Returns: LONG or SHORT condition direction.
+     * Postcondition: Invalid selection raises an exception for the caller's reprompt loop.
+     */
     private ConditionDirection readDirection(UserInput input, UserOutput output) {
         output.printLine("Condition direction:");
         output.printLine("1. Long");

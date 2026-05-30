@@ -17,6 +17,12 @@ public class InstrumentBacktestResult {
         if (instrumentSymbol == null || instrumentSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("instrumentSymbol is required");
         }
+        /*
+         * Intent: Aggregate contract-level backtest results into one instrument-level result.
+         * Precondition: instrumentSymbol must be present and contractResults must be non-null.
+         * Returns: Constructed InstrumentBacktestResult.
+         * Postcondition: Tick counts, signal counts, trades, and performance metrics are aggregated once.
+         */
         this.instrumentSymbol = instrumentSymbol.trim().toUpperCase();
         this.contractResults = ImmutableLists.copyOfRequired(contractResults, "contractResults");
 

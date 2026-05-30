@@ -42,6 +42,12 @@ public class BenchmarkController {
             boolean rebuildExistingContract,
             boolean rebuildDerivedData
     ) {
+        /*
+         * Intent: Run the full benchmark workflow synchronously for tests or non-task callers.
+         * Precondition: scidFilePath must identify a SCID file and rebuild flags must reflect user choices.
+         * Returns: Completed benchmark result.
+         * Postcondition: The view model is marked succeeded or failed and phase progress is finalized.
+         */
         viewModel.setScidFilePath(scidFilePath);
         viewModel.setRebuildExistingContract(rebuildExistingContract);
         viewModel.setRebuildDerivedData(rebuildDerivedData);
@@ -70,6 +76,12 @@ public class BenchmarkController {
             boolean rebuildExistingContract,
             boolean rebuildDerivedData
     ) {
+        /*
+         * Intent: Create a JavaFX task for running the benchmark workflow off the UI thread.
+         * Precondition: scidFilePath must identify a SCID file and rebuild flags must reflect user choices.
+         * Returns: Task that yields the benchmark result.
+         * Postcondition: Each benchmark phase updates its own progress model during the task.
+         */
         viewModel.setScidFilePath(scidFilePath);
         viewModel.setRebuildExistingContract(rebuildExistingContract);
         viewModel.setRebuildDerivedData(rebuildDerivedData);
@@ -92,6 +104,12 @@ public class BenchmarkController {
     }
 
     private void applyBenchmarkResult(BenchmarkRunResult result) {
+        /*
+         * Intent: Finalize benchmark totals and phase progress after the benchmark completes.
+         * Precondition: result must contain successful import, derived-data, statistics, and backtest results.
+         * Returns: Nothing.
+         * Postcondition: The view model exposes final benchmark counts, elapsed times, and summary text.
+         */
         viewModel.setRowsImported(result.getImportResult().getImportedRows());
         viewModel.setDerivedDataTicksRead(result.getDatabaseBuildResult().getTicksRead());
         viewModel.setBacktestTicksProcessed(result.getBacktestResult().getTicksProcessed());
@@ -127,6 +145,12 @@ public class BenchmarkController {
     }
 
     private ImportProgressListener importProgress() {
+        /*
+         * Intent: Adapt import progress for synchronous benchmark runs.
+         * Precondition: The benchmark view model must be active.
+         * Returns: Listener that updates shared and import-phase progress.
+         * Postcondition: Benchmark import progress is visible in the GUI model.
+         */
         return progress -> {
             GuiProgressBindings.importProgress(viewModel, "Benchmark: importing").onProgress(progress);
             viewModel.getImportProgress().updateProgress(
@@ -138,6 +162,12 @@ public class BenchmarkController {
     }
 
     private ImportProgressListener importProgress(GuiWorkflowTask<?> task) {
+        /*
+         * Intent: Adapt import progress for background benchmark tasks.
+         * Precondition: task must be the active benchmark workflow task.
+         * Returns: Listener that updates task progress and import-phase progress on the FX thread.
+         * Postcondition: Benchmark import progress remains JavaFX-thread safe.
+         */
         return progress -> {
             GuiProgressBindings.importProgress(task, "Benchmark: importing").onProgress(progress);
             updatePhaseOnFxThread(
@@ -237,6 +267,12 @@ public class BenchmarkController {
     }
 
     private void runOnFxThread(Runnable update) {
+        /*
+         * Intent: Apply benchmark phase updates on the JavaFX application thread.
+         * Precondition: update must be non-null and quick to execute.
+         * Returns: Nothing.
+         * Postcondition: UI-bound benchmark properties are updated safely.
+         */
         if (Platform.isFxApplicationThread()) {
             update.run();
         } else {

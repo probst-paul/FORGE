@@ -29,6 +29,12 @@ public class BacktestRequest {
             TargetSettings targetSettings,
             OrderSettings orderSettings
     ) {
+        /*
+         * Intent: Preserve the legacy request shape that uses symbols plus one shared date range.
+         * Precondition: Strategy, instruments, dates, condition, risk, target, and order settings must be valid.
+         * Returns: A constructed BacktestRequest instance.
+         * Postcondition: Instrument/date inputs are converted into contract windows before normal validation.
+         */
         this(
                 strategyOptions,
                 toContractWindows(instruments, startDate, endDate),
@@ -47,6 +53,12 @@ public class BacktestRequest {
             TargetSettings targetSettings,
             OrderSettings orderSettings
     ) {
+        /*
+         * Intent: Create the canonical backtest request using selected contract trade windows.
+         * Precondition: All config objects must be non-null and at least one contract window is required.
+         * Returns: A constructed BacktestRequest instance.
+         * Postcondition: Contract windows and derived instrument symbols are stored as immutable lists.
+         */
         this.strategyOptions = Objects.requireNonNull(strategyOptions, "strategyOptions is required");
         this.contractWindows = validateContractWindows(contractWindows);
         this.instruments = Collections.unmodifiableList(extractContractSymbols(this.contractWindows));
@@ -96,6 +108,12 @@ public class BacktestRequest {
 
     @Override
     public String toString() {
+        /*
+         * Intent: Provide a readable diagnostic summary of the complete backtest request.
+         * Precondition: Request must be constructed.
+         * Returns: String representation of the request.
+         * Postcondition: Request state is unchanged.
+         */
         return "BacktestRequest{" +
                 "strategyOptions=" + strategyOptions +
                 ", contractWindows=" + contractWindows +
@@ -109,6 +127,12 @@ public class BacktestRequest {
     }
 
     private static List<String> validateInstruments(List<String> instruments) {
+        /*
+         * Intent: Validate and normalize legacy instrument/contract symbols.
+         * Precondition: Instruments list must be non-null and contain at least one nonblank symbol.
+         * Returns: Immutable uppercase symbol list.
+         * Postcondition: Source list is not modified.
+         */
         Objects.requireNonNull(instruments, "at least one instrument is required");
         if (instruments.isEmpty()) {
             throw new IllegalArgumentException("at least one instrument is required");
@@ -129,6 +153,12 @@ public class BacktestRequest {
             LocalDate startDate,
             LocalDate endDate
     ) {
+        /*
+         * Intent: Convert legacy symbol/date selections into contract trade windows.
+         * Precondition: Symbols and dates must be valid and end date must not precede start date.
+         * Returns: List of ContractTradeWindow objects.
+         * Postcondition: Source inputs are unchanged.
+         */
         List<String> normalizedInstruments = validateInstruments(instruments);
         Objects.requireNonNull(startDate, "startDate is required");
         Objects.requireNonNull(endDate, "endDate is required");
@@ -144,6 +174,12 @@ public class BacktestRequest {
     }
 
     private static List<ContractTradeWindow> validateContractWindows(List<ContractTradeWindow> contractWindows) {
+        /*
+         * Intent: Validate canonical contract-window selections.
+         * Precondition: Contract window list must be non-null, non-empty, and contain no null windows.
+         * Returns: Immutable list of contract windows.
+         * Postcondition: Source list is not modified.
+         */
         Objects.requireNonNull(contractWindows, "at least one contract window is required");
         if (contractWindows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");
@@ -159,6 +195,12 @@ public class BacktestRequest {
     }
 
     private static List<String> extractContractSymbols(List<ContractTradeWindow> contractWindows) {
+        /*
+         * Intent: Derive the request's instrument/contract symbol list from selected windows.
+         * Precondition: Contract windows must be validated and non-null.
+         * Returns: Mutable symbol list for constructor normalization.
+         * Postcondition: Contract windows are not modified.
+         */
         List<String> contractSymbols = new ArrayList<>();
         for (ContractTradeWindow contractWindow : contractWindows) {
             contractSymbols.add(contractWindow.getContractSymbol());
@@ -167,6 +209,12 @@ public class BacktestRequest {
     }
 
     private static LocalDate findStartDate(List<ContractTradeWindow> contractWindows) {
+        /*
+         * Intent: Find the earliest selected contract-window start date.
+         * Precondition: Contract windows must be validated and non-empty.
+         * Returns: Earliest start date across selected windows.
+         * Postcondition: Contract windows are not modified.
+         */
         LocalDate startDate = null;
         for (ContractTradeWindow contractWindow : contractWindows) {
             if (startDate == null || contractWindow.getStartDate().isBefore(startDate)) {
@@ -177,6 +225,12 @@ public class BacktestRequest {
     }
 
     private static LocalDate findEndDate(List<ContractTradeWindow> contractWindows) {
+        /*
+         * Intent: Find the latest selected contract-window end date.
+         * Precondition: Contract windows must be validated and non-empty.
+         * Returns: Latest end date across selected windows.
+         * Postcondition: Contract windows are not modified.
+         */
         LocalDate endDate = null;
         for (ContractTradeWindow contractWindow : contractWindows) {
             if (endDate == null || contractWindow.getEndDate().isAfter(endDate)) {

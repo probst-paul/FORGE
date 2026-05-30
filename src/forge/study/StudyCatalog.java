@@ -12,6 +12,12 @@ public class StudyCatalog {
     }
 
     public StudyCatalog(List<MarketStudy> studies) {
+        /*
+         * Intent: Create an immutable catalog of supported market studies.
+         * Precondition: studies must contain at least one non-null study.
+         * Returns: Constructed StudyCatalog.
+         * Postcondition: Study list is defensively copied and cannot be mutated through this catalog.
+         */
         if (studies == null || studies.isEmpty()) {
             throw new IllegalArgumentException("studies must contain at least one market study");
         }
@@ -30,6 +36,12 @@ public class StudyCatalog {
     }
 
     public List<String> findAvailableStudyNames() {
+        /*
+         * Intent: List study identifiers available to CLI/GUI selectors.
+         * Precondition: Catalog must have been constructed with valid studies.
+         * Returns: Unmodifiable list of study names.
+         * Postcondition: Catalog state is unchanged.
+         */
         List<String> names = new ArrayList<>();
         for (MarketStudy study : studies) {
             names.add(study.getName());
@@ -38,6 +50,12 @@ public class StudyCatalog {
     }
 
     public MarketStudy getStudy(String studyName) {
+        /*
+         * Intent: Retrieve a supported study by its stable name.
+         * Precondition: studyName must be non-null and non-blank.
+         * Returns: Matching MarketStudy.
+         * Postcondition: Unsupported study names are rejected before execution.
+         */
         if (studyName == null || studyName.trim().isEmpty()) {
             throw new IllegalArgumentException("studyName is required");
         }

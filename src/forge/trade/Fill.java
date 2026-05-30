@@ -23,6 +23,12 @@ public class Fill {
             long fillPriceTicks,
             long scidRecordIndex
     ) {
+        /*
+         * Intent: Create an immutable record of an executed order fill.
+         * Precondition: Symbols must be nonblank; side/order type/fill time must exist; quantity, price ticks, and record index must be positive.
+         * Returns: A constructed Fill instance.
+         * Postcondition: Fill fields are normalized and validated for later trade lifecycle use.
+         */
         this.instrumentSymbol = requireText(instrumentSymbol, "instrumentSymbol is required");
         this.contractSymbol = requireText(contractSymbol, "contractSymbol is required");
         this.side = Objects.requireNonNull(side, "side is required");
@@ -74,6 +80,12 @@ public class Fill {
         return scidRecordIndex;
     }
 
+    /*
+     * Intent: Validate and normalize required symbol-like text.
+     * Precondition: Value must not be null, empty, or whitespace-only.
+     * Returns: Trimmed uppercase text.
+     * Postcondition: Callers receive canonical text or an exception before invalid state is stored.
+     */
     private static String requireText(String value, String message) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(message);

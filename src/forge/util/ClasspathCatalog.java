@@ -21,12 +21,24 @@ public class ClasspathCatalog<T> {
     private final String packagePath;
     private final Class<T> baseType;
 
+    /*
+     * Intent: Configure package scanning for concrete implementations of a base type.
+     * Precondition: Package name must be nonblank and base type must exist.
+     * Returns: A constructed ClasspathCatalog instance.
+     * Postcondition: Package name is normalized and package path is ready for classloader resource lookup.
+     */
     public ClasspathCatalog(String packageName, Class<T> baseType) {
         this.packageName = requireText(packageName, "packageName");
         this.packagePath = this.packageName.replace('.', '/');
         this.baseType = Objects.requireNonNull(baseType, "baseType is required");
     }
 
+    /*
+     * Intent: Discover concrete classes in the configured package that implement or extend the base type.
+     * Precondition: Package resources must be visible to the context classloader.
+     * Returns: Immutable list of implementation classes sorted by simple class name.
+     * Postcondition: Catalog state is unchanged and duplicate implementation classes are removed.
+     */
     public List<Class<? extends T>> findImplementations() {
         List<Class<? extends T>> implementations = new ArrayList<>();
 
@@ -50,6 +62,12 @@ public class ClasspathCatalog<T> {
         return ImmutableLists.copyOfRequired(implementations, "implementations");
     }
 
+    /*
+     * Intent: Add implementation classes from an exploded classpath directory.
+     * Precondition: Resource must point to a package directory and implementations list must be mutable.
+     * Returns: Nothing.
+     * Postcondition: Matching concrete implementation classes from the directory are appended if not already present.
+     */
     private void addFileSystemImplementations(URL resource, List<Class<? extends T>> implementations) {
         try {
             Path directory = Paths.get(resource.toURI());
@@ -63,6 +81,12 @@ public class ClasspathCatalog<T> {
         }
     }
 
+    /*
+     * Intent: Add implementation classes from a jar-backed package resource.
+     * Precondition: Resource must be a jar URL and implementations list must be mutable.
+     * Returns: Nothing.
+     * Postcondition: Matching concrete implementation classes from the jar are appended if not already present.
+     */
     private void addJarImplementations(URL resource, List<Class<? extends T>> implementations) {
         try {
             JarURLConnection connection = (JarURLConnection) resource.openConnection();
@@ -81,14 +105,32 @@ public class ClasspathCatalog<T> {
         }
     }
 
+    /*
+     * Intent: Convert a .class filename from the package directory into a fully qualified class name.
+     * Precondition: fileName must end with .class and represent a class in the configured package.
+     * Returns: Fully qualified class name.
+     * Postcondition: Catalog state is unchanged.
+     */
     private String classNameFromFile(String fileName) {
         return packageName + "." + fileName.substring(0, fileName.length() - ".class".length());
     }
 
+    /*
+     * Intent: Convert a jar entry path into a fully qualified class name.
+     * Precondition: entryName must end with .class.
+     * Returns: Fully qualified class name.
+     * Postcondition: Catalog state is unchanged.
+     */
     private String classNameFromJarEntry(String entryName) {
         return entryName.substring(0, entryName.length() - ".class".length()).replace('/', '.');
     }
 
+    /*
+     * Intent: Load a candidate class and add it when it is a concrete implementation of the base type.
+     * Precondition: className must identify a loadable class and implementations list must be mutable.
+     * Returns: Nothing.
+     * Postcondition: Implementation list contains the candidate only when it is assignable, concrete, and not already present.
+     */
     private void addIfImplementation(String className, List<Class<? extends T>> implementations) {
         try {
             Class<?> candidate = Class.forName(className);
@@ -106,6 +148,12 @@ public class ClasspathCatalog<T> {
         }
     }
 
+    /*
+     * Intent: Validate required catalog configuration text.
+     * Precondition: Value must not be null, empty, or whitespace-only.
+     * Returns: Trimmed text.
+     * Postcondition: Callers receive usable text or an exception before invalid state is stored.
+     */
     private String requireText(String value, String name) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(name + " is required");

@@ -121,6 +121,12 @@ public class BacktestController {
             RiskSettings riskSettings,
             TargetSettings targetSettings
     ) {
+        /*
+         * Intent: Translate GUI selections into a complete backtest request.
+         * Precondition: Strategy, contract windows, condition, risk, and target settings must be selected.
+         * Returns: BacktestRequest ready for the application facade.
+         * Postcondition: Strategy and condition class selections are converted into config options.
+         */
         StrategyOptions strategyOptions = forgeStrategy.forgeStrategyAccess().createStrategyOptions(strategyClass);
         MarketConditionOptions conditionOptions = forgeCondition.forgeConditionAccess().createConditionOptions(conditionClass);
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
@@ -134,6 +140,12 @@ public class BacktestController {
     }
 
     public BacktestResult runBacktest(BacktestRequest request) {
+        /*
+         * Intent: Run a backtest synchronously for tests or non-task GUI callers.
+         * Precondition: request must be a complete backtest configuration.
+         * Returns: Completed backtest result.
+         * Postcondition: The view model is marked succeeded or failed with run totals.
+         */
         if (request != null) {
             viewModel.setContractWindows(request.getContractWindows());
             viewModel.setStrategyName(request.getStrategyOptions().getStrategyName());
@@ -153,6 +165,12 @@ public class BacktestController {
     }
 
     public Task<BacktestResult> runBacktestTask(BacktestRequest request) {
+        /*
+         * Intent: Create a JavaFX task for running a backtest off the UI thread.
+         * Precondition: request must be a complete backtest configuration.
+         * Returns: Task that yields the backtest result.
+         * Postcondition: Task progress callbacks update the view model through JavaFX bindings.
+         */
         if (request != null) {
             viewModel.setContractWindows(request.getContractWindows());
             viewModel.setStrategyName(request.getStrategyOptions().getStrategyName());
@@ -170,6 +188,12 @@ public class BacktestController {
     }
 
     private void applyBacktestResult(BacktestResult result) {
+        /*
+         * Intent: Copy completed backtest totals into GUI state.
+         * Precondition: result must be a successful backtest result.
+         * Returns: Nothing.
+         * Postcondition: The view model exposes strategy name, tick count, order signals, and success text.
+         */
         viewModel.setStrategyName(result.getStrategyName());
         viewModel.setTicksProcessed(result.getTicksProcessed());
         viewModel.setOrderSignalsGenerated(result.getOrderSignalsGenerated());

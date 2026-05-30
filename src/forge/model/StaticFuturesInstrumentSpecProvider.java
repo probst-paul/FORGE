@@ -24,6 +24,12 @@ public class StaticFuturesInstrumentSpecProvider implements FuturesInstrumentSpe
 
     @Override
     public FuturesInstrumentSpec getBySymbol(String symbol) {
+        /*
+         * Intent: Retrieve authoritative tick metadata for a supported futures root symbol.
+         * Precondition: symbol must be non-null and non-blank.
+         * Returns: FuturesInstrumentSpec for the normalized root symbol.
+         * Postcondition: Unsupported symbols are rejected before import/backtest logic can use bad metadata.
+         */
         String normalizedSymbol = normalizeSymbol(symbol);
         FuturesInstrumentSpec spec = specsBySymbol.get(normalizedSymbol);
         if (spec == null) {
@@ -34,6 +40,12 @@ public class StaticFuturesInstrumentSpecProvider implements FuturesInstrumentSpe
 
     @Override
     public boolean supports(String symbol) {
+        /*
+         * Intent: Check whether the static catalog contains a futures root symbol.
+         * Precondition: symbol must be non-null and non-blank.
+         * Returns: true when the normalized symbol is supported.
+         * Postcondition: Catalog state is unchanged.
+         */
         return specsBySymbol.containsKey(normalizeSymbol(symbol));
     }
 
@@ -42,6 +54,12 @@ public class StaticFuturesInstrumentSpecProvider implements FuturesInstrumentSpe
     }
 
     private String normalizeSymbol(String symbol) {
+        /*
+         * Intent: Normalize futures root symbols for reliable catalog lookup.
+         * Precondition: symbol must be non-null and contain non-whitespace text.
+         * Returns: Uppercase trimmed root symbol.
+         * Postcondition: Blank symbols are rejected before lookup.
+         */
         if (symbol == null || symbol.trim().isEmpty()) {
             throw new IllegalArgumentException("symbol is required");
         }

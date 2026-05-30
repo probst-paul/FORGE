@@ -13,6 +13,12 @@ public final class GuiProgressBindings {
             GuiWorkflowViewModel viewModel,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt import progress events to direct view model updates.
+         * Precondition: viewModel must be writable from the calling thread.
+         * Returns: Listener that updates progress and import status text.
+         * Postcondition: GUI import progress reflects the latest import callback.
+         */
         requireViewModel(viewModel);
         return progress -> {
             viewModel.updateProgress(progress.getProcessedRecords(), progress.getTotalRecords());
@@ -24,6 +30,12 @@ public final class GuiProgressBindings {
             GuiWorkflowTask<?> task,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt import progress events to JavaFX Task updates.
+         * Precondition: task must be the active background workflow task.
+         * Returns: Listener that publishes task progress and message updates.
+         * Postcondition: Bound JavaFX controls are updated through task-safe APIs.
+         */
         requireTask(task);
         return progress -> {
             task.publishProgress(progress.getProcessedRecords(), progress.getTotalRecords());
@@ -35,6 +47,12 @@ public final class GuiProgressBindings {
             GuiWorkflowViewModel viewModel,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt derived-data progress events to direct view model updates.
+         * Precondition: viewModel must be writable from the calling thread.
+         * Returns: Listener that updates processed/total tick counts and status text.
+         * Postcondition: GUI derived-data progress reflects the latest build callback.
+         */
         requireViewModel(viewModel);
         return progress -> {
             viewModel.updateProgress(progress.getProcessedTicks(), progress.getTotalTicks());
@@ -46,6 +64,12 @@ public final class GuiProgressBindings {
             GuiWorkflowTask<?> task,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt derived-data progress events to JavaFX Task updates.
+         * Precondition: task must be the active background workflow task.
+         * Returns: Listener that publishes task progress and message updates.
+         * Postcondition: Bound JavaFX controls are updated through task-safe APIs.
+         */
         requireTask(task);
         return progress -> {
             task.publishProgress(progress.getProcessedTicks(), progress.getTotalTicks());
@@ -57,6 +81,12 @@ public final class GuiProgressBindings {
             GuiWorkflowViewModel viewModel,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt event-statistics progress events to direct view model updates.
+         * Precondition: viewModel must be writable from the calling thread.
+         * Returns: Listener that updates processed/total tick counts and status text.
+         * Postcondition: GUI statistics progress reflects the latest engine callback.
+         */
         requireViewModel(viewModel);
         return progress -> {
             viewModel.updateProgress(progress.getProcessedTicks(), progress.getTotalTicks());
@@ -68,6 +98,12 @@ public final class GuiProgressBindings {
             GuiWorkflowTask<?> task,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt event-statistics progress events to JavaFX Task updates.
+         * Precondition: task must be the active background workflow task.
+         * Returns: Listener that publishes task progress and message updates.
+         * Postcondition: Bound JavaFX controls are updated through task-safe APIs.
+         */
         requireTask(task);
         return progress -> {
             task.publishProgress(progress.getProcessedTicks(), progress.getTotalTicks());
@@ -79,6 +115,12 @@ public final class GuiProgressBindings {
             GuiWorkflowViewModel viewModel,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt backtest progress events to direct view model updates.
+         * Precondition: viewModel must be writable from the calling thread.
+         * Returns: Listener that updates processed/total tick counts and status text.
+         * Postcondition: GUI backtest progress reflects the latest engine callback.
+         */
         requireViewModel(viewModel);
         return progress -> {
             viewModel.updateProgress(progress.getProcessedTicks(), progress.getTotalTicks());
@@ -90,6 +132,12 @@ public final class GuiProgressBindings {
             GuiWorkflowTask<?> task,
             String statusMessage
     ) {
+        /*
+         * Intent: Adapt backtest progress events to JavaFX Task updates.
+         * Precondition: task must be the active background workflow task.
+         * Returns: Listener that publishes task progress and message updates.
+         * Postcondition: Bound JavaFX controls are updated through task-safe APIs.
+         */
         requireTask(task);
         return progress -> {
             task.publishProgress(progress.getProcessedTicks(), progress.getTotalTicks());

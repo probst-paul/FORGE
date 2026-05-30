@@ -72,6 +72,12 @@ public class PerformanceMetrics {
     }
 
     public static PerformanceMetrics fromTrades(List<TradeResult> trades) {
+        /*
+         * Intent: Aggregate completed trade results into reportable performance metrics.
+         * Precondition: trades may be null or empty; non-empty lists should contain completed trade results.
+         * Returns: PerformanceMetrics with counts, P/L, drawdown/runup, and excursion statistics.
+         * Postcondition: Input trade results are not modified.
+         */
         if (trades == null || trades.isEmpty()) {
             return new PerformanceMetrics();
         }
@@ -213,6 +219,12 @@ public class PerformanceMetrics {
     }
 
     private static double percentage(int numerator, int denominator) {
+        /*
+         * Intent: Convert a count ratio into a percentage while avoiding divide-by-zero.
+         * Precondition: denominator may be zero.
+         * Returns: Percentage value, or 0 when denominator is zero.
+         * Postcondition: No state is changed.
+         */
         if (denominator == 0) {
             return 0;
         }
