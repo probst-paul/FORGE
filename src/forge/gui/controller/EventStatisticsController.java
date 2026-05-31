@@ -5,7 +5,7 @@ import forge.app.FacadeForgeApplication;
 import forge.data.FacadeForgeData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
-import forge.engine.EventStatisticsReport;
+import forge.reporting.eventstatistics.EventStatisticsReport;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.gui.viewmodel.GuiProgressBindings;
 import forge.study.FacadeForgeStudy;

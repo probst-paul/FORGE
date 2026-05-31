@@ -1,4 +1,4 @@
-package forge.engine;
+package forge.engine.backtest;
 
 import forge.config.BacktestRequest;
 import forge.config.OrderSettings;
@@ -9,7 +9,7 @@ import forge.data.market.ContractTradeWindow;
 import forge.data.market.InMemoryTickDataProvider;
 import forge.data.market.TradeTick;
 import forge.trade.OrderType;
-import forge.reporting.BacktestResult;
+import forge.engine.backtest.BacktestResult;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;

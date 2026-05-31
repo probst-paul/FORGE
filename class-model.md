@@ -999,6 +999,30 @@ classDiagram
         +BacktestResult run(BacktestRequest request, BacktestProgressListener listener)
     }
 
+    class BacktestResult {
+        -String strategyName
+        -List~String~ contractSymbols
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -List~InstrumentBacktestResult~ instrumentResults
+    }
+
+    class InstrumentBacktestResult {
+        -String instrumentSymbol
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -List~ContractBacktestResult~ contractResults
+        -PerformanceMetrics performanceMetrics
+    }
+
+    class ContractBacktestResult {
+        -String contractSymbol
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -List~TradeResult~ trades
+        -PerformanceMetrics performanceMetrics
+    }
+
     class MarketContext {
         -String instrumentSymbol
         -LocalDateTime timestamp
@@ -1058,12 +1082,6 @@ classDiagram
         +double getEventRate()
     }
 
-    class EventStatisticsReport {
-        -String eventName
-        -List~EventStatisticsResult~ instrumentResults
-        -List~EventStatisticsResult~ contractResults
-    }
-
     FacadeForgeEngine --> ForgeEngineAccess
     ForgeEngineAccess --> BacktestEngine
     ForgeEngineAccess --> QueryService
@@ -1082,6 +1100,11 @@ classDiagram
     BacktestEngine --> ExecutionEngine : creates fills
     BacktestEngine --> FacadeForgeTrade : creates lifecycle engines
     BacktestEngine --> BacktestResult : creates
+    BacktestResult --> InstrumentBacktestResult
+    InstrumentBacktestResult --> ContractBacktestResult
+    InstrumentBacktestResult --> PerformanceMetrics
+    ContractBacktestResult --> PerformanceMetrics
+    ContractBacktestResult --> TradeResult
     EventStatisticsQueryRunner --> QueryTradeTickSource
     EventStatisticsQueryRunner --> QueryDerivedDataStore
     EventStatisticsQueryRunner --> EventStatisticsQueryRequest
@@ -1089,7 +1112,7 @@ classDiagram
     EventStatisticsQueryRunner --> EventBuildService
     EventStatisticsQueryRunner --> QueryService
     QueryService --> EventStatisticsQuery
-    QueryService --> EventStatisticsReport
+    QueryService --> EventStatisticsReport : produces reporting model
     QueryService --> EventStatisticsResult
     EventStatisticsReport --> EventStatisticsResult
 ```
@@ -1229,33 +1252,11 @@ classDiagram
     }
 
     class ForgeReportingAccess {
-        +BacktestResult createBacktestResult()
-        +PerformanceMetrics createPerformanceMetrics()
-        +InstrumentPerformanceReport createInstrumentPerformanceReport()
+        +BacktestReport buildBacktestReport(BacktestResult result)
         +String summarize(BacktestResult result)
+        +String summarize(BacktestReport report)
     }
 
-    class BacktestResult {
-        -String strategyName
-        -List~String~ contractSymbols
-        -long ticksProcessed
-        -long orderSignalsGenerated
-        -List~InstrumentBacktestResult~ instrumentResults
-    }
-    class InstrumentBacktestResult {
-        -String instrumentSymbol
-        -long ticksProcessed
-        -long orderSignalsGenerated
-        -List~ContractBacktestResult~ contractResults
-        -PerformanceMetrics performanceMetrics
-    }
-    class ContractBacktestResult {
-        -String contractSymbol
-        -long ticksProcessed
-        -long orderSignalsGenerated
-        -List~TradeResult~ trades
-        -PerformanceMetrics performanceMetrics
-    }
     class PerformanceMetrics {
         -int totalTrades
         -int winningTrades
@@ -1264,17 +1265,54 @@ classDiagram
         -double profitFactor
         -double maximumDrawdown
     }
-    class InstrumentPerformanceReport
+    class BacktestReport {
+        -String strategyName
+        -List~String~ contractSymbols
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -List~InstrumentPerformanceReport~ instrumentReports
+        -List~ContractPerformanceReport~ contractReports
+        -List~TradePerformanceReport~ trades
+    }
+    class InstrumentPerformanceReport {
+        -String instrumentSymbol
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -PerformanceMetrics performanceMetrics
+        -List~ContractPerformanceReport~ contractReports
+    }
+    class ContractPerformanceReport {
+        -String contractSymbol
+        -long ticksProcessed
+        -long orderSignalsGenerated
+        -PerformanceMetrics performanceMetrics
+        -List~TradePerformanceReport~ trades
+    }
+    class TradePerformanceReport {
+        -String instrumentSymbol
+        -String contractSymbol
+        -long entryPriceTicks
+        -long exitPriceTicks
+        -double grossDollars
+    }
+    class EventStatisticsReport {
+        -String eventName
+        -List~EventStatisticsResult~ instrumentResults
+        -List~EventStatisticsResult~ contractResults
+    }
 
     FacadeForgeReporting --> ForgeReportingAccess
-    ForgeReportingAccess --> BacktestResult : creates/summarizes
-    ForgeReportingAccess --> PerformanceMetrics : creates
-    ForgeReportingAccess --> InstrumentPerformanceReport : creates
-    BacktestResult --> InstrumentBacktestResult
-    InstrumentBacktestResult --> ContractBacktestResult
-    InstrumentBacktestResult --> PerformanceMetrics
-    ContractBacktestResult --> PerformanceMetrics
-    ContractBacktestResult --> TradeResult
+    ForgeReportingAccess --> BacktestReport : builds/summarizes
+    ForgeReportingAccess --> BacktestResult : reads engine result
+    BacktestReport --> InstrumentPerformanceReport
+    BacktestReport --> ContractPerformanceReport
+    BacktestReport --> TradePerformanceReport
+    InstrumentPerformanceReport --> ContractPerformanceReport
+    InstrumentPerformanceReport --> PerformanceMetrics
+    ContractPerformanceReport --> TradePerformanceReport
+    ContractPerformanceReport --> PerformanceMetrics
+    TradePerformanceReport --> TradeResult : copies fields from
+    EventStatisticsReport --> EventStatisticsResult
 ```
 
 ## feature Package

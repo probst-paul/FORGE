@@ -1,28 +1,30 @@
-package forge.reporting;
+package forge.reporting.backtest;
 
-import forge.trade.TradeResult;
+import forge.reporting.PerformanceMetrics;
 import forge.util.ImmutableLists;
 
 import java.util.List;
+import java.util.Objects;
 
-public class ContractBacktestResult {
+public class ContractPerformanceReport {
     private final String contractSymbol;
     private final long ticksProcessed;
     private final long orderSignalsGenerated;
-    private final List<TradeResult> trades;
     private final PerformanceMetrics performanceMetrics;
+    private final List<TradePerformanceReport> trades;
 
-    public ContractBacktestResult(
+    public ContractPerformanceReport(
             String contractSymbol,
             long ticksProcessed,
             long orderSignalsGenerated,
-            List<TradeResult> trades
+            PerformanceMetrics performanceMetrics,
+            List<TradePerformanceReport> trades
     ) {
         /*
-         * Intent: Capture backtest results for one futures contract.
-         * Precondition: contractSymbol must be present; counts must be non-negative; trades must be non-null.
-         * Returns: Constructed ContractBacktestResult.
-         * Postcondition: Trades are defensively copied and contract-level metrics are calculated once.
+         * Intent: Represent display/export-ready results for one futures contract.
+         * Precondition: Contract symbol, metrics, and trade rows must be present; counts must be non-negative.
+         * Returns: Constructed ContractPerformanceReport.
+         * Postcondition: Trade rows are defensively copied and report fields are immutable.
          */
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
             throw new IllegalArgumentException("contractSymbol is required");
@@ -36,8 +38,8 @@ public class ContractBacktestResult {
         this.contractSymbol = contractSymbol.trim().toUpperCase();
         this.ticksProcessed = ticksProcessed;
         this.orderSignalsGenerated = orderSignalsGenerated;
+        this.performanceMetrics = Objects.requireNonNull(performanceMetrics, "performanceMetrics is required");
         this.trades = ImmutableLists.copyOfRequired(trades, "trades");
-        this.performanceMetrics = PerformanceMetrics.fromTrades(this.trades);
     }
 
     public String getContractSymbol() {
@@ -52,11 +54,11 @@ public class ContractBacktestResult {
         return orderSignalsGenerated;
     }
 
-    public List<TradeResult> getTrades() {
-        return trades;
-    }
-
     public PerformanceMetrics getPerformanceMetrics() {
         return performanceMetrics;
+    }
+
+    public List<TradePerformanceReport> getTrades() {
+        return trades;
     }
 }

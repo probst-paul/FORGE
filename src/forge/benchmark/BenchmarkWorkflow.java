@@ -16,8 +16,8 @@ import forge.data.build.DerivedDataBuildOption;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.importing.DataImportResult;
 import forge.data.market.ContractTradeWindow;
-import forge.engine.EventStatisticsReport;
-import forge.reporting.BacktestResult;
+import forge.reporting.eventstatistics.EventStatisticsReport;
+import forge.engine.backtest.BacktestResult;
 
 import java.time.Duration;
 import java.time.Instant;

@@ -29,10 +29,10 @@ import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.app.EventStatisticsRequest;
 import forge.app.EventStatisticsProgress;
-import forge.engine.EventStatisticsReport;
-import forge.engine.EventStatisticsResult;
+import forge.reporting.eventstatistics.EventStatisticsReport;
+import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.engine.FacadeForgeEngine;
-import forge.reporting.BacktestResult;
+import forge.engine.backtest.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.StrategyConfigurationProfile;
 import forge.strategy.TradingStrategy;
@@ -357,7 +357,7 @@ public class CliApplicationController {
      */
     private long totalTrades(BacktestResult result) {
         long trades = 0;
-        for (forge.reporting.InstrumentBacktestResult instrumentResult : result.getInstrumentResults()) {
+        for (forge.engine.backtest.InstrumentBacktestResult instrumentResult : result.getInstrumentResults()) {
             trades += instrumentResult.getPerformanceMetrics().getTotalTrades();
         }
         return trades;

@@ -1,4 +1,4 @@
-package forge.engine;
+package forge.engine.eventstatistics;
 
 import forge.app.EventStatisticsProgressListener;
 import forge.data.market.ContractTradeWindow;

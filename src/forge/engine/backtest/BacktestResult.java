@@ -1,5 +1,6 @@
-package forge.reporting;
+package forge.engine.backtest;
 
+import forge.reporting.PerformanceMetrics;
 import forge.util.ImmutableLists;
 
 import java.util.ArrayList;

@@ -6,9 +6,9 @@ import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.engine.FacadeForgeEngine;
-import forge.engine.EventStatisticsQueryRequest;
-import forge.engine.EventStatisticsReport;
-import forge.reporting.BacktestResult;
+import forge.engine.eventstatistics.EventStatisticsQueryRequest;
+import forge.reporting.eventstatistics.EventStatisticsReport;
+import forge.engine.backtest.BacktestResult;
 
 import java.util.Objects;
 

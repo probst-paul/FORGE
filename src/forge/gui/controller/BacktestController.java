@@ -13,7 +13,7 @@ import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.gui.viewmodel.BacktestViewModel;
 import forge.gui.viewmodel.GuiProgressBindings;
-import forge.reporting.BacktestResult;
+import forge.engine.backtest.BacktestResult;
 import forge.strategy.FacadeForgeStrategy;
 import forge.strategy.StrategyConfigurationProfile;
 import forge.strategy.TradingStrategy;

@@ -1,4 +1,4 @@
-package forge.engine;
+package forge.engine.eventstatistics;
 
 public class EventStatisticsQuery {
     private final String eventName;

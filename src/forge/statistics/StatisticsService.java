@@ -4,9 +4,9 @@ import forge.data.contract.ContractNameResolver;
 import forge.event.EventSide;
 import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
-import forge.engine.EventStatisticsQuery;
-import forge.engine.EventStatisticsReport;
-import forge.engine.EventStatisticsResult;
+import forge.engine.eventstatistics.EventStatisticsQuery;
+import forge.reporting.eventstatistics.EventStatisticsReport;
+import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.study.MarketStudy;
 
 import java.util.ArrayList;

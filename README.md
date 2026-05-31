@@ -319,6 +319,6 @@ mvn test
 
 ## Status
 
-FORGE is in early architectural development. The current implementation now includes SCID-to-PostgreSQL ingestion, rollover-aware catalog availability, and exact tick-based price storage, but it is still not a complete backtesting system.
+FORGE is in early architectural development. The current implementation now includes SCID-to-PostgreSQL ingestion, rollover-aware catalog availability, exact tick-based price storage, event statistics, and a basic backtest simulation path, but it is still not a complete backtesting system.
 
-The `engine` and `execution` packages are still partial foundations. They exist to preserve the package/facade architecture while richer execution simulation, deeper replay behavior, and scale-in/scale-out trade lifecycle behavior are still being designed and implemented.
+The `engine/backtest` and `engine/eventstatistics` packages produce run result objects, while `reporting/backtest` and `reporting/eventstatistics` prepare those results for display and future export. Richer execution simulation, deeper replay behavior, and scale-in/scale-out trade lifecycle behavior are still being designed and implemented.

@@ -2,8 +2,8 @@ package forge.benchmark;
 
 import forge.data.build.DatabaseBuildResult;
 import forge.data.importing.DataImportResult;
-import forge.engine.EventStatisticsReport;
-import forge.reporting.BacktestResult;
+import forge.reporting.eventstatistics.EventStatisticsReport;
+import forge.engine.backtest.BacktestResult;
 
 import java.time.Duration;
 

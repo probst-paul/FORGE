@@ -1,4 +1,4 @@
-package forge.engine;
+package forge.engine.backtest;
 
 import forge.app.BacktestProgress;
 import forge.app.BacktestProgressListener;
@@ -13,6 +13,7 @@ import forge.data.market.TradeTickStreamProcessor;
 import forge.event.EventBuildService;
 import forge.event.FirstHourBreachEvent;
 import forge.event.MarketEventOccurrence;
+import forge.engine.MarketContext;
 import forge.trade.ExecutionEngine;
 import forge.trade.FacadeForgeTrade;
 import forge.trade.Fill;
@@ -25,9 +26,6 @@ import forge.feature.TradingDayContext;
 import forge.model.FuturesInstrumentSpec;
 import forge.model.FuturesInstrumentSpecProvider;
 import forge.model.StaticFuturesInstrumentSpecProvider;
-import forge.reporting.BacktestResult;
-import forge.reporting.ContractBacktestResult;
-import forge.reporting.InstrumentBacktestResult;
 import forge.risk.FacadeForgeRisk;
 import forge.risk.RiskDecision;
 import forge.risk.RiskManager;

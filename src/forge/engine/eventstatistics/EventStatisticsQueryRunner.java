@@ -1,12 +1,16 @@
-package forge.engine;
+package forge.engine.eventstatistics;
 
 import forge.app.EventStatisticsProgress;
+import forge.engine.QueryDerivedDataStore;
+import forge.engine.QueryService;
+import forge.engine.QueryTradeTickSource;
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
 import forge.event.EventBuildService;
 import forge.event.MarketEventOccurrence;
 import forge.feature.FeatureBuildService;
 import forge.feature.SessionRangeFeature;
+import forge.reporting.eventstatistics.EventStatisticsReport;
 
 import java.util.ArrayList;
 import java.util.List;

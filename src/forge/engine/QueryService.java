@@ -1,7 +1,10 @@
 package forge.engine;
 
+import forge.engine.eventstatistics.EventStatisticsQuery;
+import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
+import forge.reporting.eventstatistics.EventStatisticsReport;
 import forge.statistics.StatisticsService;
 import forge.study.MarketStudy;
 import forge.study.StudyCatalog;

@@ -2,8 +2,8 @@ package forge.statistics;
 
 import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
-import forge.engine.EventStatisticsQuery;
-import forge.engine.EventStatisticsReport;
+import forge.engine.eventstatistics.EventStatisticsQuery;
+import forge.reporting.eventstatistics.EventStatisticsReport;
 import forge.study.MarketStudy;
 
 import java.util.Collection;

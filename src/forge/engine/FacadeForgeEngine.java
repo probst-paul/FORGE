@@ -5,9 +5,14 @@ import forge.event.EventBuildService;
 import forge.event.MarketEventOccurrence;
 import forge.config.BacktestRequest;
 import forge.data.FacadeForgeData;
+import forge.engine.backtest.BacktestEngine;
+import forge.engine.backtest.BacktestResult;
+import forge.engine.eventstatistics.EventStatisticsQuery;
+import forge.engine.eventstatistics.EventStatisticsQueryRequest;
+import forge.engine.eventstatistics.EventStatisticsQueryRunner;
 import forge.feature.FeatureBuildService;
 import forge.feature.SessionRangeFeature;
-import forge.reporting.BacktestResult;
+import forge.reporting.eventstatistics.EventStatisticsReport;
 
 import java.util.Collection;
 import java.util.List;

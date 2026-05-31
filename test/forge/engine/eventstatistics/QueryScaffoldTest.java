@@ -1,5 +1,9 @@
-package forge.engine;
+package forge.engine.eventstatistics;
 
+import forge.engine.FacadeForgeEngine;
+import forge.engine.QueryDerivedDataStore;
+import forge.engine.QueryService;
+import forge.engine.QueryTradeTickSource;
 import forge.event.EventSide;
 import forge.event.EventBuildService;
 import forge.event.FirstHourBreachEvent;
@@ -11,6 +15,7 @@ import forge.data.market.TradeTick;
 import forge.feature.FeatureBuildService;
 import forge.feature.SessionRangeFeature;
 import forge.feature.TradingDayClassifier;
+import forge.reporting.eventstatistics.EventStatisticsReport;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 

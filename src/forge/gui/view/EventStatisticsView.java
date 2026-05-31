@@ -2,8 +2,8 @@ package forge.gui.view;
 
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
-import forge.engine.EventStatisticsReport;
-import forge.engine.EventStatisticsResult;
+import forge.reporting.eventstatistics.EventStatisticsReport;
+import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.study.MarketStudy;

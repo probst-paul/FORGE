@@ -1,5 +1,6 @@
-package forge.engine;
+package forge.reporting.eventstatistics;
 
+import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.util.ImmutableLists;
 
 import java.util.List;

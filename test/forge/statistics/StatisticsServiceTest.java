@@ -4,8 +4,8 @@ import forge.event.EventSide;
 import forge.event.FirstHourBreachEvent;
 import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
-import forge.engine.EventStatisticsReport;
-import forge.engine.EventStatisticsResult;
+import forge.reporting.eventstatistics.EventStatisticsReport;
+import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.study.FirstHourBreachStudy;
 import org.junit.jupiter.api.Test;
 
