@@ -7,6 +7,7 @@ import forge.engine.EventStatisticsResult;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.study.MarketStudy;
+import javafx.beans.binding.Bindings;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.geometry.Insets;
@@ -21,8 +22,10 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
@@ -69,6 +72,7 @@ public class EventStatisticsView {
         ScrollPane contractScrollPane = new ScrollPane(contractList);
         contractScrollPane.setFitToWidth(true);
         contractScrollPane.setPrefViewportHeight(220);
+        contractScrollPane.setMinHeight(140);
 
         List<ContractSelection> contractSelections = new ArrayList<>();
         Button refreshButton = new Button("Refresh Contracts");
@@ -84,9 +88,9 @@ public class EventStatisticsView {
 
         Label statusLabel = new Label();
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
+        VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel);
 
         TabPane resultsTabs = createResultsTabs(viewModel);
-        runButton.setOnAction(event -> runStatistics(contractSelections, studyComboBox.getValue(), resultsTabs));
 
         Label errorLabel = new Label();
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
@@ -95,26 +99,84 @@ public class EventStatisticsView {
         HBox actions = new HBox(8, refreshButton, runButton);
         actions.setAlignment(Pos.CENTER_LEFT);
 
-        VBox root = new VBox(12);
-        root.setPadding(new Insets(4));
-        root.setAlignment(Pos.TOP_LEFT);
-        root.getChildren().addAll(
-                heading,
+        VBox setupContent = new VBox(10);
+        setupContent.setPadding(new Insets(8));
+        setupContent.getChildren().addAll(
                 studyLabel,
                 studyComboBox,
                 studyDescription,
                 contractLabel,
                 contractScrollPane,
-                actions,
-                progressBar,
-                statusLabel,
+                actions
+        );
+        TitledPane setupPane = new TitledPane("Event Statistics Configuration", setupContent);
+        setupPane.setCollapsible(true);
+        setupPane.setExpanded(true);
+
+        runButton.setOnAction(event -> runStatistics(
+                contractSelections,
+                studyComboBox.getValue(),
+                resultsTabs,
+                setupPane
+        ));
+
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(4));
+        root.setAlignment(Pos.TOP_LEFT);
+        root.getChildren().addAll(
+                heading,
+                setupPane,
+                progressSection,
                 resultsTabs,
                 errorLabel
         );
+        VBox.setVgrow(resultsTabs, Priority.ALWAYS);
 
         loadStudies(studyComboBox, studyDescription);
         loadAvailableContracts(contractList, contractSelections);
         return root;
+    }
+
+    private VBox createProgressSection(
+            EventStatisticsViewModel viewModel,
+            ProgressBar progressBar,
+            Label statusLabel
+    ) {
+        Label progressLabel = new Label("Event statistics progress");
+        progressLabel.setStyle("-fx-font-weight: bold;");
+
+        Label progressDetails = new Label();
+        progressDetails.setMinWidth(150);
+        progressDetails.setPrefWidth(150);
+        progressDetails.setMaxWidth(150);
+        progressDetails.setAlignment(Pos.CENTER_RIGHT);
+        progressDetails.textProperty().bind(Bindings.createStringBinding(
+                () -> String.format(
+                        "%.0f%%  %d/%d ticks",
+                        viewModel.getProgress() * 100.0,
+                        viewModel.getProcessedUnits(),
+                        viewModel.getTotalUnits()
+                ),
+                viewModel.progressProperty(),
+                viewModel.processedUnitsProperty(),
+                viewModel.totalUnitsProperty()
+        ));
+
+        progressBar.setMinWidth(260);
+        HBox.setHgrow(progressBar, Priority.ALWAYS);
+
+        HBox progressRow = new HBox(10, progressBar, progressDetails);
+        progressRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox section = new VBox(6, progressLabel, progressRow, statusLabel);
+        section.setPadding(new Insets(8));
+        section.setStyle(
+                "-fx-background-color: #ffffff;"
+                        + "-fx-border-color: #d7dde3;"
+                        + "-fx-border-radius: 6;"
+                        + "-fx-background-radius: 6;"
+        );
+        return section;
     }
 
     private void loadStudies(ComboBox<StudySelection> studyComboBox, Label studyDescription) {
@@ -278,7 +340,8 @@ public class EventStatisticsView {
     private void runStatistics(
             List<ContractSelection> contractSelections,
             StudySelection studySelection,
-            TabPane resultsTabs
+            TabPane resultsTabs,
+            TitledPane setupPane
     ) {
         /*
          * Intent: Validate statistics selections and start a background statistics task.
@@ -308,6 +371,7 @@ public class EventStatisticsView {
                     event -> {
                         viewModel.setResultSummary(formatReport(task.getValue()));
                         renderReport(resultsTabs, task.getValue());
+                        setupPane.setExpanded(false);
                     }
             );
             Thread thread = new Thread(task, "forge-gui-event-statistics");

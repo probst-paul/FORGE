@@ -79,7 +79,7 @@ public class EventStatisticsQueryRunner {
         if (derivedDataStore.areMarketConditionOccurrencesBuilt(request.getContractWindows(), request.getEventName())) {
             events = derivedDataStore.loadMarketConditionOccurrences(request.getContractWindows(), request.getEventName());
             if (ticks == null) {
-                request.getProgressListener().onProgress(new EventStatisticsProgress(0, 0));
+                request.getProgressListener().onProgress(new EventStatisticsProgress(1, 1));
             }
         } else {
             if (ticks == null) {

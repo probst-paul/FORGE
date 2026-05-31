@@ -38,9 +38,11 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.math.BigDecimal;
@@ -86,6 +88,7 @@ public class BacktestView {
         ScrollPane contractScrollPane = new ScrollPane(contractList);
         contractScrollPane.setFitToWidth(true);
         contractScrollPane.setPrefViewportHeight(190);
+        contractScrollPane.setMinHeight(140);
 
         List<ContractSelection> contractSelections = new ArrayList<>();
         Button refreshButton = new Button("Refresh Contracts");
@@ -143,19 +146,6 @@ public class BacktestView {
         VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel);
 
         TabPane resultsTabs = createResultsTabs(viewModel);
-        runButton.setOnAction(event -> runBacktest(
-                contractSelections,
-                strategyComboBox.getValue(),
-                conditionComboBox.getValue(),
-                targetModeComboBox.getValue(),
-                perTradeRiskEnabledCheckBox,
-                riskPerTradeField,
-                dailyRiskEnabledCheckBox,
-                maxDailyLossField,
-                rewardRiskRatioField,
-                profitTargetTicksField,
-                resultsTabs
-        ));
 
         Label errorLabel = new Label();
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
@@ -164,11 +154,9 @@ public class BacktestView {
         HBox actions = new HBox(8, refreshButton, runButton);
         actions.setAlignment(Pos.CENTER_LEFT);
 
-        VBox root = new VBox(12);
-        root.setPadding(new Insets(4));
-        root.setAlignment(Pos.TOP_LEFT);
-        root.getChildren().addAll(
-                heading,
+        VBox setupContent = new VBox(10);
+        setupContent.setPadding(new Insets(8));
+        setupContent.getChildren().addAll(
                 strategyLabel,
                 strategyComboBox,
                 strategyDescription,
@@ -188,11 +176,38 @@ public class BacktestView {
                         rewardRiskRatioField,
                         profitTargetTicksField
                 ),
-                actions,
+                actions
+        );
+        TitledPane setupPane = new TitledPane("Backtest Configuration", setupContent);
+        setupPane.setCollapsible(true);
+        setupPane.setExpanded(true);
+
+        runButton.setOnAction(event -> runBacktest(
+                contractSelections,
+                strategyComboBox.getValue(),
+                conditionComboBox.getValue(),
+                targetModeComboBox.getValue(),
+                perTradeRiskEnabledCheckBox,
+                riskPerTradeField,
+                dailyRiskEnabledCheckBox,
+                maxDailyLossField,
+                rewardRiskRatioField,
+                profitTargetTicksField,
+                resultsTabs,
+                setupPane
+        ));
+
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(4));
+        root.setAlignment(Pos.TOP_LEFT);
+        root.getChildren().addAll(
+                heading,
+                setupPane,
                 progressSection,
                 resultsTabs,
                 errorLabel
         );
+        VBox.setVgrow(resultsTabs, Priority.ALWAYS);
 
         loadStrategies(strategyComboBox, strategyDescription, conditionComboBox, conditionMessage,
                 targetModeComboBox, targetMessage, rewardRiskRatioField, profitTargetTicksField);
@@ -251,6 +266,10 @@ public class BacktestView {
         progressLabel.setStyle("-fx-font-weight: bold;");
 
         Label progressDetails = new Label();
+        progressDetails.setMinWidth(150);
+        progressDetails.setPrefWidth(150);
+        progressDetails.setMaxWidth(150);
+        progressDetails.setAlignment(Pos.CENTER_RIGHT);
         progressDetails.textProperty().bind(Bindings.createStringBinding(
                 () -> String.format(
                         "%.0f%%  %d/%d ticks",
@@ -263,10 +282,13 @@ public class BacktestView {
                 viewModel.totalUnitsProperty()
         ));
 
-        HBox progressHeader = new HBox(10, progressLabel, progressDetails);
-        progressHeader.setAlignment(Pos.CENTER_LEFT);
+        progressBar.setMinWidth(260);
+        HBox.setHgrow(progressBar, Priority.ALWAYS);
 
-        VBox section = new VBox(6, progressHeader, progressBar, statusLabel);
+        HBox progressRow = new HBox(10, progressBar, progressDetails);
+        progressRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox section = new VBox(6, progressLabel, progressRow, statusLabel);
         section.setPadding(new Insets(8));
         section.setStyle(
                 "-fx-background-color: #ffffff;"
@@ -705,7 +727,8 @@ public class BacktestView {
             TextField maxDailyLossField,
             TextField rewardRiskRatioField,
             TextField profitTargetTicksField,
-            TabPane resultsTabs
+            TabPane resultsTabs,
+            TitledPane setupPane
     ) {
         /*
          * Intent: Validate backtest inputs, create the request, and start a background backtest task.
@@ -759,6 +782,7 @@ public class BacktestView {
                     event -> {
                         viewModel.setResultSummary(task.getValue().toString());
                         renderReport(resultsTabs, task.getValue());
+                        setupPane.setExpanded(false);
                     }
             );
             Thread thread = new Thread(task, "forge-gui-backtest");
