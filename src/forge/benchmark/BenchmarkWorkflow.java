@@ -3,10 +3,10 @@ package forge.benchmark;
 import forge.app.DataImportRequest;
 import forge.app.EventStatisticsRequest;
 import forge.app.FacadeForgeApplication;
-import forge.condition.FirstHourBreachCondition;
+import forge.event.FirstHourBreachEvent;
 import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
-import forge.config.MarketConditionOptions;
+import forge.config.MarketEventOptions;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
 import forge.config.TargetSettings;
@@ -27,7 +27,7 @@ import java.util.List;
 
 public class BenchmarkWorkflow {
     private static final String DEFAULT_STRATEGY_NAME = "OpeningRangeContinuation";
-    private static final String DEFAULT_CONDITION_NAME = "PriceCrossover";
+    private static final String DEFAULT_EVENT_NAME = "PriceCrossover";
     private static final double DEFAULT_RISK_PER_TRADE = 400.0;
     private static final double DEFAULT_MAX_DAILY_LOSS = 400.0;
     private static final int DEFAULT_TARGET_TICKS = 1;
@@ -107,7 +107,7 @@ public class BenchmarkWorkflow {
         EventStatisticsReport eventStatisticsReport = forgeApplication.forgeApplicationAccess().runEventStatistics(
                 new EventStatisticsRequest(
                         contractWindows,
-                        FirstHourBreachCondition.EVENT_NAME,
+                        FirstHourBreachEvent.EVENT_NAME,
                         request.getEventStatisticsProgressListener()
                 )
         );
@@ -160,7 +160,7 @@ public class BenchmarkWorkflow {
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 new StrategyOptions(DEFAULT_STRATEGY_NAME),
                 contractWindows,
-                new MarketConditionOptions(DEFAULT_CONDITION_NAME),
+                new MarketEventOptions(DEFAULT_EVENT_NAME),
                 new RiskSettings(DEFAULT_RISK_PER_TRADE, DEFAULT_MAX_DAILY_LOSS),
                 TargetSettings.fixedTarget(DEFAULT_TARGET_TICKS),
                 forgeConfig.forgeConfigAccess().defaultOrderSettings()

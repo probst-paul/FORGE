@@ -1,11 +1,11 @@
 package forge.study;
 
-import forge.condition.FirstHourBreachCondition;
+import forge.event.FirstHourBreachEvent;
 
 public class FirstHourBreachStudy implements MarketStudy {
     @Override
     public String getName() {
-        return FirstHourBreachCondition.EVENT_NAME;
+        return FirstHourBreachEvent.EVENT_NAME;
     }
 
     @Override

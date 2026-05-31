@@ -29,13 +29,13 @@ class SettingsValidationTest {
     }
 
     @Nested
-    class MarketConditionOptionsValidation {
+    class MarketEventOptionsValidation {
         @Test
         void preservesParametersAsReadOnlyMap() {
             Map<String, String> parameters = new LinkedHashMap<>();
             parameters.put("imbalanceRatio", "2.5");
 
-            MarketConditionOptions options = new MarketConditionOptions("OrderFlowExhaustion", parameters);
+            MarketEventOptions options = new MarketEventOptions("OrderFlowExhaustion", parameters);
 
             assertEquals("2.5", options.getParameters().get("imbalanceRatio"));
             assertThrows(UnsupportedOperationException.class, () -> options.getParameters().put("x", "y"));

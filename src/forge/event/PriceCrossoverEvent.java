@@ -1,31 +1,31 @@
-package forge.condition;
+package forge.event;
 
 import forge.engine.MarketContext;
 
 import java.util.Objects;
 
-public class PriceCrossoverCondition implements MarketCondition {
-    private final ConditionDirection direction;
+public class PriceCrossoverEvent implements MarketEvent {
+    private final EventDirection direction;
     private final long priceThresholdTicks;
 
-    public PriceCrossoverCondition() {
+    public PriceCrossoverEvent() {
         /*
-         * Intent: Create a default condition instance for catalog/reflection discovery.
+         * Intent: Create a default event instance for catalog/reflection discovery.
          * Precondition: None.
-         * Returns: A constructed PriceCrossoverCondition instance.
-         * Postcondition: Default condition is inert unless configured with a reachable threshold.
+         * Returns: A constructed PriceCrossoverEvent instance.
+         * Postcondition: Default event is inert unless configured with a reachable threshold.
          */
-        this(ConditionDirection.LONG, Long.MAX_VALUE);
+        this(EventDirection.LONG, Long.MAX_VALUE);
     }
 
-    public PriceCrossoverCondition(ConditionDirection direction, long priceThresholdTicks) {
+    public PriceCrossoverEvent(EventDirection direction, long priceThresholdTicks) {
         /*
-         * Intent: Create a price crossover condition for long or short threshold checks.
+         * Intent: Create a price crossover event for long or short threshold checks.
          * Precondition: Direction must be LONG or SHORT and threshold must be a positive tick price.
-         * Returns: A constructed PriceCrossoverCondition instance.
-         * Postcondition: Condition can evaluate ticks against the configured threshold.
+         * Returns: A constructed PriceCrossoverEvent instance.
+         * Postcondition: Event can evaluate ticks against the configured threshold.
          */
-        if (direction != ConditionDirection.LONG && direction != ConditionDirection.SHORT) {
+        if (direction != EventDirection.LONG && direction != EventDirection.SHORT) {
             throw new IllegalArgumentException("direction must be LONG or SHORT");
         }
         if (priceThresholdTicks <= 0) {
@@ -38,16 +38,16 @@ public class PriceCrossoverCondition implements MarketCondition {
     @Override
     public String getName() {
         /*
-         * Intent: Provide the stable config/display name for this condition.
+         * Intent: Provide the stable config/display name for this event.
          * Precondition: None.
          * Returns: PriceCrossover.
-         * Postcondition: Condition state is unchanged.
+         * Postcondition: Event state is unchanged.
          */
         return "PriceCrossover";
     }
 
     @Override
-    public ConditionResult evaluate(MarketContext marketContext) {
+    public EventResult evaluate(MarketContext marketContext) {
         /*
          * Intent: Decide whether the current market price has crossed the configured threshold.
          * Precondition: Market context must contain the latest price in ticks.
@@ -56,16 +56,16 @@ public class PriceCrossoverCondition implements MarketCondition {
          */
         Objects.requireNonNull(marketContext, "marketContext is required");
         long lastPriceTicks = marketContext.getLastPriceTicks();
-        boolean crossed = direction == ConditionDirection.LONG
+        boolean crossed = direction == EventDirection.LONG
                 ? lastPriceTicks >= priceThresholdTicks
                 : lastPriceTicks <= priceThresholdTicks;
         if (!crossed) {
-            return ConditionResult.notConditioned();
+            return EventResult.notConditioned();
         }
-        return ConditionResult.conditioned(direction);
+        return EventResult.conditioned(direction);
     }
 
-    public ConditionDirection getDirection() {
+    public EventDirection getDirection() {
         return direction;
     }
 

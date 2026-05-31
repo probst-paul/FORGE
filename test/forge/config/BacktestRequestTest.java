@@ -32,7 +32,7 @@ class BacktestRequestTest {
                             new ContractTradeWindow("ESH25", LocalDate.of(2024, 12, 16), LocalDate.of(2025, 3, 16)),
                             new ContractTradeWindow("ESZ25", LocalDate.of(2025, 9, 15), LocalDate.of(2025, 12, 14))
                     ),
-                    new MarketConditionOptions("OrderFlowExhaustion"),
+                    new MarketEventOptions("OrderFlowExhaustion"),
                     new RiskSettings(500, 1500),
                     TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                     new OrderSettings(OrderType.MARKET, 1, 0, 0)
@@ -56,7 +56,7 @@ class BacktestRequestTest {
                     List.of("ES"),
                     LocalDate.of(2024, 1, 31),
                     LocalDate.of(2024, 1, 1),
-                    new MarketConditionOptions("OrderFlowExhaustion"),
+                    new MarketEventOptions("OrderFlowExhaustion"),
                     new RiskSettings(500, 1500),
                     TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                     new OrderSettings(OrderType.MARKET, 1, 0, 0)
@@ -70,7 +70,7 @@ class BacktestRequestTest {
                 instruments,
                 LocalDate.of(2024, 1, 2),
                 LocalDate.of(2024, 1, 31),
-                new MarketConditionOptions("OrderFlowExhaustion"),
+                new MarketEventOptions("OrderFlowExhaustion"),
                 new RiskSettings(500, 1500),
                 TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                 new OrderSettings(OrderType.MARKET, 1, 0, 0)

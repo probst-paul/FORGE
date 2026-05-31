@@ -1,4 +1,4 @@
-package forge.condition;
+package forge.event;
 
 import forge.data.market.TradeTick;
 import forge.data.market.TradeTickStreamProcessor;
@@ -15,24 +15,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class FirstHourBreachConditionDetector implements ConditionDetector {
+public class FirstHourBreachEventDetector implements EventDetector {
     private final TradingDayClassifier tradingDayClassifier;
 
-    public FirstHourBreachConditionDetector() {
+    public FirstHourBreachEventDetector() {
         /*
          * Intent: Create the detector with the default trading-day classifier.
          * Precondition: Default classifier dependencies must be available.
-         * Returns: A constructed FirstHourBreachConditionDetector instance.
+         * Returns: A constructed FirstHourBreachEventDetector instance.
          * Postcondition: Detector can classify ticks into trading sessions and days.
          */
         this(new TradingDayClassifier());
     }
 
-    public FirstHourBreachConditionDetector(TradingDayClassifier tradingDayClassifier) {
+    public FirstHourBreachEventDetector(TradingDayClassifier tradingDayClassifier) {
         /*
          * Intent: Create the detector with an explicit trading-day classifier.
          * Precondition: Classifier must not be null.
-         * Returns: A constructed FirstHourBreachConditionDetector instance.
+         * Returns: A constructed FirstHourBreachEventDetector instance.
          * Postcondition: All tick/session classification uses the supplied classifier.
          */
         if (tradingDayClassifier == null) {
@@ -42,17 +42,17 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
     }
 
     @Override
-    public ConditionDefinition getDefinition() {
+    public EventDefinition getDefinition() {
         /*
-         * Intent: Identify the market condition produced by this detector.
+         * Intent: Identify the market event produced by this detector.
          * Precondition: None.
-         * Returns: First-hour breach condition definition.
+         * Returns: First-hour breach event definition.
          * Postcondition: Detector state is unchanged.
          */
-        return new FirstHourBreachCondition();
+        return new FirstHourBreachEvent();
     }
 
-    public List<MarketConditionOccurrence> detect(
+    public List<MarketEventOccurrence> detect(
             Collection<SessionRangeFeature> sessionRangeFeatures,
             Collection<TradeTick> ticks
     ) {
@@ -120,8 +120,8 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
 
     public class Accumulator implements TradeTickStreamProcessor {
         private final Map<EventKey, SessionRangeFeature> featureByKey;
-        private final List<MarketConditionOccurrence> events = new ArrayList<>();
-        private final Map<EventKey, MarketConditionOccurrence> firstEventByKey = new HashMap<>();
+        private final List<MarketEventOccurrence> events = new ArrayList<>();
+        private final Map<EventKey, MarketEventOccurrence> firstEventByKey = new HashMap<>();
 
         private Accumulator(Map<EventKey, SessionRangeFeature> featureByKey) {
             /*
@@ -159,16 +159,16 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
                 return;
             }
 
-            MarketConditionOccurrence event = detectBreach(feature, tick, context.getTradingDay());
+            MarketEventOccurrence event = detectBreach(feature, tick, context.getTradingDay());
             if (event != null) {
                 firstEventByKey.put(key, event);
                 events.add(event);
             }
         }
 
-        public List<MarketConditionOccurrence> getEvents() {
+        public List<MarketEventOccurrence> getEvents() {
             /*
-             * Intent: Expose detected market condition occurrences accumulated so far.
+             * Intent: Expose detected market event occurrences accumulated so far.
              * Precondition: None.
              * Returns: Mutable list of recorded occurrences.
              * Postcondition: Accumulator state is not changed by this accessor.
@@ -179,8 +179,8 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
 
     public class LiveAccumulator implements TradeTickStreamProcessor {
         private final SessionRangeFeatureCalculator.Accumulator sessionRangeAccumulator;
-        private final List<MarketConditionOccurrence> events = new ArrayList<>();
-        private final Map<EventKey, MarketConditionOccurrence> firstEventByKey = new HashMap<>();
+        private final List<MarketEventOccurrence> events = new ArrayList<>();
+        private final Map<EventKey, MarketEventOccurrence> firstEventByKey = new HashMap<>();
 
         private LiveAccumulator(SessionRangeFeatureCalculator.Accumulator sessionRangeAccumulator) {
             /*
@@ -214,7 +214,7 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
                 return;
             }
 
-            MarketConditionOccurrence event = detectBreach(
+            MarketEventOccurrence event = detectBreach(
                     tick,
                     context.getTradingDay(),
                     sessionRangeAccumulator.getFirstHourLowTicks(tick.getContractSymbol(), context.getTradingDay()),
@@ -226,9 +226,9 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
             }
         }
 
-        public List<MarketConditionOccurrence> getEvents() {
+        public List<MarketEventOccurrence> getEvents() {
             /*
-             * Intent: Expose live-detected market condition occurrences accumulated so far.
+             * Intent: Expose live-detected market event occurrences accumulated so far.
              * Precondition: None.
              * Returns: Mutable list of recorded occurrences.
              * Postcondition: Live accumulator state is not changed by this accessor.
@@ -237,7 +237,7 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
         }
     }
 
-    private MarketConditionOccurrence detectBreach(SessionRangeFeature feature, TradeTick tick, LocalDate sessionDate) {
+    private MarketEventOccurrence detectBreach(SessionRangeFeature feature, TradeTick tick, LocalDate sessionDate) {
         /*
          * Intent: Detect a breach using the range values stored on a session feature.
          * Precondition: Feature, tick, and session date should refer to the same contract/session.
@@ -247,7 +247,7 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
         return detectBreach(tick, sessionDate, feature.getFirstHourLowTicks(), feature.getFirstHourHighTicks());
     }
 
-    private MarketConditionOccurrence detectBreach(
+    private MarketEventOccurrence detectBreach(
             TradeTick tick,
             LocalDate sessionDate,
             long firstHourLowTicks,
@@ -260,23 +260,23 @@ public class FirstHourBreachConditionDetector implements ConditionDetector {
          * Postcondition: No detector state is changed by this pure threshold check.
          */
         if (tick.getPriceTicks() >= firstHourHighTicks) {
-            return new MarketConditionOccurrence(
+            return new MarketEventOccurrence(
                     tick.getContractSymbol(),
                     sessionDate,
-                    FirstHourBreachCondition.EVENT_NAME,
-                    FirstHourBreachCondition.EVENT_VERSION,
-                    ConditionSide.LONG,
+                    FirstHourBreachEvent.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_VERSION,
+                    EventSide.LONG,
                     tick.getTradeDateTime(),
                     tick.getPriceTicks()
             );
         }
         if (tick.getPriceTicks() <= firstHourLowTicks) {
-            return new MarketConditionOccurrence(
+            return new MarketEventOccurrence(
                     tick.getContractSymbol(),
                     sessionDate,
-                    FirstHourBreachCondition.EVENT_NAME,
-                    FirstHourBreachCondition.EVENT_VERSION,
-                    ConditionSide.SHORT,
+                    FirstHourBreachEvent.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_VERSION,
+                    EventSide.SHORT,
                     tick.getTradeDateTime(),
                     tick.getPriceTicks()
             );

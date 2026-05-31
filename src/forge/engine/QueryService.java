@@ -1,6 +1,6 @@
 package forge.engine;
 
-import forge.condition.MarketConditionOccurrence;
+import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 import forge.statistics.StatisticsService;
 import forge.study.MarketStudy;
@@ -61,7 +61,7 @@ public class QueryService {
     public EventStatisticsReport summarizeEventStatistics(
             EventStatisticsQuery query,
             Collection<SessionRangeFeature> sessionRangeFeatures,
-            Collection<MarketConditionOccurrence> events
+            Collection<MarketEventOccurrence> events
     ) {
         /*
          * Intent: Convert derived features and condition occurrences into an event-statistics report.

@@ -1,9 +1,9 @@
 package forge.engine;
 
-import forge.condition.ConditionSide;
-import forge.condition.ConditionBuildService;
-import forge.condition.FirstHourBreachCondition;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventSide;
+import forge.event.EventBuildService;
+import forge.event.FirstHourBreachEvent;
+import forge.event.MarketEventOccurrence;
 import forge.data.market.ContractTradeWindow;
 import forge.data.market.InMemoryTickDataProvider;
 import forge.data.market.TradeBatchReader;
@@ -33,14 +33,14 @@ class QueryScaffoldTest {
             FacadeForgeEngine facade = FacadeForgeEngine.getTheInstance();
 
             assertSame(facade, FacadeForgeEngine.getTheInstance());
-            assertEquals(List.of(FirstHourBreachCondition.EVENT_NAME), facade.forgeEngineAccess().getSupportedQueryEventNames());
+            assertEquals(List.of(FirstHourBreachEvent.EVENT_NAME), facade.forgeEngineAccess().getSupportedQueryEventNames());
             assertEquals(
                     "First Hour Breach Frequency",
-                    facade.forgeEngineAccess().getEventStatisticDisplayName(FirstHourBreachCondition.EVENT_NAME)
+                    facade.forgeEngineAccess().getEventStatisticDisplayName(FirstHourBreachEvent.EVENT_NAME)
             );
             assertEquals(
                     "Counts how often price breaches the first-hour RTH high or low after the first hour completes.",
-                    facade.forgeEngineAccess().getEventStatisticDescription(FirstHourBreachCondition.EVENT_NAME)
+                    facade.forgeEngineAccess().getEventStatisticDescription(FirstHourBreachEvent.EVENT_NAME)
             );
         }
     }
@@ -49,9 +49,9 @@ class QueryScaffoldTest {
     class EventStatisticsQueries {
         @Test
         void storesEventName() {
-            EventStatisticsQuery query = new EventStatisticsQuery(FirstHourBreachCondition.EVENT_NAME);
+            EventStatisticsQuery query = new EventStatisticsQuery(FirstHourBreachEvent.EVENT_NAME);
 
-            assertEquals(FirstHourBreachCondition.EVENT_NAME, query.getEventName());
+            assertEquals(FirstHourBreachEvent.EVENT_NAME, query.getEventName());
         }
     }
 
@@ -61,7 +61,7 @@ class QueryScaffoldTest {
         void calculatesSummaryValues() {
             EventStatisticsResult result = new EventStatisticsResult(
                     "ES",
-                    FirstHourBreachCondition.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_NAME,
                     10,
                     3,
                     2
@@ -80,7 +80,7 @@ class QueryScaffoldTest {
         void rejectsCountsThatExceedSessions() {
             assertThrows(IllegalArgumentException.class, () -> new EventStatisticsResult(
                     "ES",
-                    FirstHourBreachCondition.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_NAME,
                     3,
                     2,
                     2
@@ -91,15 +91,15 @@ class QueryScaffoldTest {
         void summarizesEventCountsByInstrumentAndContract() {
             QueryService queryService = new QueryService();
             EventStatisticsReport report = queryService.summarizeEventStatistics(
-                    new EventStatisticsQuery(FirstHourBreachCondition.EVENT_NAME),
+                    new EventStatisticsQuery(FirstHourBreachEvent.EVENT_NAME),
                     List.of(
                             feature("ESU25", LocalDate.of(2025, 8, 1)),
                             feature("ESZ25", LocalDate.of(2025, 12, 1)),
                             feature("NQZ25", LocalDate.of(2025, 12, 1))
                     ),
                     List.of(
-                            event("ESU25", LocalDate.of(2025, 8, 1), ConditionSide.LONG),
-                            event("NQZ25", LocalDate.of(2025, 12, 1), ConditionSide.SHORT)
+                            event("ESU25", LocalDate.of(2025, 8, 1), EventSide.LONG),
+                            event("NQZ25", LocalDate.of(2025, 12, 1), EventSide.SHORT)
                     )
             );
 
@@ -123,12 +123,12 @@ class QueryScaffoldTest {
             return new SessionRangeFeature(contractSymbol, sessionDate, 100, 120, 105, 115, 95, 125);
         }
 
-        private MarketConditionOccurrence event(String contractSymbol, LocalDate sessionDate, ConditionSide side) {
-            return new MarketConditionOccurrence(
+        private MarketEventOccurrence event(String contractSymbol, LocalDate sessionDate, EventSide side) {
+            return new MarketEventOccurrence(
                     contractSymbol,
                     sessionDate,
-                    FirstHourBreachCondition.EVENT_NAME,
-                    FirstHourBreachCondition.EVENT_VERSION,
+                    FirstHourBreachEvent.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_VERSION,
                     side,
                     Instant.parse("2025-08-01T15:00:00Z"),
                     116
@@ -152,13 +152,13 @@ class QueryScaffoldTest {
                     new InMemoryEngineTradeTickSource(tickDataProvider),
                     derivedDataStore,
                     new FeatureBuildService(),
-                    new ConditionBuildService(),
+                    new EventBuildService(),
                     new QueryService()
             );
 
             EventStatisticsReport report = runner.run(new EventStatisticsQueryRequest(
                     List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 8, 4), LocalDate.of(2025, 8, 4))),
-                    FirstHourBreachCondition.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_NAME,
                     2
             ));
 
@@ -188,14 +188,14 @@ class QueryScaffoldTest {
                             tickSource,
                             derivedDataStore,
                             new FeatureBuildService(),
-                            new ConditionBuildService(),
+                            new EventBuildService(),
                             queryService
                     )
             );
 
             EventStatisticsReport report = facade.forgeEngineAccess().runEventStatistics(new EventStatisticsQueryRequest(
                     List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 8, 4), LocalDate.of(2025, 8, 4))),
-                    FirstHourBreachCondition.EVENT_NAME
+                    FirstHourBreachEvent.EVENT_NAME
             ));
 
             assertEquals(1, report.getInstrumentResults().size());
@@ -215,13 +215,13 @@ class QueryScaffoldTest {
                     new InMemoryEngineTradeTickSource(new InMemoryTickDataProvider(ticks)),
                     new InMemoryEngineDerivedDataStore(),
                     new FeatureBuildService(),
-                    new ConditionBuildService(),
+                    new EventBuildService(),
                     new QueryService()
             );
 
             runner.run(new EventStatisticsQueryRequest(
                     List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 8, 4), LocalDate.of(2025, 8, 4))),
-                    FirstHourBreachCondition.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_NAME,
                     2,
                     progress -> progressUpdates.add(progress.getProcessedTicks() + "/" + progress.getTotalTicks())
             ));
@@ -242,12 +242,12 @@ class QueryScaffoldTest {
                     tickSource,
                     new InMemoryEngineDerivedDataStore(),
                     new FeatureBuildService(),
-                    new ConditionBuildService(),
+                    new EventBuildService(),
                     new QueryService()
             );
             EventStatisticsQueryRequest request = new EventStatisticsQueryRequest(
                     List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 8, 4), LocalDate.of(2025, 8, 4))),
-                    FirstHourBreachCondition.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_NAME,
                     2
             );
 
@@ -309,7 +309,7 @@ class QueryScaffoldTest {
             private boolean sessionRangesBuilt;
             private boolean marketEventsBuilt;
             private final List<SessionRangeFeature> sessionRangeFeatures = new ArrayList<>();
-            private final List<MarketConditionOccurrence> marketEvents = new ArrayList<>();
+            private final List<MarketEventOccurrence> marketEvents = new ArrayList<>();
 
             @Override
             public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
@@ -333,23 +333,23 @@ class QueryScaffoldTest {
             }
 
             @Override
-            public boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+            public boolean areMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
                 return marketEventsBuilt;
             }
 
             @Override
-            public List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
+            public List<MarketEventOccurrence> loadMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
                 return List.copyOf(marketEvents);
             }
 
             @Override
-            public void saveMarketConditionOccurrences(java.util.Collection<MarketConditionOccurrence> marketEvents) {
+            public void saveMarketEventOccurrences(java.util.Collection<MarketEventOccurrence> marketEvents) {
                 this.marketEvents.clear();
                 this.marketEvents.addAll(marketEvents);
             }
 
             @Override
-            public void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+            public void markMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
                 marketEventsBuilt = true;
             }
         }

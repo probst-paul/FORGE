@@ -10,9 +10,9 @@ import forge.data.market.TickDataProvider;
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
 import forge.data.market.TradeTickStreamProcessor;
-import forge.condition.ConditionBuildService;
-import forge.condition.FirstHourBreachCondition;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventBuildService;
+import forge.event.FirstHourBreachEvent;
+import forge.event.MarketEventOccurrence;
 import forge.trade.ExecutionEngine;
 import forge.trade.FacadeForgeTrade;
 import forge.trade.Fill;
@@ -60,7 +60,7 @@ public class BacktestEngine {
     private final FuturesInstrumentSpecProvider futuresInstrumentSpecProvider;
     private final ExecutionEngine executionEngine;
     private final FeatureBuildService featureBuildService;
-    private final ConditionBuildService eventBuildService;
+    private final EventBuildService eventBuildService;
     private final TradingDayClassifier tradingDayClassifier;
     private final TpoPeriodClassifier tpoPeriodClassifier;
 
@@ -92,7 +92,7 @@ public class BacktestEngine {
                 new StaticFuturesInstrumentSpecProvider(),
                 FacadeForgeTrade.getTheInstance().forgeTradeAccess().createSimpleExecutionEngine(),
                 new FeatureBuildService(),
-                new ConditionBuildService(),
+                new EventBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier()
         );
@@ -124,7 +124,7 @@ public class BacktestEngine {
                 new StaticFuturesInstrumentSpecProvider(),
                 FacadeForgeTrade.getTheInstance().forgeTradeAccess().createSimpleExecutionEngine(),
                 new FeatureBuildService(),
-                new ConditionBuildService(),
+                new EventBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier()
         );
@@ -144,7 +144,7 @@ public class BacktestEngine {
                 futuresInstrumentSpecProvider,
                 executionEngine,
                 new FeatureBuildService(),
-                new ConditionBuildService(),
+                new EventBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier()
         );
@@ -157,7 +157,7 @@ public class BacktestEngine {
             FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
             ExecutionEngine executionEngine,
             FeatureBuildService featureBuildService,
-            ConditionBuildService eventBuildService,
+            EventBuildService eventBuildService,
             TradingDayClassifier tradingDayClassifier,
             TpoPeriodClassifier tpoPeriodClassifier
     ) {
@@ -217,7 +217,7 @@ public class BacktestEngine {
             processedProgressTicks += totalTicks;
         }
 
-        List<MarketConditionOccurrence> marketEvents = loadOrBuildMarketConditionOccurrences(
+        List<MarketEventOccurrence> marketEvents = loadOrBuildMarketEventOccurrences(
                 request,
                 requirements,
                 sessionRangeFeatures,
@@ -225,12 +225,12 @@ public class BacktestEngine {
                 processedProgressTicks,
                 totalProgressTicks
         );
-        if (shouldStreamMarketConditionOccurrences(request, requirements)) {
+        if (shouldStreamMarketEventOccurrences(request, requirements)) {
             processedProgressTicks += totalTicks;
         }
 
         Map<SessionKey, SessionRangeFeature> featuresBySession = indexFeatures(sessionRangeFeatures);
-        Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession = indexEvents(marketEvents);
+        Map<SessionKey, List<MarketEventOccurrence>> eventsBySession = indexEvents(marketEvents);
         Map<String, FuturesInstrumentSpec> specsByInstrument = new HashMap<>();
         Map<String, ContractRunAccumulator> contractAccumulators = initializeContractAccumulators(request);
         Map<String, TradeLifecycleEngine> lifecycleEngines = initializeLifecycleEngines(request);
@@ -295,7 +295,7 @@ public class BacktestEngine {
         return accumulator.getFeatures();
     }
 
-    private List<MarketConditionOccurrence> loadOrBuildMarketConditionOccurrences(
+    private List<MarketEventOccurrence> loadOrBuildMarketEventOccurrences(
             BacktestRequest request,
             StrategyRequirements requirements,
             List<SessionRangeFeature> sessionRangeFeatures,
@@ -304,20 +304,20 @@ public class BacktestEngine {
             long totalProgressTicks
     ) {
         /*
-         * Intent: Provide required market condition occurrences from cache when possible, otherwise detect them from ticks.
+         * Intent: Provide required market event occurrences from cache when possible, otherwise detect them from ticks.
          * Precondition: Session range features must exist when first-hour breach detection is required.
-         * Returns: Market condition occurrences required by the strategy, or an empty list when not required.
+         * Returns: Market event occurrences required by the strategy, or an empty list when not required.
          * Postcondition: Missing occurrences may be built in memory for this run but are not persisted here.
          */
-        if (!requirements.requiresEvent(FirstHourBreachCondition.EVENT_NAME)) {
+        if (!requirements.requiresEvent(FirstHourBreachEvent.EVENT_NAME)) {
             return List.of();
         }
-        if (areMarketConditionOccurrencesBuilt(request)) {
+        if (areMarketEventOccurrencesBuilt(request)) {
             return FacadeForgeData.getTheInstance()
                     .forgeDataAccess()
-                    .loadMarketConditionOccurrences(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
+                    .loadMarketEventOccurrences(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
         }
-        forge.condition.FirstHourBreachConditionDetector.Accumulator accumulator =
+        forge.event.FirstHourBreachEventDetector.Accumulator accumulator =
                 eventBuildService.newFirstHourBreachAccumulator(sessionRangeFeatures);
         streamTicks(request, listener, processedBeforePass, totalProgressTicks, accumulator);
         return accumulator.getEvents();
@@ -334,7 +334,7 @@ public class BacktestEngine {
         if (shouldStreamSessionRangeFeatures(request, requirements)) {
             passes++;
         }
-        if (shouldStreamMarketConditionOccurrences(request, requirements)) {
+        if (shouldStreamMarketEventOccurrences(request, requirements)) {
             passes++;
         }
         return passes;
@@ -345,9 +345,9 @@ public class BacktestEngine {
                 && !areSessionRangesBuilt(request);
     }
 
-    private boolean shouldStreamMarketConditionOccurrences(BacktestRequest request, StrategyRequirements requirements) {
-        return requirements.requiresEvent(FirstHourBreachCondition.EVENT_NAME)
-                && !areMarketConditionOccurrencesBuilt(request);
+    private boolean shouldStreamMarketEventOccurrences(BacktestRequest request, StrategyRequirements requirements) {
+        return requirements.requiresEvent(FirstHourBreachEvent.EVENT_NAME)
+                && !areMarketEventOccurrencesBuilt(request);
     }
 
     private boolean areSessionRangesBuilt(BacktestRequest request) {
@@ -364,7 +364,7 @@ public class BacktestEngine {
         }
     }
 
-    private boolean areMarketConditionOccurrencesBuilt(BacktestRequest request) {
+    private boolean areMarketEventOccurrencesBuilt(BacktestRequest request) {
         /*
          * Intent: Safely check whether first-hour breach occurrences are already cached.
          * Precondition: Request must contain selected contract windows.
@@ -374,7 +374,7 @@ public class BacktestEngine {
         try {
             return FacadeForgeData.getTheInstance()
                     .forgeDataAccess()
-                    .areMarketConditionOccurrencesBuilt(request.getContractWindows(), FirstHourBreachCondition.EVENT_NAME);
+                    .areMarketEventOccurrencesBuilt(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
         } catch (IllegalStateException exception) {
             return false;
         }
@@ -382,7 +382,7 @@ public class BacktestEngine {
 
     private boolean requiresSessionRangeFeatures(StrategyRequirements requirements) {
         return requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME)
-                || requirements.requiresEvent(FirstHourBreachCondition.EVENT_NAME);
+                || requirements.requiresEvent(FirstHourBreachEvent.EVENT_NAME);
     }
 
     private long streamTicks(
@@ -431,15 +431,15 @@ public class BacktestEngine {
         return featuresBySession;
     }
 
-    private Map<SessionKey, List<MarketConditionOccurrence>> indexEvents(List<MarketConditionOccurrence> events) {
+    private Map<SessionKey, List<MarketEventOccurrence>> indexEvents(List<MarketEventOccurrence> events) {
         /*
-         * Intent: Build quick lookup for market condition occurrences by contract and trading day.
+         * Intent: Build quick lookup for market event occurrences by contract and trading day.
          * Precondition: Event list must be non-null.
          * Returns: Map keyed by SessionKey with one or more events per session.
          * Postcondition: Source event list is unchanged.
          */
-        Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession = new HashMap<>();
-        for (MarketConditionOccurrence event : events) {
+        Map<SessionKey, List<MarketEventOccurrence>> eventsBySession = new HashMap<>();
+        for (MarketEventOccurrence event : events) {
             eventsBySession
                     .computeIfAbsent(new SessionKey(event.getContractSymbol(), event.getSessionDate()), ignored -> new ArrayList<>())
                     .add(event);
@@ -447,7 +447,7 @@ public class BacktestEngine {
         return eventsBySession;
     }
 
-    private List<MarketConditionOccurrence> eventsForTick(TradeTick tick, List<MarketConditionOccurrence> sessionEvents) {
+    private List<MarketEventOccurrence> eventsForTick(TradeTick tick, List<MarketEventOccurrence> sessionEvents) {
         /*
          * Intent: Select cached session events that occur exactly on the current tick.
          * Precondition: Tick must be non-null; session events may be null or empty.
@@ -457,8 +457,8 @@ public class BacktestEngine {
         if (sessionEvents == null || sessionEvents.isEmpty()) {
             return List.of();
         }
-        List<MarketConditionOccurrence> events = new ArrayList<>();
-        for (MarketConditionOccurrence event : sessionEvents) {
+        List<MarketEventOccurrence> events = new ArrayList<>();
+        for (MarketEventOccurrence event : sessionEvents) {
             if (event.getEventTime().equals(tick.getTradeDateTime())
                     && event.getEventPriceTicks() == tick.getPriceTicks()) {
                 events.add(event);
@@ -594,7 +594,7 @@ public class BacktestEngine {
         private final TradingStrategy strategy;
         private final StrategyRequirements requirements;
         private final Map<SessionKey, SessionRangeFeature> featuresBySession;
-        private final Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession;
+        private final Map<SessionKey, List<MarketEventOccurrence>> eventsBySession;
         private final Map<String, FuturesInstrumentSpec> specsByInstrument;
         private final Map<String, ContractRunAccumulator> contractAccumulators;
         private final Map<String, TradeLifecycleEngine> lifecycleEngines;
@@ -604,7 +604,7 @@ public class BacktestEngine {
                 TradingStrategy strategy,
                 StrategyRequirements requirements,
                 Map<SessionKey, SessionRangeFeature> featuresBySession,
-                Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession,
+                Map<SessionKey, List<MarketEventOccurrence>> eventsBySession,
                 Map<String, FuturesInstrumentSpec> specsByInstrument,
                 Map<String, ContractRunAccumulator> contractAccumulators,
                 Map<String, TradeLifecycleEngine> lifecycleEngines,

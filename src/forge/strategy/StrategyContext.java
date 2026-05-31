@@ -2,7 +2,7 @@ package forge.strategy;
 
 import forge.data.market.TradeTick;
 import forge.engine.MarketContext;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 import forge.feature.TpoPeriod;
 import forge.feature.TradingDayContext;
@@ -19,7 +19,7 @@ public class StrategyContext {
     private final TradingDayContext tradingDayContext;
     private final TpoPeriod tpoPeriod;
     private final SessionRangeFeature sessionRangeFeature;
-    private final List<MarketConditionOccurrence> currentEvents;
+    private final List<MarketEventOccurrence> currentEvents;
 
     public StrategyContext(
             MarketContext marketContext,
@@ -27,7 +27,7 @@ public class StrategyContext {
             TradingDayContext tradingDayContext,
             TpoPeriod tpoPeriod,
             SessionRangeFeature sessionRangeFeature,
-            List<MarketConditionOccurrence> currentEvents
+            List<MarketEventOccurrence> currentEvents
     ) {
         /*
          * Intent: Package all per-tick strategy inputs into one immutable context.
@@ -63,7 +63,7 @@ public class StrategyContext {
         return Optional.ofNullable(sessionRangeFeature);
     }
 
-    public List<MarketConditionOccurrence> getCurrentEvents() {
+    public List<MarketEventOccurrence> getCurrentEvents() {
         return currentEvents;
     }
 
@@ -71,7 +71,7 @@ public class StrategyContext {
         return marketContext.hasOpenPosition();
     }
 
-    private List<MarketConditionOccurrence> normalizeEvents(List<MarketConditionOccurrence> events) {
+    private List<MarketEventOccurrence> normalizeEvents(List<MarketEventOccurrence> events) {
         /*
          * Intent: Convert optional current-event input into a safe immutable list.
          * Precondition: events may be null and may contain null entries.
@@ -81,8 +81,8 @@ public class StrategyContext {
         if (events == null || events.isEmpty()) {
             return Collections.emptyList();
         }
-        List<MarketConditionOccurrence> normalized = new ArrayList<>();
-        for (MarketConditionOccurrence event : events) {
+        List<MarketEventOccurrence> normalized = new ArrayList<>();
+        for (MarketEventOccurrence event : events) {
             if (event != null) {
                 normalized.add(event);
             }

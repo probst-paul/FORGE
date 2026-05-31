@@ -1,8 +1,8 @@
 package forge.statistics;
 
-import forge.condition.ConditionSide;
-import forge.condition.FirstHourBreachCondition;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventSide;
+import forge.event.FirstHourBreachEvent;
+import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 import forge.engine.EventStatisticsReport;
 import forge.engine.EventStatisticsResult;
@@ -29,12 +29,12 @@ class StatisticsServiceTest {
                         feature("NQZ25", LocalDate.of(2025, 12, 1))
                 ),
                 List.of(
-                        event("ESU25", LocalDate.of(2025, 8, 1), ConditionSide.LONG),
-                        event("NQZ25", LocalDate.of(2025, 12, 1), ConditionSide.SHORT)
+                        event("ESU25", LocalDate.of(2025, 8, 1), EventSide.LONG),
+                        event("NQZ25", LocalDate.of(2025, 12, 1), EventSide.SHORT)
                 )
         );
 
-        assertEquals(FirstHourBreachCondition.EVENT_NAME, report.getEventName());
+        assertEquals(FirstHourBreachEvent.EVENT_NAME, report.getEventName());
         assertEquals(2, report.getInstrumentResults().size());
         EventStatisticsResult es = report.getInstrumentResults().get(0);
         EventStatisticsResult nq = report.getInstrumentResults().get(1);
@@ -60,12 +60,12 @@ class StatisticsServiceTest {
         return new SessionRangeFeature(contractSymbol, sessionDate, 100, 120, 105, 115, 95, 125);
     }
 
-    private MarketConditionOccurrence event(String contractSymbol, LocalDate sessionDate, ConditionSide side) {
-        return new MarketConditionOccurrence(
+    private MarketEventOccurrence event(String contractSymbol, LocalDate sessionDate, EventSide side) {
+        return new MarketEventOccurrence(
                 contractSymbol,
                 sessionDate,
-                FirstHourBreachCondition.EVENT_NAME,
-                FirstHourBreachCondition.EVENT_VERSION,
+                FirstHourBreachEvent.EVENT_NAME,
+                FirstHourBreachEvent.EVENT_VERSION,
                 side,
                 Instant.parse("2025-08-01T15:00:00Z"),
                 116

@@ -1,9 +1,9 @@
 package forge.strategy;
 
 import forge.config.TargetSettings;
-import forge.condition.OrderFlowExhaustionCondition;
-import forge.condition.PriceCrossoverCondition;
-import forge.condition.MarketCondition;
+import forge.event.OrderFlowExhaustionEvent;
+import forge.event.PriceCrossoverEvent;
+import forge.event.MarketEvent;
 import forge.util.ClasspathCatalog;
 
 import java.util.LinkedHashMap;
@@ -73,14 +73,14 @@ public class StrategyCatalog {
          * Postcondition: Unsupported strategies are rejected before configuration is shown.
          */
         if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {
-            List<Class<? extends MarketCondition>> allowedConditions = List.of(PriceCrossoverCondition.class);
+            List<Class<? extends MarketEvent>> allowedEvents = List.of(PriceCrossoverEvent.class);
             List<String> allowedTargets = List.of(TargetSettings.FIXED_TARGET);
             Map<String, TargetSettings> defaultTargetSettings = new LinkedHashMap<>();
             defaultTargetSettings.put(TargetSettings.FIXED_TARGET, TargetSettings.fixedTarget(1));
             return new StrategyConfigurationProfile(
                     strategyClass,
-                    allowedConditions,
-                    PriceCrossoverCondition.class,
+                    allowedEvents,
+                    PriceCrossoverEvent.class,
                     false,
                     allowedTargets,
                     TargetSettings.FIXED_TARGET,
@@ -89,15 +89,15 @@ public class StrategyCatalog {
             );
         }
         if (RangeBreakoutStrategy.class.equals(strategyClass)) {
-            List<Class<? extends MarketCondition>> allowedConditions = List.of(OrderFlowExhaustionCondition.class, PriceCrossoverCondition.class);
+            List<Class<? extends MarketEvent>> allowedEvents = List.of(OrderFlowExhaustionEvent.class, PriceCrossoverEvent.class);
             List<String> allowedTargets = List.of(TargetSettings.FIXED_RISK_REWARD, TargetSettings.FIXED_TARGET);
             Map<String, TargetSettings> defaultTargetSettings = new LinkedHashMap<>();
             defaultTargetSettings.put(TargetSettings.FIXED_RISK_REWARD, TargetSettings.fixedRiskReward(2.0));
             defaultTargetSettings.put(TargetSettings.FIXED_TARGET, TargetSettings.fixedTarget(8));
             return new StrategyConfigurationProfile(
                     strategyClass,
-                    allowedConditions,
-                    OrderFlowExhaustionCondition.class,
+                    allowedEvents,
+                    OrderFlowExhaustionEvent.class,
                     true,
                     allowedTargets,
                     TargetSettings.FIXED_RISK_REWARD,

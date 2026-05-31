@@ -1,8 +1,8 @@
 package forge.engine;
 
 import forge.app.BacktestProgressListener;
-import forge.condition.ConditionBuildService;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventBuildService;
+import forge.event.MarketEventOccurrence;
 import forge.config.BacktestRequest;
 import forge.data.FacadeForgeData;
 import forge.feature.FeatureBuildService;
@@ -53,7 +53,7 @@ public class FacadeForgeEngine {
                 defaultTradeTickSource(),
                 defaultDerivedDataStore(),
                 new FeatureBuildService(),
-                new ConditionBuildService(),
+                new EventBuildService(),
                 queryService
                 )
         );
@@ -183,7 +183,7 @@ public class FacadeForgeEngine {
         public EventStatisticsReport summarizeEventStatistics(
                 EventStatisticsQuery query,
                 Collection<SessionRangeFeature> sessionRangeFeatures,
-                Collection<MarketConditionOccurrence> events
+                Collection<MarketEventOccurrence> events
         ) {
             /*
              * Intent: Summarize already-loaded derived data into event statistics.
@@ -259,42 +259,42 @@ public class FacadeForgeEngine {
             }
 
             @Override
-            public boolean areMarketConditionOccurrencesBuilt(
+            public boolean areMarketEventOccurrencesBuilt(
                     java.util.List<forge.data.market.ContractTradeWindow> windows,
                     String eventName
             ) {
                 return FacadeForgeData.getTheInstance()
                         .forgeDataAccess()
-                        .areMarketConditionOccurrencesBuilt(windows, eventName);
+                        .areMarketEventOccurrencesBuilt(windows, eventName);
             }
 
             @Override
-            public java.util.List<forge.condition.MarketConditionOccurrence> loadMarketConditionOccurrences(
+            public java.util.List<forge.event.MarketEventOccurrence> loadMarketEventOccurrences(
                     java.util.List<forge.data.market.ContractTradeWindow> windows,
                     String eventName
             ) {
                 return FacadeForgeData.getTheInstance()
                         .forgeDataAccess()
-                        .loadMarketConditionOccurrences(windows, eventName);
+                        .loadMarketEventOccurrences(windows, eventName);
             }
 
             @Override
-            public void saveMarketConditionOccurrences(
-                    java.util.Collection<forge.condition.MarketConditionOccurrence> marketConditionOccurrences
+            public void saveMarketEventOccurrences(
+                    java.util.Collection<forge.event.MarketEventOccurrence> marketConditionOccurrences
             ) {
                 FacadeForgeData.getTheInstance()
                         .forgeDataAccess()
-                        .saveMarketConditionOccurrences(marketConditionOccurrences);
+                        .saveMarketEventOccurrences(marketConditionOccurrences);
             }
 
             @Override
-            public void markMarketConditionOccurrencesBuilt(
+            public void markMarketEventOccurrencesBuilt(
                     java.util.List<forge.data.market.ContractTradeWindow> windows,
                     String eventName
             ) {
                 FacadeForgeData.getTheInstance()
                         .forgeDataAccess()
-                        .markMarketConditionOccurrencesBuilt(windows, eventName);
+                        .markMarketEventOccurrencesBuilt(windows, eventName);
             }
         };
     }

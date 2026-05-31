@@ -37,7 +37,7 @@ public class FacadeForgeConfig {
                 List<String> instruments,
                 LocalDate startDate,
                 LocalDate endDate,
-                String conditionName,
+                String eventName,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings
         ) {
@@ -52,7 +52,7 @@ public class FacadeForgeConfig {
                     instruments,
                     startDate,
                     endDate,
-                    new MarketConditionOptions(conditionName),
+                    new MarketEventOptions(eventName),
                     riskSettings,
                     targetSettings,
                     defaultOrderSettings()
@@ -62,7 +62,7 @@ public class FacadeForgeConfig {
         public BacktestRequest createBacktestRequest(
                 String strategyName,
                 List<ContractTradeWindow> contractWindows,
-                String conditionName,
+                String eventName,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings
         ) {
@@ -75,7 +75,7 @@ public class FacadeForgeConfig {
             return createBacktestRequest(
                     new StrategyOptions(strategyName),
                     contractWindows,
-                    new MarketConditionOptions(conditionName),
+                    new MarketEventOptions(eventName),
                     riskSettings,
                     targetSettings,
                     defaultOrderSettings()
@@ -87,7 +87,7 @@ public class FacadeForgeConfig {
                 List<String> instruments,
                 LocalDate startDate,
                 LocalDate endDate,
-                MarketConditionOptions marketConditionOptions,
+                MarketEventOptions marketConditionOptions,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings,
                 OrderSettings orderSettings
@@ -113,7 +113,7 @@ public class FacadeForgeConfig {
         public BacktestRequest createBacktestRequest(
                 StrategyOptions strategyOptions,
                 List<ContractTradeWindow> contractWindows,
-                MarketConditionOptions marketConditionOptions,
+                MarketEventOptions marketConditionOptions,
                 RiskSettings riskSettings,
                 TargetSettings targetSettings,
                 OrderSettings orderSettings

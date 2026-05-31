@@ -124,12 +124,12 @@ public class DerivedDataController {
          */
         viewModel.setTicksRead(result.getTicksRead());
         viewModel.setSessionRangesBuilt(result.getSessionRangesBuilt());
-        viewModel.setMarketConditionOccurrencesBuilt(result.getMarketConditionOccurrencesBuilt());
+        viewModel.setMarketEventOccurrencesBuilt(result.getMarketEventOccurrencesBuilt());
         viewModel.markSucceeded(
                 "Derived data build complete.",
                 "Read " + result.getTicksRead() + " ticks, built "
                         + result.getSessionRangesBuilt() + " session ranges and "
-                        + result.getMarketConditionOccurrencesBuilt() + " market condition occurrences."
+                        + result.getMarketEventOccurrencesBuilt() + " market event occurrences."
         );
     }
 }

@@ -3,8 +3,8 @@ package forge.engine;
 import forge.app.EventStatisticsProgress;
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
-import forge.condition.ConditionBuildService;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventBuildService;
+import forge.event.MarketEventOccurrence;
 import forge.feature.FeatureBuildService;
 import forge.feature.SessionRangeFeature;
 
@@ -15,14 +15,14 @@ public class EventStatisticsQueryRunner {
     private final QueryTradeTickSource tradeTickSource;
     private final QueryDerivedDataStore derivedDataStore;
     private final FeatureBuildService featureBuildService;
-    private final ConditionBuildService eventBuildService;
+    private final EventBuildService eventBuildService;
     private final QueryService queryService;
 
     public EventStatisticsQueryRunner(
             QueryTradeTickSource tradeTickSource,
             QueryDerivedDataStore derivedDataStore,
             FeatureBuildService featureBuildService,
-            ConditionBuildService eventBuildService,
+            EventBuildService eventBuildService,
             QueryService queryService
     ) {
         /*
@@ -75,9 +75,9 @@ public class EventStatisticsQueryRunner {
             derivedDataStore.markSessionRangesBuilt(request.getContractWindows());
         }
 
-        List<MarketConditionOccurrence> events;
-        if (derivedDataStore.areMarketConditionOccurrencesBuilt(request.getContractWindows(), request.getEventName())) {
-            events = derivedDataStore.loadMarketConditionOccurrences(request.getContractWindows(), request.getEventName());
+        List<MarketEventOccurrence> events;
+        if (derivedDataStore.areMarketEventOccurrencesBuilt(request.getContractWindows(), request.getEventName())) {
+            events = derivedDataStore.loadMarketEventOccurrences(request.getContractWindows(), request.getEventName());
             if (ticks == null) {
                 request.getProgressListener().onProgress(new EventStatisticsProgress(1, 1));
             }
@@ -85,9 +85,9 @@ public class EventStatisticsQueryRunner {
             if (ticks == null) {
                 ticks = readTicks(request);
             }
-            events = eventBuildService.detectFirstHourBreachConditions(sessionRangeFeatures, ticks);
-            derivedDataStore.saveMarketConditionOccurrences(events);
-            derivedDataStore.markMarketConditionOccurrencesBuilt(request.getContractWindows(), request.getEventName());
+            events = eventBuildService.detectFirstHourBreachEvents(sessionRangeFeatures, ticks);
+            derivedDataStore.saveMarketEventOccurrences(events);
+            derivedDataStore.markMarketEventOccurrencesBuilt(request.getContractWindows(), request.getEventName());
         }
         return queryService.summarizeEventStatistics(
                 new EventStatisticsQuery(request.getEventName()),

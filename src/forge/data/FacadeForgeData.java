@@ -22,7 +22,7 @@ import forge.data.market.TickDataProvider;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.data.postgres.PostgresTickDataProvider;
 import forge.data.postgres.PostgresTradeRepository;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 
 import java.time.LocalDate;
@@ -181,20 +181,20 @@ public class FacadeForgeData {
             scidDataImportService.getTradeRepository().markSessionRangesBuilt(windows);
         }
 
-        public boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
-            return scidDataImportService.getTradeRepository().areMarketConditionOccurrencesBuilt(windows, eventName);
+        public boolean areMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+            return scidDataImportService.getTradeRepository().areMarketEventOccurrencesBuilt(windows, eventName);
         }
 
-        public List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
-            return scidDataImportService.getTradeRepository().loadMarketConditionOccurrences(windows, eventName);
+        public List<MarketEventOccurrence> loadMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
+            return scidDataImportService.getTradeRepository().loadMarketEventOccurrences(windows, eventName);
         }
 
-        public void saveMarketConditionOccurrences(Collection<MarketConditionOccurrence> marketEvents) {
-            scidDataImportService.getTradeRepository().saveMarketConditionOccurrences(marketEvents);
+        public void saveMarketEventOccurrences(Collection<MarketEventOccurrence> marketEvents) {
+            scidDataImportService.getTradeRepository().saveMarketEventOccurrences(marketEvents);
         }
 
-        public void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
-            scidDataImportService.getTradeRepository().markMarketConditionOccurrencesBuilt(windows, eventName);
+        public void markMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+            scidDataImportService.getTradeRepository().markMarketEventOccurrencesBuilt(windows, eventName);
         }
 
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
@@ -267,32 +267,32 @@ public class FacadeForgeData {
                     }
 
                     @Override
-                    public boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
-                        return tradeRepository.areMarketConditionOccurrencesBuilt(windows, eventName);
+                    public boolean areMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+                        return tradeRepository.areMarketEventOccurrencesBuilt(windows, eventName);
                     }
 
                     @Override
-                    public List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
-                        return tradeRepository.loadMarketConditionOccurrences(windows, eventName);
+                    public List<MarketEventOccurrence> loadMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
+                        return tradeRepository.loadMarketEventOccurrences(windows, eventName);
                     }
 
                     @Override
-                    public void saveMarketConditionOccurrences(Collection<MarketConditionOccurrence> marketEvents) {
-                        tradeRepository.saveMarketConditionOccurrences(marketEvents);
+                    public void saveMarketEventOccurrences(Collection<MarketEventOccurrence> marketEvents) {
+                        tradeRepository.saveMarketEventOccurrences(marketEvents);
                     }
 
                     @Override
-                    public void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
-                        tradeRepository.markMarketConditionOccurrencesBuilt(windows, eventName);
+                    public void markMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+                        tradeRepository.markMarketEventOccurrencesBuilt(windows, eventName);
                     }
 
                     @Override
-                    public void clearMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
-                        tradeRepository.clearMarketConditionOccurrences(windows, eventName);
+                    public void clearMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
+                        tradeRepository.clearMarketEventOccurrences(windows, eventName);
                     }
                 },
                 new forge.feature.FeatureBuildService(),
-                new forge.condition.ConditionBuildService()
+                new forge.event.EventBuildService()
         );
     }
 }

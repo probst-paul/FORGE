@@ -2,9 +2,9 @@ package forge.strategy;
 
 import forge.data.market.TradeTick;
 import forge.engine.MarketContext;
-import forge.condition.ConditionSide;
-import forge.condition.FirstHourBreachCondition;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventSide;
+import forge.event.FirstHourBreachEvent;
+import forge.event.MarketEventOccurrence;
 import forge.trade.OrderRequest;
 import forge.trade.OrderSide;
 import forge.feature.SessionRangeFeature;
@@ -81,7 +81,7 @@ class OpeningRangeContinuationStrategyTest {
             StrategyRequirements requirements = new OpeningRangeContinuationStrategy().getRequirements();
 
             assertTrue(requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME));
-            assertTrue(requirements.requiresEvent(FirstHourBreachCondition.EVENT_NAME));
+            assertTrue(requirements.requiresEvent(FirstHourBreachEvent.EVENT_NAME));
             assertTrue(requirements.getEvaluationSessions().contains(TradingSession.RTH));
             assertTrue(requirements.getEvaluationTpoPeriods().contains(TpoPeriod.C));
             assertTrue(requirements.getEvaluationTpoPeriods().contains(TpoPeriod.D));
@@ -94,7 +94,7 @@ class OpeningRangeContinuationStrategyTest {
         void entersLongWhenFirstHourHighIsCrossedAfterInsideFirstHourRange() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy(2);
 
-            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, ConditionSide.LONG));
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG));
 
             assertTrue(decision.hasOrderRequest());
             OrderRequest orderRequest = decision.getOrderRequest().orElseThrow();
@@ -111,7 +111,7 @@ class OpeningRangeContinuationStrategyTest {
         void entersShortWhenFirstHourLowIsCrossedAfterInsideFirstHourRange() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false, ConditionSide.SHORT));
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false, EventSide.SHORT));
 
             assertTrue(decision.hasOrderRequest());
             assertEquals(OrderSide.SELL, decision.getOrderRequest().orElseThrow().getSide());
@@ -130,7 +130,7 @@ class OpeningRangeContinuationStrategyTest {
                     2.0
             );
 
-            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, ConditionSide.LONG));
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG));
 
             assertTrue(decision.hasOrderRequest());
             TradePlan plan = decision.getTradePlan().orElseThrow();
@@ -151,7 +151,7 @@ class OpeningRangeContinuationStrategyTest {
                     LocalTime.of(9, 30),
                     92,
                     false,
-                    ConditionSide.SHORT,
+                    EventSide.SHORT,
                     feature(80, 110, 92, 100)
             ));
 
@@ -170,7 +170,7 @@ class OpeningRangeContinuationStrategyTest {
                     LocalTime.of(9, 30),
                     101,
                     false,
-                    ConditionSide.LONG,
+                    EventSide.LONG,
                     feature(90, 100, 92, 101)
             ));
 
@@ -181,22 +181,22 @@ class OpeningRangeContinuationStrategyTest {
         void onlyAllowsOneTradePerSessionDate() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, ConditionSide.LONG)).hasOrderRequest());
-            assertFalse(strategy.evaluate(context(LocalTime.of(9, 31), 92, false, ConditionSide.SHORT)).hasOrderRequest());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG)).hasOrderRequest());
+            assertFalse(strategy.evaluate(context(LocalTime.of(9, 31), 92, false, EventSide.SHORT)).hasOrderRequest());
         }
 
         @Test
         void onlyTradesDuringAllowedWindow() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertFalse(strategy.evaluate(context(LocalTime.of(10, 30), 98, false, ConditionSide.LONG)).hasOrderRequest());
+            assertFalse(strategy.evaluate(context(LocalTime.of(10, 30), 98, false, EventSide.LONG)).hasOrderRequest());
         }
 
         @Test
         void doesNotTradeWhenPositionIsAlreadyOpen() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertFalse(strategy.evaluate(context(LocalTime.of(9, 30), 98, true, ConditionSide.LONG)).hasOrderRequest());
+            assertFalse(strategy.evaluate(context(LocalTime.of(9, 30), 98, true, EventSide.LONG)).hasOrderRequest());
         }
 
         @Test
@@ -210,11 +210,11 @@ class OpeningRangeContinuationStrategyTest {
         void clearsStateOnBacktestStart() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, ConditionSide.LONG)).hasOrderRequest());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG)).hasOrderRequest());
 
             strategy.onBacktestStart();
 
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 31), 98, false, ConditionSide.LONG)).hasOrderRequest());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 31), 98, false, EventSide.LONG)).hasOrderRequest());
         }
     }
 
@@ -222,7 +222,7 @@ class OpeningRangeContinuationStrategyTest {
             LocalTime centralTime,
             long priceTicks,
             boolean hasOpenPosition,
-            ConditionSide eventSide
+            EventSide eventSide
     ) {
         return context(centralTime, priceTicks, hasOpenPosition, eventSide, feature(90, 100, 92, 98));
     }
@@ -231,7 +231,7 @@ class OpeningRangeContinuationStrategyTest {
             LocalTime centralTime,
             long priceTicks,
             boolean hasOpenPosition,
-            ConditionSide eventSide,
+            EventSide eventSide,
             SessionRangeFeature feature
     ) {
         Instant instant = instantAtCentral(SESSION_DATE, centralTime);
@@ -272,12 +272,12 @@ class OpeningRangeContinuationStrategyTest {
         );
     }
 
-    private MarketConditionOccurrence event(Instant instant, long priceTicks, ConditionSide side) {
-        return new MarketConditionOccurrence(
+    private MarketEventOccurrence event(Instant instant, long priceTicks, EventSide side) {
+        return new MarketEventOccurrence(
                 "ESU25",
                 SESSION_DATE,
-                FirstHourBreachCondition.EVENT_NAME,
-                FirstHourBreachCondition.EVENT_VERSION,
+                FirstHourBreachEvent.EVENT_NAME,
+                FirstHourBreachEvent.EVENT_VERSION,
                 side,
                 instant,
                 priceTicks

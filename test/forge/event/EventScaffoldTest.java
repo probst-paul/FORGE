@@ -1,4 +1,4 @@
-package forge.condition;
+package forge.event;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -17,23 +17,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class ConditionScaffoldTest {
+class EventScaffoldTest {
     @Nested
     class Facade {
         @Test
         void exposesSingletonAccessToSupportedEvents() {
-            FacadeForgeCondition facade = FacadeForgeCondition.getTheInstance();
+            FacadeForgeEvent facade = FacadeForgeEvent.getTheInstance();
 
-            assertSame(facade, FacadeForgeCondition.getTheInstance());
-            assertEquals(List.of(FirstHourBreachCondition.EVENT_NAME), facade.forgeConditionAccess().getSupportedConditionNames());
+            assertSame(facade, FacadeForgeEvent.getTheInstance());
+            assertEquals(List.of(FirstHourBreachEvent.EVENT_NAME), facade.forgeEventAccess().getSupportedEventNames());
         }
     }
 
     @Nested
     class Definition {
         @Test
-        void definesFirstHourBreachCondition() {
-            FirstHourBreachCondition definition = new FirstHourBreachCondition();
+        void definesFirstHourBreachEvent() {
+            FirstHourBreachEvent definition = new FirstHourBreachEvent();
 
             assertEquals("FIRST_HOUR_BREACH", definition.getName());
             assertEquals(1, definition.getVersion());
@@ -41,34 +41,34 @@ class ConditionScaffoldTest {
     }
 
     @Nested
-    class MarketConditionOccurrences {
+    class MarketEventOccurrences {
         @Test
         void storesEventIdentityAndTiming() {
-            MarketConditionOccurrence event = new MarketConditionOccurrence(
+            MarketEventOccurrence event = new MarketEventOccurrence(
                     "esu25",
                     LocalDate.of(2025, 8, 1),
-                    FirstHourBreachCondition.EVENT_NAME,
-                    FirstHourBreachCondition.EVENT_VERSION,
-                    ConditionSide.LONG,
+                    FirstHourBreachEvent.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_VERSION,
+                    EventSide.LONG,
                     Instant.parse("2025-08-01T14:30:00Z"),
                     24000
             );
 
             assertEquals("ESU25", event.getContractSymbol());
             assertEquals(LocalDate.of(2025, 8, 1), event.getSessionDate());
-            assertEquals(FirstHourBreachCondition.EVENT_NAME, event.getEventName());
-            assertEquals(ConditionSide.LONG, event.getSide());
+            assertEquals(FirstHourBreachEvent.EVENT_NAME, event.getEventName());
+            assertEquals(EventSide.LONG, event.getSide());
             assertEquals(24000, event.getEventPriceTicks());
         }
 
         @Test
         void rejectsInvalidEventPrice() {
-            assertThrows(IllegalArgumentException.class, () -> new MarketConditionOccurrence(
+            assertThrows(IllegalArgumentException.class, () -> new MarketEventOccurrence(
                     "ESU25",
                     LocalDate.of(2025, 8, 1),
-                    FirstHourBreachCondition.EVENT_NAME,
-                    FirstHourBreachCondition.EVENT_VERSION,
-                    ConditionSide.LONG,
+                    FirstHourBreachEvent.EVENT_NAME,
+                    FirstHourBreachEvent.EVENT_VERSION,
+                    EventSide.LONG,
                     Instant.parse("2025-08-01T14:30:00Z"),
                     0
             ));
@@ -89,9 +89,9 @@ class ConditionScaffoldTest {
                     95,
                     125
             );
-            FirstHourBreachConditionDetector detector = new FirstHourBreachConditionDetector();
+            FirstHourBreachEventDetector detector = new FirstHourBreachEventDetector();
 
-            List<MarketConditionOccurrence> events = detector.detect(List.of(feature), List.of(
+            List<MarketEventOccurrence> events = detector.detect(List.of(feature), List.of(
                     tick(LocalDate.of(2025, 8, 1), LocalTime.of(8, 45), 115, 1),
                     tick(LocalDate.of(2025, 8, 1), LocalTime.of(9, 31), 114, 2),
                     tick(LocalDate.of(2025, 8, 1), LocalTime.of(9, 45), 116, 3),
@@ -99,12 +99,12 @@ class ConditionScaffoldTest {
             ));
 
             assertEquals(1, events.size());
-            assertEquals(ConditionSide.LONG, events.get(0).getSide());
+            assertEquals(EventSide.LONG, events.get(0).getSide());
             assertEquals(116, events.get(0).getEventPriceTicks());
         }
 
         @Test
-        void facadeDetectsFirstHourBreachConditions() {
+        void facadeDetectsFirstHourBreachEvents() {
             SessionRangeFeature feature = new SessionRangeFeature(
                     "ESU25",
                     LocalDate.of(2025, 8, 1),
@@ -116,14 +116,14 @@ class ConditionScaffoldTest {
                     125
             );
 
-            List<MarketConditionOccurrence> events = FacadeForgeCondition.getTheInstance()
-                    .forgeConditionAccess()
-                    .detectFirstHourBreachConditions(List.of(feature), List.of(
+            List<MarketEventOccurrence> events = FacadeForgeEvent.getTheInstance()
+                    .forgeEventAccess()
+                    .detectFirstHourBreachEvents(List.of(feature), List.of(
                             tick(LocalDate.of(2025, 8, 1), LocalTime.of(9, 45), 104, 1)
                     ));
 
             assertEquals(1, events.size());
-            assertEquals(ConditionSide.SHORT, events.get(0).getSide());
+            assertEquals(EventSide.SHORT, events.get(0).getSide());
         }
 
         private TradeTick tick(LocalDate centralDate, LocalTime centralTime, long priceTicks, long scidRecordIndex) {

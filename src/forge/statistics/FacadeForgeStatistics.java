@@ -1,6 +1,6 @@
 package forge.statistics;
 
-import forge.condition.MarketConditionOccurrence;
+import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 import forge.engine.EventStatisticsQuery;
 import forge.engine.EventStatisticsReport;
@@ -43,7 +43,7 @@ public class FacadeForgeStatistics {
         public EventStatisticsReport summarizeStudyOccurrences(
                 MarketStudy study,
                 Collection<SessionRangeFeature> sessionRangeFeatures,
-                Collection<MarketConditionOccurrence> events
+                Collection<MarketEventOccurrence> events
         ) {
             return statisticsService.summarizeStudyOccurrences(study, sessionRangeFeatures, events);
         }
@@ -57,7 +57,7 @@ public class FacadeForgeStatistics {
         public EventStatisticsReport summarizeEventStatistics(
                 EventStatisticsQuery query,
                 Collection<SessionRangeFeature> sessionRangeFeatures,
-                Collection<MarketConditionOccurrence> events
+                Collection<MarketEventOccurrence> events
         ) {
             return statisticsService.summarizeEventStatistics(query, sessionRangeFeatures, events);
         }

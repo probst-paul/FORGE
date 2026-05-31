@@ -14,7 +14,7 @@ public class BacktestRequest {
     private final List<ContractTradeWindow> contractWindows;
     private final LocalDate startDate;
     private final LocalDate endDate;
-    private final MarketConditionOptions marketConditionOptions;
+    private final MarketEventOptions marketConditionOptions;
     private final RiskSettings riskSettings;
     private final TargetSettings targetSettings;
     private final OrderSettings orderSettings;
@@ -24,7 +24,7 @@ public class BacktestRequest {
             List<String> instruments,
             LocalDate startDate,
             LocalDate endDate,
-            MarketConditionOptions marketConditionOptions,
+            MarketEventOptions marketConditionOptions,
             RiskSettings riskSettings,
             TargetSettings targetSettings,
             OrderSettings orderSettings
@@ -48,7 +48,7 @@ public class BacktestRequest {
     public BacktestRequest(
             StrategyOptions strategyOptions,
             List<ContractTradeWindow> contractWindows,
-            MarketConditionOptions marketConditionOptions,
+            MarketEventOptions marketConditionOptions,
             RiskSettings riskSettings,
             TargetSettings targetSettings,
             OrderSettings orderSettings
@@ -90,7 +90,7 @@ public class BacktestRequest {
         return endDate;
     }
 
-    public MarketConditionOptions getMarketConditionOptions() {
+    public MarketEventOptions getMarketEventOptions() {
         return marketConditionOptions;
     }
 

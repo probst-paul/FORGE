@@ -44,7 +44,7 @@ public class DatabaseBuildResult {
         return sessionRangesBuilt;
     }
 
-    public long getMarketConditionOccurrencesBuilt() {
+    public long getMarketEventOccurrencesBuilt() {
         return marketEventsBuilt;
     }
 

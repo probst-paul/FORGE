@@ -5,8 +5,8 @@ import forge.data.importing.DataImportPlan;
 import forge.data.importing.ImportCheckpoint;
 import forge.data.importing.TradeRow;
 import forge.data.market.ContractTradeWindow;
-import forge.condition.ConditionSide;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventSide;
+import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyManager;
@@ -690,9 +690,9 @@ public class PostgresTradeRepository {
         }
     }
 
-    public boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+    public boolean areMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
         /*
-         * Intent: Check whether cached market condition occurrences exist for all selected windows.
+         * Intent: Check whether cached market event occurrences exist for all selected windows.
          * Precondition: Event name should identify a supported derived condition.
          * Returns: True when all requested windows have build markers for the event.
          * Postcondition: Database data is unchanged.
@@ -700,9 +700,9 @@ public class PostgresTradeRepository {
         return areDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
 
-    public List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
+    public List<MarketEventOccurrence> loadMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
         /*
-         * Intent: Load cached market condition occurrences for selected windows and event name.
+         * Intent: Load cached market event occurrences for selected windows and event name.
          * Precondition: Derived-data tables must be available; empty windows are allowed.
          * Returns: Immutable list of matching occurrence rows.
          * Postcondition: Database data is unchanged.
@@ -711,7 +711,7 @@ public class PostgresTradeRepository {
         if (windows == null || windows.isEmpty()) {
             return Collections.emptyList();
         }
-        List<MarketConditionOccurrence> events = new ArrayList<>();
+        List<MarketEventOccurrence> events = new ArrayList<>();
         try (Connection connection = DriverManager.getConnection(
                 settings.primaryJdbcUrl(),
                 settings.getUsername(),
@@ -739,12 +739,12 @@ public class PostgresTradeRepository {
                     statement.setDate(4, Date.valueOf(window.getEndDate()));
                     try (ResultSet resultSet = statement.executeQuery()) {
                         while (resultSet.next()) {
-                            events.add(new MarketConditionOccurrence(
+                            events.add(new MarketEventOccurrence(
                                     resultSet.getString(1),
                                     resultSet.getDate(2).toLocalDate(),
                                     resultSet.getString(3),
                                     resultSet.getInt(4),
-                                    ConditionSide.valueOf(resultSet.getString(5)),
+                                    EventSide.valueOf(resultSet.getString(5)),
                                     resultSet.getTimestamp(6).toInstant(),
                                     resultSet.getLong(7)
                             ));
@@ -758,9 +758,9 @@ public class PostgresTradeRepository {
         }
     }
 
-    public void saveMarketConditionOccurrences(Collection<MarketConditionOccurrence> marketEvents) {
+    public void saveMarketEventOccurrences(Collection<MarketEventOccurrence> marketEvents) {
         /*
-         * Intent: Upsert computed market condition occurrences into the derived-data cache.
+         * Intent: Upsert computed market event occurrences into the derived-data cache.
          * Precondition: Event collection may be null/empty; non-empty events must be valid.
          * Returns: Nothing.
          * Postcondition: Existing event rows for the same contract/session/name/version are updated.
@@ -793,7 +793,7 @@ public class PostgresTradeRepository {
                              quoteIdentifier("eventTime") + " = EXCLUDED." + quoteIdentifier("eventTime") + ", " +
                              quoteIdentifier("eventPriceTicks") + " = EXCLUDED." + quoteIdentifier("eventPriceTicks")
              )) {
-            for (MarketConditionOccurrence event : marketEvents) {
+            for (MarketEventOccurrence event : marketEvents) {
                 statement.setString(1, event.getContractSymbol());
                 statement.setDate(2, Date.valueOf(event.getSessionDate()));
                 statement.setString(3, event.getEventName());
@@ -810,9 +810,9 @@ public class PostgresTradeRepository {
         }
     }
 
-    public void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+    public void markMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
         /*
-         * Intent: Mark market condition occurrences as built for selected windows and event name.
+         * Intent: Mark market event occurrences as built for selected windows and event name.
          * Precondition: Windows and event name should describe the data that was persisted.
          * Returns: Nothing.
          * Postcondition: Future build plans/statistics can use cached event occurrences.
@@ -820,9 +820,9 @@ public class PostgresTradeRepository {
         markDerivedRowsBuilt(BUILD_TYPE_MARKET_EVENT, eventName, windows);
     }
 
-    public void clearMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
+    public void clearMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
         /*
-         * Intent: Delete cached market condition occurrences and build markers for selected windows.
+         * Intent: Delete cached market event occurrences and build markers for selected windows.
          * Precondition: Windows may be null/empty; event name should match the cached event family.
          * Returns: Nothing.
          * Postcondition: Selected market-event cache is removed when windows are supplied.
@@ -837,7 +837,7 @@ public class PostgresTradeRepository {
                 settings.getPassword()
         )) {
             for (ContractTradeWindow window : windows) {
-                deleteMarketConditionOccurrences(connection, eventName, window);
+                deleteMarketEventOccurrences(connection, eventName, window);
                 deleteDerivedBuild(connection, BUILD_TYPE_MARKET_EVENT, eventName, window);
             }
         } catch (SQLException exception) {
@@ -927,7 +927,7 @@ public class PostgresTradeRepository {
         }
     }
 
-    private void deleteMarketConditionOccurrences(
+    private void deleteMarketEventOccurrences(
             Connection connection,
             String eventName,
             ContractTradeWindow window

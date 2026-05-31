@@ -63,11 +63,11 @@ public class DerivedDataViewModel extends GuiWorkflowViewModel {
         this.sessionRangesBuilt = requireNonNegative(sessionRangesBuilt, "sessionRangesBuilt");
     }
 
-    public long getMarketConditionOccurrencesBuilt() {
+    public long getMarketEventOccurrencesBuilt() {
         return marketConditionOccurrencesBuilt;
     }
 
-    public void setMarketConditionOccurrencesBuilt(long marketConditionOccurrencesBuilt) {
+    public void setMarketEventOccurrencesBuilt(long marketConditionOccurrencesBuilt) {
         this.marketConditionOccurrencesBuilt = requireNonNegative(
                 marketConditionOccurrencesBuilt,
                 "marketConditionOccurrencesBuilt"

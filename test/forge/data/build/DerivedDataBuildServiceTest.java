@@ -4,8 +4,8 @@ import forge.data.market.ContractTradeWindow;
 import forge.data.market.InMemoryTickDataProvider;
 import forge.data.market.TradeBatchReader;
 import forge.data.market.TradeTick;
-import forge.condition.ConditionBuildService;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventBuildService;
+import forge.event.MarketEventOccurrence;
 import forge.feature.FeatureBuildService;
 import forge.feature.SessionRangeFeature;
 import org.junit.jupiter.api.Nested;
@@ -44,9 +44,9 @@ class DerivedDataBuildServiceTest {
 
             assertEquals(4, plan.getTotalTicks());
             assertFalse(plan.isSessionRangesAlreadyBuilt());
-            assertFalse(plan.isFirstHourBreachConditionsAlreadyBuilt());
+            assertFalse(plan.isFirstHourBreachEventsAlreadyBuilt());
             assertTrue(plan.willBuildSessionRanges());
-            assertTrue(plan.willBuildFirstHourBreachConditions());
+            assertTrue(plan.willBuildFirstHourBreachEvents());
         }
 
         @Test
@@ -69,7 +69,7 @@ class DerivedDataBuildServiceTest {
     @Nested
     class RunBuild {
         @Test
-        void buildsSessionRangesAndFirstHourBreachConditions() {
+        void buildsSessionRangesAndFirstHourBreachEvents() {
             InMemoryBuildStore store = new InMemoryBuildStore();
             DerivedDataBuildService service = service(store);
             List<String> progressUpdates = new ArrayList<>();
@@ -83,7 +83,7 @@ class DerivedDataBuildServiceTest {
 
             assertEquals(4, result.getTicksRead());
             assertEquals(1, result.getSessionRangesBuilt());
-            assertEquals(1, result.getMarketConditionOccurrencesBuilt());
+            assertEquals(1, result.getMarketEventOccurrencesBuilt());
             assertEquals(List.of("0/4", "2/4", "4/4"), progressUpdates);
             assertTrue(store.sessionRangesBuilt);
             assertTrue(store.marketEventsBuilt);
@@ -107,7 +107,7 @@ class DerivedDataBuildServiceTest {
             ), DataBuildProgressListener.NO_OP);
 
             assertEquals(1, store.clearSessionRangeCalls);
-            assertEquals(1, store.clearMarketConditionOccurrenceCalls);
+            assertEquals(1, store.clearMarketEventOccurrenceCalls);
             assertEquals(1, store.sessionRanges.size());
         }
 
@@ -149,7 +149,7 @@ class DerivedDataBuildServiceTest {
                 },
                 store,
                 new FeatureBuildService(),
-                new ConditionBuildService()
+                new EventBuildService()
         );
     }
 
@@ -166,9 +166,9 @@ class DerivedDataBuildServiceTest {
         private boolean sessionRangesBuilt;
         private boolean marketEventsBuilt;
         private int clearSessionRangeCalls;
-        private int clearMarketConditionOccurrenceCalls;
+        private int clearMarketEventOccurrenceCalls;
         private final List<SessionRangeFeature> sessionRanges = new ArrayList<>();
-        private final List<MarketConditionOccurrence> marketEvents = new ArrayList<>();
+        private final List<MarketEventOccurrence> marketEvents = new ArrayList<>();
 
         @Override
         public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
@@ -199,29 +199,29 @@ class DerivedDataBuildServiceTest {
         }
 
         @Override
-        public boolean areMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+        public boolean areMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
             return marketEventsBuilt;
         }
 
         @Override
-        public List<MarketConditionOccurrence> loadMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
+        public List<MarketEventOccurrence> loadMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
             return List.copyOf(marketEvents);
         }
 
         @Override
-        public void saveMarketConditionOccurrences(Collection<MarketConditionOccurrence> marketEvents) {
+        public void saveMarketEventOccurrences(Collection<MarketEventOccurrence> marketEvents) {
             this.marketEvents.clear();
             this.marketEvents.addAll(marketEvents);
         }
 
         @Override
-        public void markMarketConditionOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+        public void markMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
             marketEventsBuilt = true;
         }
 
         @Override
-        public void clearMarketConditionOccurrences(List<ContractTradeWindow> windows, String eventName) {
-            clearMarketConditionOccurrenceCalls++;
+        public void clearMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
+            clearMarketEventOccurrenceCalls++;
             marketEventsBuilt = false;
             marketEvents.clear();
         }

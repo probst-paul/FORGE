@@ -1,6 +1,6 @@
-package forge.condition;
+package forge.event;
 
-public class FirstHourBreachCondition implements ConditionDefinition {
+public class FirstHourBreachEvent implements EventDefinition {
     public static final String EVENT_NAME = "FIRST_HOUR_BREACH";
     public static final int EVENT_VERSION = 1;
 

@@ -1,6 +1,6 @@
 package forge.gui.view;
 
-import forge.condition.MarketCondition;
+import forge.event.MarketEvent;
 import forge.config.BacktestRequest;
 import forge.config.RiskSettings;
 import forge.config.TargetSettings;
@@ -244,7 +244,7 @@ public class BacktestView {
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(8);
-        grid.add(new Label("Market condition"), 0, 0);
+        grid.add(new Label("Market event"), 0, 0);
         grid.add(conditionComboBox, 1, 0);
         grid.add(conditionMessage, 2, 0);
         grid.add(new Label("Target mode"), 0, 1);
@@ -369,15 +369,15 @@ public class BacktestView {
         StrategyConfigurationProfile profile = selection.profile();
         strategyDescription.setText(selection.description());
 
-        for (Class<? extends MarketCondition> conditionClass : profile.getAllowedConditions()) {
+        for (Class<? extends MarketEvent> eventClass : profile.getAllowedEvents()) {
             conditionComboBox.getItems().add(new ConditionSelection(
-                    conditionClass,
-                    controller.getConditionDisplayName(conditionClass)
+                    eventClass,
+                    controller.getConditionDisplayName(eventClass)
             ));
         }
-        selectCondition(conditionComboBox, profile.getDefaultCondition());
-        conditionComboBox.setDisable(!profile.isConditionSelectionAllowed());
-        conditionMessage.setText(profile.isConditionSelectionAllowed()
+        selectEvent(conditionComboBox, profile.getDefaultEvent());
+        conditionComboBox.setDisable(!profile.isEventSelectionAllowed());
+        conditionMessage.setText(profile.isEventSelectionAllowed()
                 ? "Choose the condition this strategy should trade."
                 : "Using default condition: " + conditionComboBox.getValue());
 
@@ -390,12 +390,12 @@ public class BacktestView {
         applyTargetSelection(selection, profile.getDefaultTarget(), rewardRiskRatioField, profitTargetTicksField);
     }
 
-    private void selectCondition(
+    private void selectEvent(
             ComboBox<ConditionSelection> conditionComboBox,
-            Class<? extends MarketCondition> defaultCondition
+            Class<? extends MarketEvent> defaultEvent
     ) {
         for (ConditionSelection selection : conditionComboBox.getItems()) {
-            if (selection.conditionClass().equals(defaultCondition)) {
+            if (selection.eventClass().equals(defaultEvent)) {
                 conditionComboBox.getSelectionModel().select(selection);
                 return;
             }
@@ -748,7 +748,7 @@ public class BacktestView {
             return;
         }
         if (conditionSelection == null) {
-            viewModel.markFailed("Could not run backtest.", new RuntimeException("Select a market condition."));
+            viewModel.markFailed("Could not run backtest.", new RuntimeException("Select a market event."));
             return;
         }
         if (targetMode == null || targetMode.isBlank()) {
@@ -771,7 +771,7 @@ public class BacktestView {
             BacktestRequest request = controller.createBacktestRequest(
                     strategySelection.strategyClass(),
                     selectedWindows,
-                    conditionSelection.conditionClass(),
+                    conditionSelection.eventClass(),
                     riskSettings,
                     targetSettings
             );
@@ -873,7 +873,7 @@ public class BacktestView {
         }
     }
 
-    private record ConditionSelection(Class<? extends MarketCondition> conditionClass, String displayName) {
+    private record ConditionSelection(Class<? extends MarketEvent> eventClass, String displayName) {
         @Override
         public String toString() {
             return displayName;

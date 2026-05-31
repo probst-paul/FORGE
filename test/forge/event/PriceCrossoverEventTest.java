@@ -1,4 +1,4 @@
-package forge.condition;
+package forge.event;
 
 import forge.engine.MarketContext;
 import org.junit.jupiter.api.Nested;
@@ -14,22 +14,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Execution(ExecutionMode.CONCURRENT)
-class PriceCrossoverConditionTest {
+class PriceCrossoverEventTest {
     @Nested
     class Constructor {
         @Test
         void storesDirectionAndThresholdTicks() {
-            PriceCrossoverCondition condition = new PriceCrossoverCondition(ConditionDirection.LONG, 20000);
+            PriceCrossoverEvent condition = new PriceCrossoverEvent(EventDirection.LONG, 20000);
 
             assertEquals("PriceCrossover", condition.getName());
-            assertEquals(ConditionDirection.LONG, condition.getDirection());
+            assertEquals(EventDirection.LONG, condition.getDirection());
             assertEquals(20000, condition.getPriceThresholdTicks());
         }
 
         @Test
         void rejectsInvalidInputs() {
-            assertThrows(IllegalArgumentException.class, () -> new PriceCrossoverCondition(ConditionDirection.NONE, 20000));
-            assertThrows(IllegalArgumentException.class, () -> new PriceCrossoverCondition(ConditionDirection.LONG, 0));
+            assertThrows(IllegalArgumentException.class, () -> new PriceCrossoverEvent(EventDirection.NONE, 20000));
+            assertThrows(IllegalArgumentException.class, () -> new PriceCrossoverEvent(EventDirection.LONG, 0));
         }
     }
 
@@ -37,32 +37,32 @@ class PriceCrossoverConditionTest {
     class Evaluate {
         @Test
         void longConditionFiresAtOrAboveThreshold() {
-            PriceCrossoverCondition condition = new PriceCrossoverCondition(ConditionDirection.LONG, 20000);
+            PriceCrossoverEvent condition = new PriceCrossoverEvent(EventDirection.LONG, 20000);
 
             assertFalse(condition.evaluate(context(19999)).isConditioned());
 
-            ConditionResult atThreshold = condition.evaluate(context(20000));
+            EventResult atThreshold = condition.evaluate(context(20000));
             assertTrue(atThreshold.isConditioned());
-            assertEquals(ConditionDirection.LONG, atThreshold.getDirection());
+            assertEquals(EventDirection.LONG, atThreshold.getDirection());
 
-            ConditionResult aboveThreshold = condition.evaluate(context(20001));
+            EventResult aboveThreshold = condition.evaluate(context(20001));
             assertTrue(aboveThreshold.isConditioned());
-            assertEquals(ConditionDirection.LONG, aboveThreshold.getDirection());
+            assertEquals(EventDirection.LONG, aboveThreshold.getDirection());
         }
 
         @Test
         void shortConditionFiresAtOrBelowThreshold() {
-            PriceCrossoverCondition condition = new PriceCrossoverCondition(ConditionDirection.SHORT, 20000);
+            PriceCrossoverEvent condition = new PriceCrossoverEvent(EventDirection.SHORT, 20000);
 
             assertFalse(condition.evaluate(context(20001)).isConditioned());
 
-            ConditionResult atThreshold = condition.evaluate(context(20000));
+            EventResult atThreshold = condition.evaluate(context(20000));
             assertTrue(atThreshold.isConditioned());
-            assertEquals(ConditionDirection.SHORT, atThreshold.getDirection());
+            assertEquals(EventDirection.SHORT, atThreshold.getDirection());
 
-            ConditionResult belowThreshold = condition.evaluate(context(19999));
+            EventResult belowThreshold = condition.evaluate(context(19999));
             assertTrue(belowThreshold.isConditioned());
-            assertEquals(ConditionDirection.SHORT, belowThreshold.getDirection());
+            assertEquals(EventDirection.SHORT, belowThreshold.getDirection());
         }
     }
 

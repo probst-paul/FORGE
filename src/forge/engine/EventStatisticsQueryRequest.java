@@ -2,7 +2,7 @@ package forge.engine;
 
 import forge.app.EventStatisticsProgressListener;
 import forge.data.market.ContractTradeWindow;
-import forge.condition.FirstHourBreachCondition;
+import forge.event.FirstHourBreachEvent;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,7 +54,7 @@ public class EventStatisticsQueryRequest {
         if (eventName == null || eventName.trim().isEmpty()) {
             throw new IllegalArgumentException("eventName is required");
         }
-        if (!FirstHourBreachCondition.EVENT_NAME.equals(eventName.trim())) {
+        if (!FirstHourBreachEvent.EVENT_NAME.equals(eventName.trim())) {
             throw new IllegalArgumentException("Unsupported event statistics query: " + eventName);
         }
         if (batchSize < 1) {

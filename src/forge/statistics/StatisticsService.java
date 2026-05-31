@@ -1,8 +1,8 @@
 package forge.statistics;
 
 import forge.data.contract.ContractNameResolver;
-import forge.condition.ConditionSide;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventSide;
+import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 import forge.engine.EventStatisticsQuery;
 import forge.engine.EventStatisticsReport;
@@ -33,7 +33,7 @@ public class StatisticsService {
     public EventStatisticsReport summarizeStudyOccurrences(
             MarketStudy study,
             Collection<SessionRangeFeature> sessionRangeFeatures,
-            Collection<MarketConditionOccurrence> events
+            Collection<MarketEventOccurrence> events
     ) {
         /*
          * Intent: Summarize occurrences for a named market study.
@@ -54,7 +54,7 @@ public class StatisticsService {
     public EventStatisticsReport summarizeEventStatistics(
             EventStatisticsQuery query,
             Collection<SessionRangeFeature> sessionRangeFeatures,
-            Collection<MarketConditionOccurrence> events
+            Collection<MarketEventOccurrence> events
     ) {
         /*
          * Intent: Aggregate event counts by instrument and contract for one event query.
@@ -85,7 +85,7 @@ public class StatisticsService {
             instrumentCounts.computeIfAbsent(instrumentSymbol, unused -> new EventCounts()).sessionsAnalyzed++;
         }
 
-        for (MarketConditionOccurrence event : events) {
+        for (MarketEventOccurrence event : events) {
             if (event == null || !query.getEventName().equals(event.getEventName())) {
                 continue;
             }
@@ -129,16 +129,16 @@ public class StatisticsService {
         private long longEventCount;
         private long shortEventCount;
 
-        private void include(ConditionSide side) {
+        private void include(EventSide side) {
             /*
              * Intent: Count a directional event occurrence.
              * Precondition: side may be null or a non-directional value.
              * Returns: Nothing.
              * Postcondition: LONG and SHORT counters are incremented when applicable.
              */
-            if (side == ConditionSide.LONG) {
+            if (side == EventSide.LONG) {
                 longEventCount++;
-            } else if (side == ConditionSide.SHORT) {
+            } else if (side == EventSide.SHORT) {
                 shortEventCount++;
             }
         }

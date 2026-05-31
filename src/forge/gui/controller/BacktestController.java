@@ -3,12 +3,12 @@ package forge.gui.controller;
 import forge.app.FacadeForgeApplication;
 import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
-import forge.config.MarketConditionOptions;
+import forge.config.MarketEventOptions;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
 import forge.config.TargetSettings;
-import forge.condition.FacadeForgeCondition;
-import forge.condition.MarketCondition;
+import forge.event.FacadeForgeEvent;
+import forge.event.MarketEvent;
 import forge.data.FacadeForgeData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
@@ -26,7 +26,7 @@ public class BacktestController {
     private final FacadeForgeApplication forgeApplication;
     private final FacadeForgeData forgeData;
     private final FacadeForgeStrategy forgeStrategy;
-    private final FacadeForgeCondition forgeCondition;
+    private final FacadeForgeEvent forgeEvent;
     private final FacadeForgeConfig forgeConfig;
     private final BacktestViewModel viewModel;
 
@@ -35,7 +35,7 @@ public class BacktestController {
                 FacadeForgeApplication.getTheInstance(),
                 FacadeForgeData.getTheInstance(),
                 FacadeForgeStrategy.getTheInstance(),
-                FacadeForgeCondition.getTheInstance(),
+                FacadeForgeEvent.getTheInstance(),
                 FacadeForgeConfig.getTheInstance(),
                 new BacktestViewModel()
         );
@@ -46,7 +46,7 @@ public class BacktestController {
                 forgeApplication,
                 FacadeForgeData.getTheInstance(),
                 FacadeForgeStrategy.getTheInstance(),
-                FacadeForgeCondition.getTheInstance(),
+                FacadeForgeEvent.getTheInstance(),
                 FacadeForgeConfig.getTheInstance(),
                 viewModel
         );
@@ -56,7 +56,7 @@ public class BacktestController {
             FacadeForgeApplication forgeApplication,
             FacadeForgeData forgeData,
             FacadeForgeStrategy forgeStrategy,
-            FacadeForgeCondition forgeCondition,
+            FacadeForgeEvent forgeEvent,
             FacadeForgeConfig forgeConfig,
             BacktestViewModel viewModel
     ) {
@@ -69,8 +69,8 @@ public class BacktestController {
         if (forgeStrategy == null) {
             throw new IllegalArgumentException("forgeStrategy is required");
         }
-        if (forgeCondition == null) {
-            throw new IllegalArgumentException("forgeCondition is required");
+        if (forgeEvent == null) {
+            throw new IllegalArgumentException("forgeEvent is required");
         }
         if (forgeConfig == null) {
             throw new IllegalArgumentException("forgeConfig is required");
@@ -81,7 +81,7 @@ public class BacktestController {
         this.forgeApplication = forgeApplication;
         this.forgeData = forgeData;
         this.forgeStrategy = forgeStrategy;
-        this.forgeCondition = forgeCondition;
+        this.forgeEvent = forgeEvent;
         this.forgeConfig = forgeConfig;
         this.viewModel = viewModel;
     }
@@ -110,14 +110,14 @@ public class BacktestController {
         return forgeStrategy.forgeStrategyAccess().getConfigurationProfile(strategyClass);
     }
 
-    public String getConditionDisplayName(Class<? extends MarketCondition> conditionClass) {
-        return forgeCondition.forgeConditionAccess().getDisplayName(conditionClass);
+    public String getConditionDisplayName(Class<? extends MarketEvent> eventClass) {
+        return forgeEvent.forgeEventAccess().getDisplayName(eventClass);
     }
 
     public BacktestRequest createBacktestRequest(
             Class<? extends TradingStrategy> strategyClass,
             List<ContractTradeWindow> contractWindows,
-            Class<? extends MarketCondition> conditionClass,
+            Class<? extends MarketEvent> eventClass,
             RiskSettings riskSettings,
             TargetSettings targetSettings
     ) {
@@ -128,11 +128,11 @@ public class BacktestController {
          * Postcondition: Strategy and condition class selections are converted into config options.
          */
         StrategyOptions strategyOptions = forgeStrategy.forgeStrategyAccess().createStrategyOptions(strategyClass);
-        MarketConditionOptions conditionOptions = forgeCondition.forgeConditionAccess().createConditionOptions(conditionClass);
+        MarketEventOptions eventOptions = forgeEvent.forgeEventAccess().createEventOptions(eventClass);
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 strategyOptions,
                 contractWindows,
-                conditionOptions,
+                eventOptions,
                 riskSettings,
                 targetSettings,
                 forgeConfig.forgeConfigAccess().defaultOrderSettings()

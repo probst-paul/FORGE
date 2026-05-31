@@ -1,7 +1,7 @@
 package forge.strategy;
 
 import forge.config.TargetSettings;
-import forge.condition.MarketCondition;
+import forge.event.MarketEvent;
 import forge.util.ImmutableLists;
 
 import java.util.Collections;
@@ -13,9 +13,9 @@ import java.util.function.Function;
 
 public class StrategyConfigurationProfile {
     private final Class<? extends TradingStrategy> strategyClass;
-    private final List<Class<? extends MarketCondition>> allowedConditions;
-    private final Class<? extends MarketCondition> defaultCondition;
-    private final boolean conditionSelectionAllowed;
+    private final List<Class<? extends MarketEvent>> allowedEvents;
+    private final Class<? extends MarketEvent> defaultEvent;
+    private final boolean eventSelectionAllowed;
     private final List<String> allowedTargets;
     private final String defaultTarget;
     private final boolean targetSelectionAllowed;
@@ -23,22 +23,22 @@ public class StrategyConfigurationProfile {
 
     public StrategyConfigurationProfile(
             Class<? extends TradingStrategy> strategyClass,
-            List<Class<? extends MarketCondition>> allowedConditions,
-            Class<? extends MarketCondition> defaultCondition,
-            boolean conditionSelectionAllowed,
+            List<Class<? extends MarketEvent>> allowedEvents,
+            Class<? extends MarketEvent> defaultEvent,
+            boolean eventSelectionAllowed,
             List<String> allowedTargets,
             String defaultTarget,
             boolean targetSelectionAllowed,
             Map<String, TargetSettings> defaultTargetSettingsByTarget
     ) {
         this.strategyClass = Objects.requireNonNull(strategyClass, "strategyClass is required");
-        this.allowedConditions = validateChoices(
-                allowedConditions,
-                "allowedConditions",
-                choice -> Objects.requireNonNull(choice, "allowedConditions cannot contain null choices")
+        this.allowedEvents = validateChoices(
+                allowedEvents,
+                "allowedEvents",
+                choice -> Objects.requireNonNull(choice, "allowedEvents cannot contain null choices")
         );
-        this.defaultCondition = validateDefault(defaultCondition, this.allowedConditions, "defaultCondition");
-        this.conditionSelectionAllowed = conditionSelectionAllowed && this.allowedConditions.size() > 1;
+        this.defaultEvent = validateDefault(defaultEvent, this.allowedEvents, "defaultEvent");
+        this.eventSelectionAllowed = eventSelectionAllowed && this.allowedEvents.size() > 1;
         this.allowedTargets = validateChoices(allowedTargets, "allowedTargets", this::normalizeTargetChoice);
         this.defaultTarget = validateDefaultTarget(defaultTarget, this.allowedTargets, "defaultTarget");
         this.targetSelectionAllowed = targetSelectionAllowed && this.allowedTargets.size() > 1;
@@ -49,16 +49,16 @@ public class StrategyConfigurationProfile {
         return strategyClass;
     }
 
-    public List<Class<? extends MarketCondition>> getAllowedConditions() {
-        return allowedConditions;
+    public List<Class<? extends MarketEvent>> getAllowedEvents() {
+        return allowedEvents;
     }
 
-    public Class<? extends MarketCondition> getDefaultCondition() {
-        return defaultCondition;
+    public Class<? extends MarketEvent> getDefaultEvent() {
+        return defaultEvent;
     }
 
-    public boolean isConditionSelectionAllowed() {
-        return conditionSelectionAllowed;
+    public boolean isEventSelectionAllowed() {
+        return eventSelectionAllowed;
     }
 
     public List<String> getAllowedTargets() {

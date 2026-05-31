@@ -16,7 +16,7 @@ public class DatabaseBuildPlan {
     private final boolean sessionRangesAlreadyBuilt;
     private final boolean firstHourBreachEventsAlreadyBuilt;
     private final boolean willBuildSessionRanges;
-    private final boolean willBuildFirstHourBreachConditions;
+    private final boolean willBuildFirstHourBreachEvents;
 
     public DatabaseBuildPlan(
             List<ContractTradeWindow> contractWindows,
@@ -26,7 +26,7 @@ public class DatabaseBuildPlan {
             boolean sessionRangesAlreadyBuilt,
             boolean firstHourBreachEventsAlreadyBuilt,
             boolean willBuildSessionRanges,
-            boolean willBuildFirstHourBreachConditions
+            boolean willBuildFirstHourBreachEvents
     ) {
         /*
          * Intent: Capture the derived-data build decision before running any work.
@@ -50,7 +50,7 @@ public class DatabaseBuildPlan {
         this.sessionRangesAlreadyBuilt = sessionRangesAlreadyBuilt;
         this.firstHourBreachEventsAlreadyBuilt = firstHourBreachEventsAlreadyBuilt;
         this.willBuildSessionRanges = willBuildSessionRanges;
-        this.willBuildFirstHourBreachConditions = willBuildFirstHourBreachConditions;
+        this.willBuildFirstHourBreachEvents = willBuildFirstHourBreachEvents;
     }
 
     public List<ContractTradeWindow> getContractWindows() {
@@ -73,7 +73,7 @@ public class DatabaseBuildPlan {
         return sessionRangesAlreadyBuilt;
     }
 
-    public boolean isFirstHourBreachConditionsAlreadyBuilt() {
+    public boolean isFirstHourBreachEventsAlreadyBuilt() {
         return firstHourBreachEventsAlreadyBuilt;
     }
 
@@ -81,8 +81,8 @@ public class DatabaseBuildPlan {
         return willBuildSessionRanges;
     }
 
-    public boolean willBuildFirstHourBreachConditions() {
-        return willBuildFirstHourBreachConditions;
+    public boolean willBuildFirstHourBreachEvents() {
+        return willBuildFirstHourBreachEvents;
     }
 
     public boolean hasWorkToRun() {
@@ -92,6 +92,6 @@ public class DatabaseBuildPlan {
          * Returns: True when at least one derived-data artifact will be built.
          * Postcondition: Plan state is unchanged.
          */
-        return willBuildSessionRanges || willBuildFirstHourBreachConditions;
+        return willBuildSessionRanges || willBuildFirstHourBreachEvents;
     }
 }

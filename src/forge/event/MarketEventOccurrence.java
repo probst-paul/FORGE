@@ -1,30 +1,30 @@
-package forge.condition;
+package forge.event;
 
 import java.time.Instant;
 import java.time.LocalDate;
 
-public class MarketConditionOccurrence {
+public class MarketEventOccurrence {
     private final String contractSymbol;
     private final LocalDate sessionDate;
     private final String eventName;
     private final int eventVersion;
-    private final ConditionSide side;
+    private final EventSide side;
     private final Instant eventTime;
     private final long eventPriceTicks;
 
-    public MarketConditionOccurrence(
+    public MarketEventOccurrence(
             String contractSymbol,
             LocalDate sessionDate,
             String eventName,
             int eventVersion,
-            ConditionSide side,
+            EventSide side,
             Instant eventTime,
             long eventPriceTicks
     ) {
         /*
-         * Intent: Record one detected market condition occurrence for derived data and statistics.
+         * Intent: Record one detected market event occurrence for derived data and statistics.
          * Precondition: Contract/session/event identity, side, timestamp, and price must be valid.
-         * Returns: A constructed MarketConditionOccurrence instance.
+         * Returns: A constructed MarketEventOccurrence instance.
          * Postcondition: Occurrence is immutable and contract symbol/event name are normalized.
          */
         if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
@@ -73,7 +73,7 @@ public class MarketConditionOccurrence {
         return eventVersion;
     }
 
-    public ConditionSide getSide() {
+    public EventSide getSide() {
         return side;
     }
 

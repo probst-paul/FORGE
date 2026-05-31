@@ -1,8 +1,8 @@
 package forge.strategy;
 
-import forge.condition.ConditionSide;
-import forge.condition.FirstHourBreachCondition;
-import forge.condition.MarketConditionOccurrence;
+import forge.event.EventSide;
+import forge.event.FirstHourBreachEvent;
+import forge.event.MarketEventOccurrence;
 import forge.trade.OrderRequest;
 import forge.trade.OrderSide;
 import forge.feature.SessionRangeFeature;
@@ -60,7 +60,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     public StrategyRequirements getRequirements() {
         return StrategyRequirements.builder()
                 .requireFeature(SessionRangeFeature.FEATURE_NAME)
-                .requireEvent(FirstHourBreachCondition.EVENT_NAME)
+                .requireEvent(FirstHourBreachEvent.EVENT_NAME)
                 .evaluateDuring(TradingSession.RTH)
                 .evaluateDuring(TpoPeriod.C)
                 .evaluateDuring(TpoPeriod.D)
@@ -89,12 +89,12 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
         if (tradeTakenBySession.containsKey(sessionKey)) {
             return StrategyDecision.noAction();
         }
-        MarketConditionOccurrence breachEvent = firstHourBreachEvent(strategyContext);
+        MarketEventOccurrence breachEvent = firstHourBreachEvent(strategyContext);
         if (breachEvent == null || !isTradeWindow(breachEvent)) {
             return StrategyDecision.noAction();
         }
 
-        OrderSide side = breachEvent.getSide() == ConditionSide.LONG ? OrderSide.BUY : OrderSide.SELL;
+        OrderSide side = breachEvent.getSide() == EventSide.LONG ? OrderSide.BUY : OrderSide.SELL;
         long stopPriceTicks = side == OrderSide.BUY
                 ? feature.getFirstHourLowTicks()
                 : feature.getFirstHourHighTicks();
@@ -163,7 +163,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
                 : entryPriceTicks - rewardTicks;
     }
 
-    private boolean isTradeWindow(MarketConditionOccurrence event) {
+    private boolean isTradeWindow(MarketEventOccurrence event) {
         /*
          * Intent: Restrict entries to the configured morning trade window.
          * Precondition: event must have a valid timestamp.
@@ -185,18 +185,18 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
                 && feature.getFirstHourLowTicks() >= feature.getOvernightLowTicks();
     }
 
-    private MarketConditionOccurrence firstHourBreachEvent(StrategyContext context) {
+    private MarketEventOccurrence firstHourBreachEvent(StrategyContext context) {
         /*
          * Intent: Find the current tick's first-hour breach event, if one exists.
          * Precondition: context must contain current tick and current event list.
          * Returns: Matching directional breach event, or null when none applies.
          * Postcondition: Event list is not modified.
          */
-        for (MarketConditionOccurrence event : context.getCurrentEvents()) {
-            if (FirstHourBreachCondition.EVENT_NAME.equals(event.getEventName())
+        for (MarketEventOccurrence event : context.getCurrentEvents()) {
+            if (FirstHourBreachEvent.EVENT_NAME.equals(event.getEventName())
                     && event.getEventTime().equals(context.getCurrentTick().getTradeDateTime())
                     && event.getContractSymbol().equals(context.getCurrentTick().getContractSymbol())
-                    && (event.getSide() == ConditionSide.LONG || event.getSide() == ConditionSide.SHORT)) {
+                    && (event.getSide() == EventSide.LONG || event.getSide() == EventSide.SHORT)) {
                 return event;
             }
         }
