@@ -122,6 +122,27 @@ public class Position {
         );
     }
 
+    public double unrealizedDollars(long currentPriceTicks) {
+        /*
+         * Intent: Calculate current open-position P/L without closing the position.
+         * Precondition: currentPriceTicks must be positive and use the same stored tick scale as entry.
+         * Returns: Signed unrealized P/L in dollars.
+         * Postcondition: Position state is unchanged.
+         */
+        if (currentPriceTicks <= 0) {
+            throw new IllegalArgumentException("currentPriceTicks must be greater than zero");
+        }
+        long signedMovementTicks = FuturesInstrumentSpec.contractTicksBetween(
+                entryPriceTicks,
+                currentPriceTicks,
+                tickSize
+        );
+        long grossTicks = side == OrderSide.BUY
+                ? signedMovementTicks * quantity
+                : -signedMovementTicks * quantity;
+        return grossTicks * tickDollarValue;
+    }
+
     public String getInstrumentSymbol() {
         return instrumentSymbol;
     }

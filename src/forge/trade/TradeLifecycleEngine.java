@@ -131,6 +131,39 @@ public class TradeLifecycleEngine {
         return close(lastTick, EXIT_REASON_END_OF_BACKTEST);
     }
 
+    public Optional<TradeResult> closeOpenPosition(TradeTick tick, String exitReason) {
+        /*
+         * Intent: Allow external risk controls to close the open position at the current tick.
+         * Precondition: Tick and exit reason must be valid; no result is produced when no position is open.
+         * Returns: Completed TradeResult when a position was open.
+         * Postcondition: Open position is cleared when a trade is closed.
+         */
+        Objects.requireNonNull(tick, "tick is required");
+        if (exitReason == null || exitReason.trim().isEmpty()) {
+            throw new IllegalArgumentException("exitReason is required");
+        }
+        if (!hasOpenPosition()) {
+            return Optional.empty();
+        }
+        lastTick = tick;
+        openPosition.updateExcursion(tick.getPriceTicks());
+        return close(tick, exitReason);
+    }
+
+    public double unrealizedDollars(TradeTick tick) {
+        /*
+         * Intent: Report current open-position P/L for risk management.
+         * Precondition: Tick must be valid; no position means zero open risk.
+         * Returns: Signed unrealized P/L in dollars.
+         * Postcondition: Lifecycle state is unchanged.
+         */
+        Objects.requireNonNull(tick, "tick is required");
+        if (!hasOpenPosition()) {
+            return 0.0;
+        }
+        return openPosition.unrealizedDollars(tick.getPriceTicks());
+    }
+
     /*
      * Intent: Determine whether the current tick hits target, price stop, or time stop.
      * Precondition: A position and trade plan must be open; tick must exist.

@@ -92,8 +92,14 @@ public class BacktestView {
         refreshButton.disableProperty().bind(viewModel.runningProperty());
         refreshButton.setOnAction(event -> loadAvailableContracts(contractList, contractSelections));
 
+        CheckBox perTradeRiskEnabledCheckBox = new CheckBox("Enable per-trade risk");
+        perTradeRiskEnabledCheckBox.setSelected(true);
         TextField riskPerTradeField = new TextField("400");
+        riskPerTradeField.disableProperty().bind(perTradeRiskEnabledCheckBox.selectedProperty().not());
+        CheckBox dailyRiskEnabledCheckBox = new CheckBox("Enable daily risk");
+        dailyRiskEnabledCheckBox.setSelected(true);
         TextField maxDailyLossField = new TextField("400");
+        maxDailyLossField.disableProperty().bind(dailyRiskEnabledCheckBox.selectedProperty().not());
 
         ComboBox<ConditionSelection> conditionComboBox = new ComboBox<>();
         conditionComboBox.setMaxWidth(Double.MAX_VALUE);
@@ -142,7 +148,9 @@ public class BacktestView {
                 strategyComboBox.getValue(),
                 conditionComboBox.getValue(),
                 targetModeComboBox.getValue(),
+                perTradeRiskEnabledCheckBox,
                 riskPerTradeField,
+                dailyRiskEnabledCheckBox,
                 maxDailyLossField,
                 rewardRiskRatioField,
                 profitTargetTicksField,
@@ -166,7 +174,12 @@ public class BacktestView {
                 strategyDescription,
                 contractLabel,
                 contractScrollPane,
-                createRiskSettingsGrid(riskPerTradeField, maxDailyLossField),
+                createRiskSettingsGrid(
+                        perTradeRiskEnabledCheckBox,
+                        riskPerTradeField,
+                        dailyRiskEnabledCheckBox,
+                        maxDailyLossField
+                ),
                 createSelectionGrid(
                         conditionComboBox,
                         conditionMessage,
@@ -187,14 +200,21 @@ public class BacktestView {
         return root;
     }
 
-    private GridPane createRiskSettingsGrid(TextField riskPerTradeField, TextField maxDailyLossField) {
+    private GridPane createRiskSettingsGrid(
+            CheckBox perTradeRiskEnabledCheckBox,
+            TextField riskPerTradeField,
+            CheckBox dailyRiskEnabledCheckBox,
+            TextField maxDailyLossField
+    ) {
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(8);
-        grid.add(new Label("Risk per trade"), 0, 0);
-        grid.add(riskPerTradeField, 1, 0);
-        grid.add(new Label("Max daily loss"), 0, 1);
-        grid.add(maxDailyLossField, 1, 1);
+        grid.add(perTradeRiskEnabledCheckBox, 0, 0);
+        grid.add(new Label("Risk per trade"), 1, 0);
+        grid.add(riskPerTradeField, 2, 0);
+        grid.add(dailyRiskEnabledCheckBox, 0, 1);
+        grid.add(new Label("Max daily loss"), 1, 1);
+        grid.add(maxDailyLossField, 2, 1);
         return grid;
     }
 
@@ -679,7 +699,9 @@ public class BacktestView {
             StrategySelection strategySelection,
             ConditionSelection conditionSelection,
             String targetMode,
+            CheckBox perTradeRiskEnabledCheckBox,
             TextField riskPerTradeField,
+            CheckBox dailyRiskEnabledCheckBox,
             TextField maxDailyLossField,
             TextField rewardRiskRatioField,
             TextField profitTargetTicksField,
@@ -713,8 +735,14 @@ public class BacktestView {
 
         try {
             RiskSettings riskSettings = new RiskSettings(
-                    parseDouble(riskPerTradeField, "Risk per trade"),
-                    parseDouble(maxDailyLossField, "Max daily loss")
+                    perTradeRiskEnabledCheckBox.isSelected(),
+                    perTradeRiskEnabledCheckBox.isSelected()
+                            ? parseDouble(riskPerTradeField, "Risk per trade")
+                            : 0.0,
+                    dailyRiskEnabledCheckBox.isSelected(),
+                    dailyRiskEnabledCheckBox.isSelected()
+                            ? parseDouble(maxDailyLossField, "Max daily loss")
+                            : 0.0
             );
             TargetSettings targetSettings = createTargetSettings(targetMode, rewardRiskRatioField, profitTargetTicksField);
             BacktestRequest request = controller.createBacktestRequest(

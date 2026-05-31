@@ -48,6 +48,19 @@ class SettingsValidationTest {
         void rejectsInvalidRiskValues() {
             assertThrows(IllegalArgumentException.class, () -> new RiskSettings(0, 100));
             assertThrows(IllegalArgumentException.class, () -> new RiskSettings(100, -1));
+            assertThrows(IllegalArgumentException.class, () -> new RiskSettings(true, 0, false, 0));
+            assertThrows(IllegalArgumentException.class, () -> new RiskSettings(false, 0, true, 0));
+            assertThrows(IllegalArgumentException.class, () -> new RiskSettings(true, 500, true, 400));
+        }
+
+        @Test
+        void allowsDisabledRiskLimitsToUseZeroValues() {
+            RiskSettings settings = new RiskSettings(false, 0, false, 0);
+
+            assertEquals(false, settings.isPerTradeRiskEnabled());
+            assertEquals(0, settings.getRiskPerTrade());
+            assertEquals(false, settings.isDailyRiskEnabled());
+            assertEquals(0, settings.getMaxDailyLoss());
         }
     }
 

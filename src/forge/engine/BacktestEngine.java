@@ -28,6 +28,9 @@ import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.reporting.BacktestResult;
 import forge.reporting.ContractBacktestResult;
 import forge.reporting.InstrumentBacktestResult;
+import forge.risk.FacadeForgeRisk;
+import forge.risk.RiskDecision;
+import forge.risk.RiskManager;
 import forge.strategy.StrategyCatalog;
 import forge.strategy.StrategyContext;
 import forge.strategy.StrategyDecision;
@@ -231,6 +234,9 @@ public class BacktestEngine {
         Map<String, FuturesInstrumentSpec> specsByInstrument = new HashMap<>();
         Map<String, ContractRunAccumulator> contractAccumulators = initializeContractAccumulators(request);
         Map<String, TradeLifecycleEngine> lifecycleEngines = initializeLifecycleEngines(request);
+        RiskManager riskManager = FacadeForgeRisk.getTheInstance()
+                .forgeRiskAccess()
+                .createRiskManager(request.getRiskSettings());
 
         streamTicks(
                 request,
@@ -244,7 +250,8 @@ public class BacktestEngine {
                         eventsBySession,
                         specsByInstrument,
                         contractAccumulators,
-                        lifecycleEngines
+                        lifecycleEngines,
+                        riskManager
                 )
         );
 
@@ -591,6 +598,7 @@ public class BacktestEngine {
         private final Map<String, FuturesInstrumentSpec> specsByInstrument;
         private final Map<String, ContractRunAccumulator> contractAccumulators;
         private final Map<String, TradeLifecycleEngine> lifecycleEngines;
+        private final RiskManager riskManager;
 
         private BacktestRunProcessor(
                 TradingStrategy strategy,
@@ -599,7 +607,8 @@ public class BacktestEngine {
                 Map<SessionKey, List<MarketConditionOccurrence>> eventsBySession,
                 Map<String, FuturesInstrumentSpec> specsByInstrument,
                 Map<String, ContractRunAccumulator> contractAccumulators,
-                Map<String, TradeLifecycleEngine> lifecycleEngines
+                Map<String, TradeLifecycleEngine> lifecycleEngines,
+                RiskManager riskManager
         ) {
             /*
              * Intent: Create the streaming processor that evaluates strategy logic and trade lifecycle per tick.
@@ -614,6 +623,7 @@ public class BacktestEngine {
             this.specsByInstrument = specsByInstrument;
             this.contractAccumulators = contractAccumulators;
             this.lifecycleEngines = lifecycleEngines;
+            this.riskManager = riskManager;
         }
 
         @Override
@@ -638,8 +648,26 @@ public class BacktestEngine {
                     tick.getContractSymbol(),
                     ignored -> createTradeLifecycleEngine()
             );
-            lifecycleEngine.onTick(tick).ifPresent(accumulator::addTrade);
             TradingDayContext tradingDayContext = tradingDayClassifier.classify(tick.getTradeDateTime());
+            String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(tick.getContractSymbol());
+            lifecycleEngine.onTick(tick).ifPresent(trade -> {
+                accumulator.addTrade(trade);
+                riskManager.recordClosedTrade(instrumentSymbol, tradingDayContext.getTradingDay(), trade);
+            });
+            RiskDecision riskDecision = riskManager.evaluateOpenTrade(
+                    instrumentSymbol,
+                    tradingDayContext.getTradingDay(),
+                    lifecycleEngine,
+                    tick
+            );
+            if (riskDecision.shouldCloseTrade()) {
+                lifecycleEngine.closeOpenPosition(tick, riskDecision.getExitReason()).ifPresent(trade -> {
+                    accumulator.addTrade(trade);
+                    riskManager.recordClosedTrade(instrumentSymbol, tradingDayContext.getTradingDay(), trade);
+                });
+                accumulator.incrementTicksProcessed();
+                return;
+            }
             SessionKey sessionKey = new SessionKey(tick.getContractSymbol(), tradingDayContext.getTradingDay());
             MarketContext marketContext = toMarketContext(tick, specsByInstrument, lifecycleEngine.hasOpenPosition());
             StrategyContext strategyContext = new StrategyContext(
@@ -659,7 +687,9 @@ public class BacktestEngine {
             if (orderRequest.isPresent()) {
                 accumulator.incrementOrderSignalsGenerated();
                 Optional<TradePlan> tradePlan = decision.getTradePlan();
-                if (tradePlan.isPresent() && !lifecycleEngine.hasOpenPosition()) {
+                if (tradePlan.isPresent()
+                        && !lifecycleEngine.hasOpenPosition()
+                        && riskManager.canOpenTrade(instrumentSymbol, tradingDayContext.getTradingDay())) {
                     Optional<Fill> fill = executionEngine.execute(orderRequest.get(), tick);
                     fill.ifPresent(entryFill -> lifecycleEngine.openPosition(
                             entryFill,
