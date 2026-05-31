@@ -65,22 +65,6 @@ class SettingsValidationTest {
     }
 
     @Nested
-    class TargetSettingsValidation {
-        @Test
-        void createsFixedRiskRewardSettings() {
-            TargetSettings settings = TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2.0);
-
-            assertEquals("Fixed Risk/Reward", settings.getTargetMode());
-            assertEquals(2.0, settings.getRewardRiskRatio());
-        }
-
-        @Test
-        void rejectsMissingTargetOptions() {
-            assertThrows(IllegalArgumentException.class, () -> new TargetSettings("Target", null, null));
-        }
-    }
-
-    @Nested
     class OrderSettingsValidation {
         @Test
         void rejectsInvalidQuantityAndOffsets() {

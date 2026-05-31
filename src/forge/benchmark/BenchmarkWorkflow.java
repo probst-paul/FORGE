@@ -9,7 +9,6 @@ import forge.config.FacadeForgeConfig;
 import forge.config.MarketEventOptions;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
-import forge.config.TargetSettings;
 import forge.data.FacadeForgeData;
 import forge.data.build.DatabaseBuildRequest;
 import forge.data.build.DatabaseBuildResult;
@@ -30,7 +29,6 @@ public class BenchmarkWorkflow {
     private static final String DEFAULT_EVENT_NAME = "PriceCrossover";
     private static final double DEFAULT_RISK_PER_TRADE = 400.0;
     private static final double DEFAULT_MAX_DAILY_LOSS = 400.0;
-    private static final int DEFAULT_TARGET_TICKS = 1;
 
     private final FacadeForgeApplication forgeApplication;
     private final FacadeForgeData forgeData;
@@ -153,7 +151,7 @@ public class BenchmarkWorkflow {
     /*
      * Intent: Build the default backtest request used by the benchmark workflow.
      * Precondition: Contract windows must be valid for the config facade and engine.
-     * Returns: BacktestRequest using the default benchmark strategy, condition, risk, target, and order settings.
+     * Returns: BacktestRequest using the default benchmark strategy, event, risk, and order settings.
      * Postcondition: Workflow state is unchanged.
      */
     private BacktestRequest createDefaultBacktestRequest(List<ContractTradeWindow> contractWindows) {
@@ -162,7 +160,6 @@ public class BenchmarkWorkflow {
                 contractWindows,
                 new MarketEventOptions(DEFAULT_EVENT_NAME),
                 new RiskSettings(DEFAULT_RISK_PER_TRADE, DEFAULT_MAX_DAILY_LOSS),
-                TargetSettings.fixedTarget(DEFAULT_TARGET_TICKS),
                 forgeConfig.forgeConfigAccess().defaultOrderSettings()
         );
     }

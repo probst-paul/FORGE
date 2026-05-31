@@ -1,13 +1,9 @@
 package forge.strategy;
 
-import forge.config.TargetSettings;
 import forge.event.MarketEvent;
 import forge.util.ImmutableLists;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -16,20 +12,12 @@ public class StrategyConfigurationProfile {
     private final List<Class<? extends MarketEvent>> allowedEvents;
     private final Class<? extends MarketEvent> defaultEvent;
     private final boolean eventSelectionAllowed;
-    private final List<String> allowedTargets;
-    private final String defaultTarget;
-    private final boolean targetSelectionAllowed;
-    private final Map<String, TargetSettings> defaultTargetSettingsByTarget;
 
     public StrategyConfigurationProfile(
             Class<? extends TradingStrategy> strategyClass,
             List<Class<? extends MarketEvent>> allowedEvents,
             Class<? extends MarketEvent> defaultEvent,
-            boolean eventSelectionAllowed,
-            List<String> allowedTargets,
-            String defaultTarget,
-            boolean targetSelectionAllowed,
-            Map<String, TargetSettings> defaultTargetSettingsByTarget
+            boolean eventSelectionAllowed
     ) {
         this.strategyClass = Objects.requireNonNull(strategyClass, "strategyClass is required");
         this.allowedEvents = validateChoices(
@@ -39,10 +27,6 @@ public class StrategyConfigurationProfile {
         );
         this.defaultEvent = validateDefault(defaultEvent, this.allowedEvents, "defaultEvent");
         this.eventSelectionAllowed = eventSelectionAllowed && this.allowedEvents.size() > 1;
-        this.allowedTargets = validateChoices(allowedTargets, "allowedTargets", this::normalizeTargetChoice);
-        this.defaultTarget = validateDefaultTarget(defaultTarget, this.allowedTargets, "defaultTarget");
-        this.targetSelectionAllowed = targetSelectionAllowed && this.allowedTargets.size() > 1;
-        this.defaultTargetSettingsByTarget = validateDefaultTargetSettings(defaultTargetSettingsByTarget, this.allowedTargets);
     }
 
     public Class<? extends TradingStrategy> getStrategyClass() {
@@ -59,39 +43,6 @@ public class StrategyConfigurationProfile {
 
     public boolean isEventSelectionAllowed() {
         return eventSelectionAllowed;
-    }
-
-    public List<String> getAllowedTargets() {
-        return allowedTargets;
-    }
-
-    public String getDefaultTarget() {
-        return defaultTarget;
-    }
-
-    public boolean isTargetSelectionAllowed() {
-        return targetSelectionAllowed;
-    }
-
-    public TargetSettings getDefaultTargetSettings(String targetMode) {
-        /*
-         * Intent: Retrieve the default target settings for a target mode allowed by this strategy.
-         * Precondition: targetMode must match one configured target mode.
-         * Returns: TargetSettings for that mode.
-         * Postcondition: Profile state is unchanged.
-         */
-        TargetSettings settings = defaultTargetSettingsByTarget.get(targetMode);
-        if (settings == null) {
-            throw new IllegalArgumentException("No default target settings configured for " + targetMode);
-        }
-        return settings;
-    }
-
-    public String getTargetDisplayName(String targetMode) {
-        if (!allowedTargets.contains(targetMode)) {
-            throw new IllegalArgumentException("Target is not available for this strategy: " + targetMode);
-        }
-        return targetMode;
     }
 
     private <T> List<T> validateChoices(List<? extends T> choices, String name, Function<T, T> normalizer) {
@@ -130,44 +81,4 @@ public class StrategyConfigurationProfile {
         return defaultChoice;
     }
 
-    private Map<String, TargetSettings> validateDefaultTargetSettings(
-            Map<String, TargetSettings> settingsByTarget,
-            List<String> allowedTargets
-    ) {
-        /*
-         * Intent: Ensure each allowed target mode has matching default settings.
-         * Precondition: settingsByTarget must be non-null and allowedTargets must be normalized.
-         * Returns: Unmodifiable target-mode-to-settings map.
-         * Postcondition: Missing default target settings are rejected at profile construction time.
-         */
-        Objects.requireNonNull(settingsByTarget, "defaultTargetSettingsByTarget is required");
-        Map<String, TargetSettings> normalized = new LinkedHashMap<>();
-        for (String targetMode : allowedTargets) {
-            TargetSettings settings = settingsByTarget.get(targetMode);
-            if (settings == null) {
-                throw new IllegalArgumentException("Default target settings are required for " + targetMode);
-            }
-            normalized.put(targetMode, settings);
-        }
-        return Collections.unmodifiableMap(normalized);
-    }
-
-    private String validateDefaultTarget(
-            String defaultChoice,
-            List<String> allowedChoices,
-            String name
-    ) {
-        String normalizedDefault = normalizeTargetChoice(defaultChoice);
-        if (!allowedChoices.contains(normalizedDefault)) {
-            throw new IllegalArgumentException(name + " must be included in allowed choices");
-        }
-        return normalizedDefault;
-    }
-
-    private String normalizeTargetChoice(String choice) {
-        if (choice == null || choice.trim().isEmpty()) {
-            throw new IllegalArgumentException("target choice cannot be blank");
-        }
-        return choice.trim();
-    }
 }

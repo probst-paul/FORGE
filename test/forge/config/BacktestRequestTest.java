@@ -34,7 +34,6 @@ class BacktestRequestTest {
                     ),
                     new MarketEventOptions("OrderFlowExhaustion"),
                     new RiskSettings(500, 1500),
-                    TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                     new OrderSettings(OrderType.MARKET, 1, 0, 0)
             );
 
@@ -58,7 +57,6 @@ class BacktestRequestTest {
                     LocalDate.of(2024, 1, 1),
                     new MarketEventOptions("OrderFlowExhaustion"),
                     new RiskSettings(500, 1500),
-                    TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                     new OrderSettings(OrderType.MARKET, 1, 0, 0)
             ));
         }
@@ -72,7 +70,6 @@ class BacktestRequestTest {
                 LocalDate.of(2024, 1, 31),
                 new MarketEventOptions("OrderFlowExhaustion"),
                 new RiskSettings(500, 1500),
-                TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                 new OrderSettings(OrderType.MARKET, 1, 0, 0)
         );
     }

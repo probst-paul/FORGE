@@ -16,7 +16,6 @@ public class BacktestRequest {
     private final LocalDate endDate;
     private final MarketEventOptions marketConditionOptions;
     private final RiskSettings riskSettings;
-    private final TargetSettings targetSettings;
     private final OrderSettings orderSettings;
 
     public BacktestRequest(
@@ -26,12 +25,11 @@ public class BacktestRequest {
             LocalDate endDate,
             MarketEventOptions marketConditionOptions,
             RiskSettings riskSettings,
-            TargetSettings targetSettings,
             OrderSettings orderSettings
     ) {
         /*
          * Intent: Preserve the legacy request shape that uses symbols plus one shared date range.
-         * Precondition: Strategy, instruments, dates, condition, risk, target, and order settings must be valid.
+         * Precondition: Strategy, instruments, dates, event, risk, and order settings must be valid.
          * Returns: A constructed BacktestRequest instance.
          * Postcondition: Instrument/date inputs are converted into contract windows before normal validation.
          */
@@ -40,7 +38,6 @@ public class BacktestRequest {
                 toContractWindows(instruments, startDate, endDate),
                 marketConditionOptions,
                 riskSettings,
-                targetSettings,
                 orderSettings
         );
     }
@@ -50,7 +47,6 @@ public class BacktestRequest {
             List<ContractTradeWindow> contractWindows,
             MarketEventOptions marketConditionOptions,
             RiskSettings riskSettings,
-            TargetSettings targetSettings,
             OrderSettings orderSettings
     ) {
         /*
@@ -66,7 +62,6 @@ public class BacktestRequest {
         this.endDate = findEndDate(this.contractWindows);
         this.marketConditionOptions = Objects.requireNonNull(marketConditionOptions, "marketConditionOptions is required");
         this.riskSettings = Objects.requireNonNull(riskSettings, "riskSettings is required");
-        this.targetSettings = Objects.requireNonNull(targetSettings, "targetSettings is required");
         this.orderSettings = Objects.requireNonNull(orderSettings, "orderSettings is required");
     }
 
@@ -98,10 +93,6 @@ public class BacktestRequest {
         return riskSettings;
     }
 
-    public TargetSettings getTargetSettings() {
-        return targetSettings;
-    }
-
     public OrderSettings getOrderSettings() {
         return orderSettings;
     }
@@ -121,7 +112,6 @@ public class BacktestRequest {
                 ", endDate=" + endDate +
                 ", marketConditionOptions=" + marketConditionOptions +
                 ", riskSettings=" + riskSettings +
-                ", targetSettings=" + targetSettings +
                 ", orderSettings=" + orderSettings +
                 '}';
     }

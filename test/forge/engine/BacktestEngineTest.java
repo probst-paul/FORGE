@@ -4,7 +4,6 @@ import forge.config.BacktestRequest;
 import forge.config.OrderSettings;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
-import forge.config.TargetSettings;
 import forge.config.MarketEventOptions;
 import forge.data.market.ContractTradeWindow;
 import forge.data.market.InMemoryTickDataProvider;
@@ -85,7 +84,6 @@ class BacktestEngineTest {
                 List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 8, 1), LocalDate.of(2025, 9, 14))),
                 new MarketEventOptions("OrderFlowExhaustion"),
                 new RiskSettings(500, 1500),
-                TargetSettings.fixedRiskReward("Fixed Risk/Reward", 2),
                 new OrderSettings(OrderType.MARKET, 1, 0, 0)
         );
     }
@@ -96,7 +94,6 @@ class BacktestEngineTest {
                 List.of(new ContractTradeWindow("ESU25", LocalDate.of(2025, 1, 5), LocalDate.of(2025, 1, 6))),
                 new MarketEventOptions("PriceCrossover"),
                 new RiskSettings(500, 1500),
-                TargetSettings.fixedTarget("Target", 1),
                 new OrderSettings(OrderType.MARKET, 1, 0, 0)
         );
     }

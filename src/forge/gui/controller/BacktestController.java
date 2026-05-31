@@ -6,7 +6,6 @@ import forge.config.FacadeForgeConfig;
 import forge.config.MarketEventOptions;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
-import forge.config.TargetSettings;
 import forge.event.FacadeForgeEvent;
 import forge.event.MarketEvent;
 import forge.data.FacadeForgeData;
@@ -118,14 +117,13 @@ public class BacktestController {
             Class<? extends TradingStrategy> strategyClass,
             List<ContractTradeWindow> contractWindows,
             Class<? extends MarketEvent> eventClass,
-            RiskSettings riskSettings,
-            TargetSettings targetSettings
+            RiskSettings riskSettings
     ) {
         /*
          * Intent: Translate GUI selections into a complete backtest request.
-         * Precondition: Strategy, contract windows, condition, risk, and target settings must be selected.
+         * Precondition: Strategy, contract windows, event, and risk settings must be selected.
          * Returns: BacktestRequest ready for the application facade.
-         * Postcondition: Strategy and condition class selections are converted into config options.
+         * Postcondition: Strategy and event class selections are converted into config options.
          */
         StrategyOptions strategyOptions = forgeStrategy.forgeStrategyAccess().createStrategyOptions(strategyClass);
         MarketEventOptions eventOptions = forgeEvent.forgeEventAccess().createEventOptions(eventClass);
@@ -134,7 +132,6 @@ public class BacktestController {
                 contractWindows,
                 eventOptions,
                 riskSettings,
-                targetSettings,
                 forgeConfig.forgeConfigAccess().defaultOrderSettings()
         );
     }

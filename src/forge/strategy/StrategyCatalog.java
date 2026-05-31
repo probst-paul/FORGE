@@ -1,14 +1,11 @@
 package forge.strategy;
 
-import forge.config.TargetSettings;
 import forge.event.OrderFlowExhaustionEvent;
 import forge.event.PriceCrossoverEvent;
 import forge.event.MarketEvent;
 import forge.util.ClasspathCatalog;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class StrategyCatalog {
     private static final String STRATEGY_PACKAGE = "forge.strategy";
@@ -67,42 +64,27 @@ public class StrategyCatalog {
 
     public StrategyConfigurationProfile getConfigurationProfile(Class<? extends TradingStrategy> strategyClass) {
         /*
-         * Intent: Define which conditions and target modes a strategy allows.
+         * Intent: Define which market events a strategy allows.
          * Precondition: strategyClass must be one of the configured strategy classes.
          * Returns: StrategyConfigurationProfile for CLI/GUI setup.
          * Postcondition: Unsupported strategies are rejected before configuration is shown.
          */
         if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {
             List<Class<? extends MarketEvent>> allowedEvents = List.of(PriceCrossoverEvent.class);
-            List<String> allowedTargets = List.of(TargetSettings.FIXED_TARGET);
-            Map<String, TargetSettings> defaultTargetSettings = new LinkedHashMap<>();
-            defaultTargetSettings.put(TargetSettings.FIXED_TARGET, TargetSettings.fixedTarget(1));
             return new StrategyConfigurationProfile(
                     strategyClass,
                     allowedEvents,
                     PriceCrossoverEvent.class,
-                    false,
-                    allowedTargets,
-                    TargetSettings.FIXED_TARGET,
-                    false,
-                    defaultTargetSettings
+                    false
             );
         }
         if (RangeBreakoutStrategy.class.equals(strategyClass)) {
             List<Class<? extends MarketEvent>> allowedEvents = List.of(OrderFlowExhaustionEvent.class, PriceCrossoverEvent.class);
-            List<String> allowedTargets = List.of(TargetSettings.FIXED_RISK_REWARD, TargetSettings.FIXED_TARGET);
-            Map<String, TargetSettings> defaultTargetSettings = new LinkedHashMap<>();
-            defaultTargetSettings.put(TargetSettings.FIXED_RISK_REWARD, TargetSettings.fixedRiskReward(2.0));
-            defaultTargetSettings.put(TargetSettings.FIXED_TARGET, TargetSettings.fixedTarget(8));
             return new StrategyConfigurationProfile(
                     strategyClass,
                     allowedEvents,
                     OrderFlowExhaustionEvent.class,
-                    true,
-                    allowedTargets,
-                    TargetSettings.FIXED_RISK_REWARD,
-                    true,
-                    defaultTargetSettings
+                    true
             );
         }
         throw new IllegalArgumentException("No configuration profile is defined for " + strategyClass.getSimpleName());

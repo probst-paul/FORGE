@@ -31,7 +31,6 @@ classDiagram
     class InstrumentSelectionService
     class StrategySelectionService
     class EventSelectionService
-    class TargetSettingsSelectionService
     class RiskSettingsSelectionService
 
     Main --> FacadeForgeCli
@@ -43,7 +42,6 @@ classDiagram
     CliApplicationController --> StrategySelectionService : strategy
     CliApplicationController --> RiskSettingsSelectionService : risk settings
     CliApplicationController --> EventSelectionService : event
-    CliApplicationController --> TargetSettingsSelectionService : target settings
     CliApplicationController --> FacadeForgeConfig : build request
     CliApplicationController --> FacadeForgeData : derived data build
 
@@ -108,8 +106,8 @@ sequenceDiagram
         Cli->>Strategies: getConfigurationProfile(selected strategy)
         Strategies->>Strategy: forgeStrategyAccess().getConfigurationProfile(strategy)
         Strategy-->>Strategies: StrategyConfigurationProfile
-        Strategies-->>Cli: strategy event/target profile
-        Cli->>Input: read risk, event, and target settings
+        Strategies-->>Cli: strategy event profile
+        Cli->>Input: read risk and event settings
         Cli->>Config: forgeConfigAccess().createBacktestRequest(...)
         Config-->>Cli: BacktestRequest
         Cli->>App: forgeApplicationAccess().runBacktest(request, progress listener)
@@ -306,12 +304,6 @@ classDiagram
         +String getDisplayName(Class event)
     }
 
-    class TargetSettingsSelectionService {
-        +String selectTargetMode(UserInput input, UserOutput output)
-        +TargetSettings readTargetSettings(UserInput input, String targetMode)
-        +String getDisplayName(String targetMode)
-    }
-
     FacadeForgeCli --> ForgeCliAccess
     ForgeCliAccess --> CliApplicationController
     CliApplicationController --> FacadeForgeApplication
@@ -320,7 +312,6 @@ classDiagram
     CliApplicationController --> StrategySelectionService
     CliApplicationController --> RiskSettingsSelectionService
     CliApplicationController --> EventSelectionService
-    CliApplicationController --> TargetSettingsSelectionService
 ```
 
 ## config Package
@@ -347,7 +338,6 @@ classDiagram
         -LocalDate endDate
         -MarketEventOptions tradeEventOptions
         -RiskSettings riskSettings
-        -TargetSettings targetSettings
         -OrderSettings orderSettings
     }
 
@@ -366,12 +356,6 @@ classDiagram
         -double maxDailyLoss
     }
 
-    class TargetSettings {
-        -String targetMode
-        -Double rewardRiskRatio
-        -Integer profitTargetTicks
-    }
-
     class OrderSettings {
         -OrderType entryOrderType
         -int quantity
@@ -387,7 +371,6 @@ classDiagram
     BacktestRequest --> StrategyOptions
     BacktestRequest --> MarketEventOptions
     BacktestRequest --> RiskSettings
-    BacktestRequest --> TargetSettings
     BacktestRequest --> OrderSettings
     BacktestRequest --> ContractTradeWindow
 ```
@@ -834,10 +817,6 @@ classDiagram
         -List~Class~ allowedEvents
         -Class defaultEvent
         -boolean eventSelectionAllowed
-        -List~String~ allowedTargets
-        -String defaultTarget
-        -boolean targetSelectionAllowed
-        +TargetSettings getDefaultTargetSettings(String targetMode)
     }
 
     class TradingStrategy {
@@ -885,13 +864,9 @@ classDiagram
 
     class OpeningRangeContinuationStrategy {
         -int quantity
-        -ExitStyle exitStyle
-        -double rewardRiskRatio
         -Map tradeTakenBySession
         +StrategyDecision evaluate(StrategyContext context)
     }
-
-    class ExitStyle
 
     class TradePlan {
         -OrderSide side
@@ -918,8 +893,6 @@ classDiagram
     StrategyCatalog --> StrategyConfigurationProfile : creates
     ForgeStrategyAccess --> TradingStrategy : creates
     StrategyConfigurationProfile --> MarketEvent : allowed/default events
-    StrategyConfigurationProfile --> TargetSettings : allowed/default targets
-    StrategyConfigurationProfile --> TargetSettings : defaults
     TradingStrategy <|.. RangeBreakoutStrategy
     TradingStrategy <|.. OpeningRangeContinuationStrategy
     TradingStrategy --> StrategyContext : evaluates
@@ -937,7 +910,6 @@ classDiagram
     StrategyDecision --> TradePlan
     OpeningRangeContinuationStrategy --> MarketEventOccurrence : consumes breach event occurrences
     OpeningRangeContinuationStrategy --> SessionRangeFeature : consumes ranges
-    OpeningRangeContinuationStrategy --> ExitStyle
     TimeframeRangeCalculator --> TradeTick : scans
     TimeframeRangeCalculator --> PriceRange : returns
 ```

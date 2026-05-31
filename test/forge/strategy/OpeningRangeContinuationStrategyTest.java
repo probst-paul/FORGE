@@ -41,36 +41,11 @@ class OpeningRangeContinuationStrategyTest {
 
             assertEquals("OpeningRangeContinuation", strategy.getName());
             assertEquals(2, strategy.getQuantity());
-            assertEquals(OpeningRangeContinuationStrategy.ExitStyle.RANGE, strategy.getExitStyle());
-            assertEquals(2.0, strategy.getRewardRiskRatio());
-        }
-
-        @Test
-        void storesRiskRewardExitStyle() {
-            OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy(
-                    2,
-                    OpeningRangeContinuationStrategy.ExitStyle.RISK_REWARD,
-                    3.0
-            );
-
-            assertEquals(2, strategy.getQuantity());
-            assertEquals(OpeningRangeContinuationStrategy.ExitStyle.RISK_REWARD, strategy.getExitStyle());
-            assertEquals(3.0, strategy.getRewardRiskRatio());
         }
 
         @Test
         void rejectsInvalidConfiguration() {
             assertThrows(IllegalArgumentException.class, () -> new OpeningRangeContinuationStrategy(0));
-            assertThrows(NullPointerException.class, () -> new OpeningRangeContinuationStrategy(
-                    1,
-                    null,
-                    2.0
-            ));
-            assertThrows(IllegalArgumentException.class, () -> new OpeningRangeContinuationStrategy(
-                    1,
-                    OpeningRangeContinuationStrategy.ExitStyle.RISK_REWARD,
-                    0
-            ));
         }
     }
 
@@ -120,46 +95,6 @@ class OpeningRangeContinuationStrategyTest {
             assertEquals(90, plan.getTargetPriceTicks());
             assertEquals(98, plan.getStopPriceTicks());
             assertEquals(LocalTime.of(10, 30), plan.getTimeStop());
-        }
-
-        @Test
-        void canUseRiskRewardTargetForLongTrade() {
-            OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy(
-                    1,
-                    OpeningRangeContinuationStrategy.ExitStyle.RISK_REWARD,
-                    2.0
-            );
-
-            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG));
-
-            assertTrue(decision.hasOrderRequest());
-            TradePlan plan = decision.getTradePlan().orElseThrow();
-            assertEquals(OrderSide.BUY, plan.getSide());
-            assertEquals(110, plan.getTargetPriceTicks());
-            assertEquals(92, plan.getStopPriceTicks());
-        }
-
-        @Test
-        void canUseRiskRewardTargetForShortTrade() {
-            OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy(
-                    1,
-                    OpeningRangeContinuationStrategy.ExitStyle.RISK_REWARD,
-                    1.5
-            );
-
-            StrategyDecision decision = strategy.evaluate(context(
-                    LocalTime.of(9, 30),
-                    92,
-                    false,
-                    EventSide.SHORT,
-                    feature(80, 110, 92, 100)
-            ));
-
-            assertTrue(decision.hasOrderRequest());
-            TradePlan plan = decision.getTradePlan().orElseThrow();
-            assertEquals(OrderSide.SELL, plan.getSide());
-            assertEquals(80, plan.getTargetPriceTicks());
-            assertEquals(100, plan.getStopPriceTicks());
         }
 
         @Test

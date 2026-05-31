@@ -3,7 +3,6 @@ package forge.gui.view;
 import forge.event.MarketEvent;
 import forge.config.BacktestRequest;
 import forge.config.RiskSettings;
-import forge.config.TargetSettings;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.gui.controller.BacktestController;
@@ -109,29 +108,11 @@ public class BacktestView {
         Label conditionMessage = new Label();
         conditionMessage.setWrapText(true);
 
-        ComboBox<String> targetModeComboBox = new ComboBox<>();
-        targetModeComboBox.setMaxWidth(Double.MAX_VALUE);
-        Label targetMessage = new Label();
-        targetMessage.setWrapText(true);
-
-        TextField rewardRiskRatioField = new TextField();
-        TextField profitTargetTicksField = new TextField();
-
         strategyComboBox.setOnAction(event -> applyStrategySelection(
                 strategyComboBox.getValue(),
                 strategyDescription,
                 conditionComboBox,
-                conditionMessage,
-                targetModeComboBox,
-                targetMessage,
-                rewardRiskRatioField,
-                profitTargetTicksField
-        ));
-        targetModeComboBox.setOnAction(event -> applyTargetSelection(
-                strategyComboBox.getValue(),
-                targetModeComboBox.getValue(),
-                rewardRiskRatioField,
-                profitTargetTicksField
+                conditionMessage
         ));
 
         Button runButton = new Button("Run Backtest");
@@ -170,11 +151,7 @@ public class BacktestView {
                 ),
                 createSelectionGrid(
                         conditionComboBox,
-                        conditionMessage,
-                        targetModeComboBox,
-                        targetMessage,
-                        rewardRiskRatioField,
-                        profitTargetTicksField
+                        conditionMessage
                 ),
                 actions
         );
@@ -186,13 +163,10 @@ public class BacktestView {
                 contractSelections,
                 strategyComboBox.getValue(),
                 conditionComboBox.getValue(),
-                targetModeComboBox.getValue(),
                 perTradeRiskEnabledCheckBox,
                 riskPerTradeField,
                 dailyRiskEnabledCheckBox,
                 maxDailyLossField,
-                rewardRiskRatioField,
-                profitTargetTicksField,
                 resultsTabs,
                 setupPane
         ));
@@ -209,8 +183,7 @@ public class BacktestView {
         );
         VBox.setVgrow(resultsTabs, Priority.ALWAYS);
 
-        loadStrategies(strategyComboBox, strategyDescription, conditionComboBox, conditionMessage,
-                targetModeComboBox, targetMessage, rewardRiskRatioField, profitTargetTicksField);
+        loadStrategies(strategyComboBox, strategyDescription, conditionComboBox, conditionMessage);
         loadAvailableContracts(contractList, contractSelections);
         return root;
     }
@@ -235,11 +208,7 @@ public class BacktestView {
 
     private GridPane createSelectionGrid(
             ComboBox<ConditionSelection> conditionComboBox,
-            Label conditionMessage,
-            ComboBox<String> targetModeComboBox,
-            Label targetMessage,
-            TextField rewardRiskRatioField,
-            TextField profitTargetTicksField
+            Label conditionMessage
     ) {
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -247,13 +216,6 @@ public class BacktestView {
         grid.add(new Label("Market event"), 0, 0);
         grid.add(conditionComboBox, 1, 0);
         grid.add(conditionMessage, 2, 0);
-        grid.add(new Label("Target mode"), 0, 1);
-        grid.add(targetModeComboBox, 1, 1);
-        grid.add(targetMessage, 2, 1);
-        grid.add(new Label("Reward/risk ratio"), 0, 2);
-        grid.add(rewardRiskRatioField, 1, 2);
-        grid.add(new Label("Profit target ticks"), 0, 3);
-        grid.add(profitTargetTicksField, 1, 3);
         return grid;
     }
 
@@ -303,17 +265,13 @@ public class BacktestView {
             ComboBox<StrategySelection> strategyComboBox,
             Label strategyDescription,
             ComboBox<ConditionSelection> conditionComboBox,
-            Label conditionMessage,
-            ComboBox<String> targetModeComboBox,
-            Label targetMessage,
-            TextField rewardRiskRatioField,
-            TextField profitTargetTicksField
+            Label conditionMessage
     ) {
         /*
          * Intent: Populate strategy choices and apply defaults for the first strategy.
          * Precondition: Selection controls must belong to the active backtest view.
          * Returns: Nothing.
-         * Postcondition: Strategy-dependent condition and target controls are initialized.
+         * Postcondition: Strategy-dependent event controls are initialized.
          */
         strategyComboBox.getItems().clear();
         try {
@@ -331,11 +289,7 @@ public class BacktestView {
                         strategyComboBox.getValue(),
                         strategyDescription,
                         conditionComboBox,
-                        conditionMessage,
-                        targetModeComboBox,
-                        targetMessage,
-                        rewardRiskRatioField,
-                        profitTargetTicksField
+                        conditionMessage
                 );
             }
         } catch (RuntimeException exception) {
@@ -347,20 +301,15 @@ public class BacktestView {
             StrategySelection selection,
             Label strategyDescription,
             ComboBox<ConditionSelection> conditionComboBox,
-            Label conditionMessage,
-            ComboBox<String> targetModeComboBox,
-            Label targetMessage,
-            TextField rewardRiskRatioField,
-            TextField profitTargetTicksField
+            Label conditionMessage
     ) {
         /*
-         * Intent: Apply a selected strategy's configurable condition and target profile to the UI.
+         * Intent: Apply a selected strategy's configurable event profile to the UI.
          * Precondition: selection may be null during ComboBox clearing.
          * Returns: Nothing.
-         * Postcondition: Condition and target controls reflect the strategy profile.
+         * Postcondition: Event controls reflect the strategy profile.
          */
         conditionComboBox.getItems().clear();
-        targetModeComboBox.getItems().clear();
         if (selection == null) {
             strategyDescription.setText("");
             return;
@@ -378,16 +327,8 @@ public class BacktestView {
         selectEvent(conditionComboBox, profile.getDefaultEvent());
         conditionComboBox.setDisable(!profile.isEventSelectionAllowed());
         conditionMessage.setText(profile.isEventSelectionAllowed()
-                ? "Choose the condition this strategy should trade."
-                : "Using default condition: " + conditionComboBox.getValue());
-
-        targetModeComboBox.getItems().addAll(profile.getAllowedTargets());
-        targetModeComboBox.getSelectionModel().select(profile.getDefaultTarget());
-        targetModeComboBox.setDisable(!profile.isTargetSelectionAllowed());
-        targetMessage.setText(profile.isTargetSelectionAllowed()
-                ? "Choose the target mode for this strategy."
-                : "Using default target mode: " + profile.getDefaultTarget());
-        applyTargetSelection(selection, profile.getDefaultTarget(), rewardRiskRatioField, profitTargetTicksField);
+                ? "Choose the event this strategy should trade."
+                : "Using default event: " + conditionComboBox.getValue());
     }
 
     private void selectEvent(
@@ -403,30 +344,6 @@ public class BacktestView {
         if (!conditionComboBox.getItems().isEmpty()) {
             conditionComboBox.getSelectionModel().selectFirst();
         }
-    }
-
-    private void applyTargetSelection(
-            StrategySelection strategySelection,
-            String targetMode,
-            TextField rewardRiskRatioField,
-            TextField profitTargetTicksField
-    ) {
-        if (strategySelection == null || targetMode == null) {
-            rewardRiskRatioField.clear();
-            profitTargetTicksField.clear();
-            return;
-        }
-
-        TargetSettings defaults = strategySelection.profile().getDefaultTargetSettings(targetMode);
-        boolean fixedRiskReward = TargetSettings.FIXED_RISK_REWARD.equals(targetMode);
-        rewardRiskRatioField.setDisable(!fixedRiskReward);
-        profitTargetTicksField.setDisable(fixedRiskReward);
-        rewardRiskRatioField.setText(defaults.getRewardRiskRatio() == null
-                ? ""
-                : Double.toString(defaults.getRewardRiskRatio()));
-        profitTargetTicksField.setText(defaults.getProfitTargetTicks() == null
-                ? ""
-                : Integer.toString(defaults.getProfitTargetTicks()));
     }
 
     private void loadAvailableContracts(VBox contractList, List<ContractSelection> contractSelections) {
@@ -720,19 +637,16 @@ public class BacktestView {
             List<ContractSelection> contractSelections,
             StrategySelection strategySelection,
             ConditionSelection conditionSelection,
-            String targetMode,
             CheckBox perTradeRiskEnabledCheckBox,
             TextField riskPerTradeField,
             CheckBox dailyRiskEnabledCheckBox,
             TextField maxDailyLossField,
-            TextField rewardRiskRatioField,
-            TextField profitTargetTicksField,
             TabPane resultsTabs,
             TitledPane setupPane
     ) {
         /*
          * Intent: Validate backtest inputs, create the request, and start a background backtest task.
-         * Precondition: User must select contracts, strategy, condition, target mode, and valid risk values.
+         * Precondition: User must select contracts, strategy, event, and valid risk values.
          * Returns: Nothing.
          * Postcondition: A daemon backtest thread is started, or the view model reports validation/failure.
          */
@@ -751,10 +665,6 @@ public class BacktestView {
             viewModel.markFailed("Could not run backtest.", new RuntimeException("Select a market event."));
             return;
         }
-        if (targetMode == null || targetMode.isBlank()) {
-            viewModel.markFailed("Could not run backtest.", new RuntimeException("Select a target mode."));
-            return;
-        }
 
         try {
             RiskSettings riskSettings = new RiskSettings(
@@ -767,13 +677,11 @@ public class BacktestView {
                             ? parseDouble(maxDailyLossField, "Max daily loss")
                             : 0.0
             );
-            TargetSettings targetSettings = createTargetSettings(targetMode, rewardRiskRatioField, profitTargetTicksField);
             BacktestRequest request = controller.createBacktestRequest(
                     strategySelection.strategyClass(),
                     selectedWindows,
                     conditionSelection.eventClass(),
-                    riskSettings,
-                    targetSettings
+                    riskSettings
             );
 
             Task<BacktestResult> task = controller.runBacktestTask(request);
@@ -793,36 +701,11 @@ public class BacktestView {
         }
     }
 
-    private TargetSettings createTargetSettings(
-            String targetMode,
-            TextField rewardRiskRatioField,
-            TextField profitTargetTicksField
-    ) {
-        /*
-         * Intent: Convert the selected target mode and text fields into target settings.
-         * Precondition: targetMode must be one of the supported target setting names.
-         * Returns: TargetSettings for the backtest request.
-         * Postcondition: Text-field values are parsed but not modified.
-         */
-        if (TargetSettings.FIXED_RISK_REWARD.equals(targetMode)) {
-            return TargetSettings.fixedRiskReward(parseDouble(rewardRiskRatioField, "Reward/risk ratio"));
-        }
-        return TargetSettings.fixedTarget(parseInt(profitTargetTicksField, "Profit target ticks"));
-    }
-
     private double parseDouble(TextField field, String name) {
         try {
             return Double.parseDouble(field.getText().trim());
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(name + " must be a number", exception);
-        }
-    }
-
-    private int parseInt(TextField field, String name) {
-        try {
-            return Integer.parseInt(field.getText().trim());
-        } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException(name + " must be a whole number", exception);
         }
     }
 

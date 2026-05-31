@@ -21,11 +21,8 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     private static final LocalTime TRADE_START = LocalTime.of(9, 30);
     private static final LocalTime TRADE_END_EXCLUSIVE = LocalTime.of(10, 30);
     private static final int DEFAULT_QUANTITY = 1;
-    private static final double DEFAULT_REWARD_RISK_RATIO = 2.0;
 
     private final int quantity;
-    private final ExitStyle exitStyle;
-    private final double rewardRiskRatio;
     private final Map<SessionKey, Boolean> tradeTakenBySession = new HashMap<>();
 
     public OpeningRangeContinuationStrategy() {
@@ -33,22 +30,10 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
     }
 
     public OpeningRangeContinuationStrategy(int quantity) {
-        this(quantity, ExitStyle.RANGE, DEFAULT_REWARD_RISK_RATIO);
-    }
-
-    public OpeningRangeContinuationStrategy(int quantity, ExitStyle exitStyle, double rewardRiskRatio) {
         if (quantity <= 0) {
             throw new IllegalArgumentException("quantity must be greater than zero");
         }
-        if (exitStyle == null) {
-            throw new NullPointerException("exitStyle is required");
-        }
-        if (rewardRiskRatio <= 0) {
-            throw new IllegalArgumentException("rewardRiskRatio must be greater than zero");
-        }
         this.quantity = quantity;
-        this.exitStyle = exitStyle;
-        this.rewardRiskRatio = rewardRiskRatio;
     }
 
     @Override
@@ -98,12 +83,9 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
         long stopPriceTicks = side == OrderSide.BUY
                 ? feature.getFirstHourLowTicks()
                 : feature.getFirstHourHighTicks();
-        long targetPriceTicks = calculateTargetPriceTicks(
-                side,
-                strategyContext.getMarketContext().getLastPriceTicks(),
-                stopPriceTicks,
-                feature
-        );
+        long targetPriceTicks = side == OrderSide.BUY
+                ? feature.getOvernightHighTicks()
+                : feature.getOvernightLowTicks();
         tradeTakenBySession.put(sessionKey, Boolean.TRUE);
         TradePlan tradePlan = new TradePlan(side, targetPriceTicks, stopPriceTicks, TRADE_END_EXCLUSIVE, CENTRAL_TIME);
         return StrategyDecision.trade(
@@ -125,42 +107,6 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
 
     public int getQuantity() {
         return quantity;
-    }
-
-    public ExitStyle getExitStyle() {
-        return exitStyle;
-    }
-
-    public double getRewardRiskRatio() {
-        return rewardRiskRatio;
-    }
-
-    private long calculateTargetPriceTicks(
-            OrderSide side,
-            long entryPriceTicks,
-            long stopPriceTicks,
-            SessionRangeFeature feature
-    ) {
-        /*
-         * Intent: Calculate target price in ticks using the selected exit style.
-         * Precondition: Side, entry, stop, and feature must describe a valid trade setup.
-         * Returns: Target price ticks for the generated TradePlan.
-         * Postcondition: Strategy state is unchanged.
-         */
-        if (exitStyle == ExitStyle.RANGE) {
-            return side == OrderSide.BUY
-                    ? feature.getOvernightHighTicks()
-                    : feature.getOvernightLowTicks();
-        }
-
-        long riskTicks = Math.abs(entryPriceTicks - stopPriceTicks);
-        if (riskTicks == 0) {
-            throw new IllegalStateException("riskTicks must be greater than zero");
-        }
-        long rewardTicks = Math.round(riskTicks * rewardRiskRatio);
-        return side == OrderSide.BUY
-                ? entryPriceTicks + rewardTicks
-                : entryPriceTicks - rewardTicks;
     }
 
     private boolean isTradeWindow(MarketEventOccurrence event) {
@@ -201,11 +147,6 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
             }
         }
         return null;
-    }
-
-    public enum ExitStyle {
-        RANGE,
-        RISK_REWARD
     }
 
     private static class SessionKey {

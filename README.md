@@ -49,8 +49,6 @@ Select Action
 │  ├─ Risk Settings
 │  ├─ Use or select strategy-compatible market event
 │  ├─ Event options when the selected event requires parameters
-│  ├─ Use or select strategy-compatible target mode
-│  ├─ Target model options with strategy defaults
 │  ├─ Build BacktestRequest
 │  ├─ Run backtest with progress
 │  └─ Press Enter or type anything to return to Select Action
@@ -99,7 +97,7 @@ The CLI displays a short description beside each trading strategy and event stat
 
 Strategies can declare `StrategyRequirements`, which tell the engine which derived features, market event occurrences, trading sessions, and TPO periods are relevant. The engine uses those requirements to build only the currently supported required facts and to skip strategy evaluation outside the allowed session/TPO filters. RTH TPO periods are 30-minute Central Time periods starting at `08:30`: `A` is `08:30-08:59`, `B` is `09:00-09:29`, `C` is `09:30-09:59`, and so on through the RTH session.
 
-`OpeningRangeContinuationStrategy` uses derived Central Time session features and first-hour breach event occurrences. The feature layer calculates the overnight range from `17:00` through `08:29:59`, the RTH first-hour range from `08:30` through `09:29:59`, and the event layer detects the first breach after the first hour. The strategy declares that it requires session ranges and first-hour breach event occurrences, and that entries should only evaluate during RTH TPO periods `C` and `D` (`09:30-10:29`). It only arms if the first-hour range remains inside the overnight range, allows one trade per day, and defaults to targeting the overnight high/low with a first-hour opposite-side stop and `10:30` time stop. The strategy can also be configured to use a risk/reward exit style, which keeps the same first-hour stop and calculates the target from entry risk in ticks.
+`OpeningRangeContinuationStrategy` uses derived Central Time session features and first-hour breach event occurrences. The feature layer calculates the overnight range from `17:00` through `08:29:59`, the RTH first-hour range from `08:30` through `09:29:59`, and the event layer detects the first breach after the first hour. The strategy declares that it requires session ranges and first-hour breach event occurrences, and that entries should only evaluate during RTH TPO periods `C` and `D` (`09:30-10:29`). It only arms if the first-hour range remains inside the overnight range, allows one trade per day, and targets the overnight high/low with a first-hour opposite-side stop and `10:30` time stop.
 
 The MVP execution layer fills generated orders at the current tick price. This is intentionally simple so the trade lifecycle can create real completed trades now; future execution work will add realistic market, limit, stop, slippage, and partial-fill behavior.
 

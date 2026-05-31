@@ -38,12 +38,11 @@ public class FacadeForgeConfig {
                 LocalDate startDate,
                 LocalDate endDate,
                 String eventName,
-                RiskSettings riskSettings,
-                TargetSettings targetSettings
+                RiskSettings riskSettings
         ) {
             /*
              * Intent: Build a simple backtest request from primitive CLI-style selections.
-             * Precondition: Strategy name, symbols, dates, condition name, risk, and target settings must be valid.
+             * Precondition: Strategy name, symbols, dates, event name, and risk settings must be valid.
              * Returns: BacktestRequest using default order settings.
              * Postcondition: Inputs are wrapped into config value objects.
              */
@@ -54,7 +53,6 @@ public class FacadeForgeConfig {
                     endDate,
                     new MarketEventOptions(eventName),
                     riskSettings,
-                    targetSettings,
                     defaultOrderSettings()
             );
         }
@@ -63,12 +61,11 @@ public class FacadeForgeConfig {
                 String strategyName,
                 List<ContractTradeWindow> contractWindows,
                 String eventName,
-                RiskSettings riskSettings,
-                TargetSettings targetSettings
+                RiskSettings riskSettings
         ) {
             /*
              * Intent: Build a backtest request from selected contract windows and simple strategy/condition names.
-             * Precondition: Strategy name, contract windows, condition name, risk, and target settings must be valid.
+             * Precondition: Strategy name, contract windows, event name, and risk settings must be valid.
              * Returns: BacktestRequest using default order settings.
              * Postcondition: Names are wrapped into config value objects.
              */
@@ -77,7 +74,6 @@ public class FacadeForgeConfig {
                     contractWindows,
                     new MarketEventOptions(eventName),
                     riskSettings,
-                    targetSettings,
                     defaultOrderSettings()
             );
         }
@@ -89,7 +85,6 @@ public class FacadeForgeConfig {
                 LocalDate endDate,
                 MarketEventOptions marketConditionOptions,
                 RiskSettings riskSettings,
-                TargetSettings targetSettings,
                 OrderSettings orderSettings
         ) {
             /*
@@ -105,7 +100,6 @@ public class FacadeForgeConfig {
                     endDate,
                     marketConditionOptions,
                     riskSettings,
-                    targetSettings,
                     orderSettings
             );
         }
@@ -115,7 +109,6 @@ public class FacadeForgeConfig {
                 List<ContractTradeWindow> contractWindows,
                 MarketEventOptions marketConditionOptions,
                 RiskSettings riskSettings,
-                TargetSettings targetSettings,
                 OrderSettings orderSettings
         ) {
             /*
@@ -129,7 +122,6 @@ public class FacadeForgeConfig {
                     contractWindows,
                     marketConditionOptions,
                     riskSettings,
-                    targetSettings,
                     orderSettings
             );
         }

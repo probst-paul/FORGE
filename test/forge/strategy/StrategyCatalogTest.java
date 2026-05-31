@@ -1,6 +1,5 @@
 package forge.strategy;
 
-import forge.config.TargetSettings;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -50,31 +49,23 @@ class StrategyCatalogTest {
     @Nested
     class GetConfigurationProfile {
         @Test
-        void rangeBreakoutDefinesCompatibleConditionAndTargets() {
+        void rangeBreakoutDefinesCompatibleEvents() {
             StrategyConfigurationProfile profile = catalog.getConfigurationProfile(RangeBreakoutStrategy.class);
 
             assertEquals(RangeBreakoutStrategy.class, profile.getStrategyClass());
             assertEquals(List.of(OrderFlowExhaustionEvent.class, PriceCrossoverEvent.class), profile.getAllowedEvents());
             assertEquals(OrderFlowExhaustionEvent.class, profile.getDefaultEvent());
             assertTrue(profile.isEventSelectionAllowed());
-            assertEquals(List.of(TargetSettings.FIXED_RISK_REWARD, TargetSettings.FIXED_TARGET), profile.getAllowedTargets());
-            assertEquals(TargetSettings.FIXED_RISK_REWARD, profile.getDefaultTarget());
-            assertTrue(profile.isTargetSelectionAllowed());
-            assertEquals(2.0, profile.getDefaultTargetSettings(TargetSettings.FIXED_RISK_REWARD).getRewardRiskRatio());
-            assertEquals(8, profile.getDefaultTargetSettings(TargetSettings.FIXED_TARGET).getProfitTargetTicks());
         }
 
         @Test
-        void openingRangeContinuationDefinesInternalEventAndTargetProfile() {
+        void openingRangeContinuationDefinesInternalEventProfile() {
             StrategyConfigurationProfile profile = catalog.getConfigurationProfile(OpeningRangeContinuationStrategy.class);
 
             assertEquals(OpeningRangeContinuationStrategy.class, profile.getStrategyClass());
             assertEquals(List.of(PriceCrossoverEvent.class), profile.getAllowedEvents());
             assertEquals(PriceCrossoverEvent.class, profile.getDefaultEvent());
             assertFalse(profile.isEventSelectionAllowed());
-            assertEquals(List.of(TargetSettings.FIXED_TARGET), profile.getAllowedTargets());
-            assertEquals(TargetSettings.FIXED_TARGET, profile.getDefaultTarget());
-            assertFalse(profile.isTargetSelectionAllowed());
         }
     }
 }

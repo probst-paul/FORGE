@@ -16,7 +16,6 @@ import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
 import forge.config.RiskSettings;
 import forge.config.StrategyOptions;
-import forge.config.TargetSettings;
 import forge.config.MarketEventOptions;
 import forge.app.DataImportRequest;
 import forge.data.FacadeForgeData;
@@ -56,7 +55,6 @@ public class CliApplicationController {
     private final StrategySelectionService strategySelectionService;
     private final RiskSettingsSelectionService riskSettingsSelectionService;
     private final EventSelectionService eventSelectionService;
-    private final TargetSettingsSelectionService targetSettingsSelectionService;
 
     public CliApplicationController() {
         /*
@@ -71,8 +69,7 @@ public class CliApplicationController {
                 new InstrumentSelectionService(FacadeForgeData.getTheInstance()),
                 new StrategySelectionService(FacadeForgeStrategy.getTheInstance()),
                 new RiskSettingsSelectionService(),
-                new EventSelectionService(FacadeForgeEvent.getTheInstance()),
-                new TargetSettingsSelectionService()
+                new EventSelectionService(FacadeForgeEvent.getTheInstance())
         );
     }
 
@@ -82,8 +79,7 @@ public class CliApplicationController {
             InstrumentSelectionService instrumentSelectionService,
             StrategySelectionService strategySelectionService,
             RiskSettingsSelectionService riskSettingsSelectionService,
-            EventSelectionService eventSelectionService,
-            TargetSettingsSelectionService targetSettingsSelectionService
+            EventSelectionService eventSelectionService
     ) {
         /*
          * Intent: Create the CLI controller with explicit dependencies for tests or alternate wiring.
@@ -97,7 +93,6 @@ public class CliApplicationController {
         this.strategySelectionService = strategySelectionService;
         this.riskSettingsSelectionService = riskSettingsSelectionService;
         this.eventSelectionService = eventSelectionService;
-        this.targetSettingsSelectionService = targetSettingsSelectionService;
     }
 
     /*
@@ -231,7 +226,7 @@ public class CliApplicationController {
 
     /*
      * Intent: Gather all CLI inputs needed to build a BacktestRequest.
-     * Precondition: Available contracts, strategy metadata, condition metadata, and target defaults must exist.
+     * Precondition: Available contracts, strategy metadata, and event metadata must exist.
      * Returns: Fully assembled BacktestRequest.
      * Postcondition: No backtest has run yet; selections are converted into config objects.
      */
@@ -252,23 +247,11 @@ public class CliApplicationController {
                 ? eventSelectionService.readEventOptions(input, output, selectedEvent)
                 : eventSelectionService.createDefaultEventOptions(selectedEvent);
 
-        printSection(output, strategyProfile.isTargetSelectionAllowed() ? "Select Target Mode" : "Target Mode");
-        String selectedTargetMode = targetSettingsSelectionService.selectTargetMode(input, output, strategyProfile);
-
-        printSection(output, "Target Options");
-        TargetSettings targetSettings = targetSettingsSelectionService.readTargetSettings(
-                input,
-                output,
-                selectedTargetMode,
-                strategyProfile
-        );
-
         return forgeConfig.forgeConfigAccess().createBacktestRequest(
                 new StrategyOptions(strategySelectionService.getDisplayName(selectedStrategy)),
                 selectedContracts.getContractWindows(),
                 eventOptions,
                 riskSettings,
-                targetSettings,
                 forgeConfig.forgeConfigAccess().defaultOrderSettings()
         );
     }
