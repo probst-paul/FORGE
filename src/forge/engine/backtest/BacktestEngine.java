@@ -14,6 +14,7 @@ import forge.event.EventBuildService;
 import forge.event.FirstHourBreachEvent;
 import forge.event.MarketEventOccurrence;
 import forge.engine.MarketContext;
+import forge.engine.QueryDerivedDataStore;
 import forge.trade.ExecutionEngine;
 import forge.trade.FacadeForgeTrade;
 import forge.trade.Fill;
@@ -61,6 +62,7 @@ public class BacktestEngine {
     private final EventBuildService eventBuildService;
     private final TradingDayClassifier tradingDayClassifier;
     private final TpoPeriodClassifier tpoPeriodClassifier;
+    private final QueryDerivedDataStore derivedDataStore;
 
     public BacktestEngine() {
         /*
@@ -92,7 +94,8 @@ public class BacktestEngine {
                 new FeatureBuildService(),
                 new EventBuildService(),
                 new TradingDayClassifier(),
-                new TpoPeriodClassifier()
+                new TpoPeriodClassifier(),
+                defaultDerivedDataStore()
         );
     }
 
@@ -124,7 +127,41 @@ public class BacktestEngine {
                 new FeatureBuildService(),
                 new EventBuildService(),
                 new TradingDayClassifier(),
-                new TpoPeriodClassifier()
+                new TpoPeriodClassifier(),
+                defaultDerivedDataStore()
+        );
+    }
+
+    public BacktestEngine(TickDataProvider tickDataProvider, QueryDerivedDataStore derivedDataStore) {
+        /*
+         * Intent: Create a backtest engine from a supplied tick data provider and derived-data store.
+         * Precondition: Tick provider and derived-data store must be non-null.
+         * Returns: A constructed BacktestEngine instance.
+         * Postcondition: Engine reads ticks through the supplied provider and persists missing derived data through the store.
+         */
+        this(
+                new TradeBatchReaderFactory() {
+                    private final TickDataProvider provider = Objects.requireNonNull(tickDataProvider, "tickDataProvider is required");
+
+                    @Override
+                    public TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize) {
+                        return provider.openReader(windows, batchSize);
+                    }
+
+                    @Override
+                    public long countTicks(List<ContractTradeWindow> windows) {
+                        return provider.countTicks(windows);
+                    }
+                },
+                new StrategyCatalog(),
+                new ContractNameResolver(),
+                new StaticFuturesInstrumentSpecProvider(),
+                FacadeForgeTrade.getTheInstance().forgeTradeAccess().createSimpleExecutionEngine(),
+                new FeatureBuildService(),
+                new EventBuildService(),
+                new TradingDayClassifier(),
+                new TpoPeriodClassifier(),
+                derivedDataStore
         );
     }
 
@@ -144,7 +181,8 @@ public class BacktestEngine {
                 new FeatureBuildService(),
                 new EventBuildService(),
                 new TradingDayClassifier(),
-                new TpoPeriodClassifier()
+                new TpoPeriodClassifier(),
+                defaultDerivedDataStore()
         );
     }
 
@@ -157,7 +195,8 @@ public class BacktestEngine {
             FeatureBuildService featureBuildService,
             EventBuildService eventBuildService,
             TradingDayClassifier tradingDayClassifier,
-            TpoPeriodClassifier tpoPeriodClassifier
+            TpoPeriodClassifier tpoPeriodClassifier,
+            QueryDerivedDataStore derivedDataStore
     ) {
         /*
          * Intent: Create a fully wired backtest engine with explicit testable dependencies.
@@ -174,6 +213,7 @@ public class BacktestEngine {
         this.eventBuildService = Objects.requireNonNull(eventBuildService, "eventBuildService is required");
         this.tradingDayClassifier = Objects.requireNonNull(tradingDayClassifier, "tradingDayClassifier is required");
         this.tpoPeriodClassifier = Objects.requireNonNull(tpoPeriodClassifier, "tpoPeriodClassifier is required");
+        this.derivedDataStore = Objects.requireNonNull(derivedDataStore, "derivedDataStore is required");
     }
 
     public BacktestResult run(BacktestRequest request) {
@@ -202,6 +242,8 @@ public class BacktestEngine {
         int streamPasses = streamPasses(requirements, request);
         long totalProgressTicks = totalTicks * streamPasses;
         long processedProgressTicks = 0;
+        boolean willStreamSessionRangeFeatures = shouldStreamSessionRangeFeatures(request, requirements);
+        boolean willStreamMarketEventOccurrences = shouldStreamMarketEventOccurrences(request, requirements);
         listener.onProgress(new BacktestProgress(0, totalProgressTicks));
 
         List<SessionRangeFeature> sessionRangeFeatures = loadOrBuildSessionRangeFeatures(
@@ -211,7 +253,7 @@ public class BacktestEngine {
                 processedProgressTicks,
                 totalProgressTicks
         );
-        if (shouldStreamSessionRangeFeatures(request, requirements)) {
+        if (willStreamSessionRangeFeatures) {
             processedProgressTicks += totalTicks;
         }
 
@@ -223,7 +265,7 @@ public class BacktestEngine {
                 processedProgressTicks,
                 totalProgressTicks
         );
-        if (shouldStreamMarketEventOccurrences(request, requirements)) {
+        if (willStreamMarketEventOccurrences) {
             processedProgressTicks += totalTicks;
         }
 
@@ -277,7 +319,7 @@ public class BacktestEngine {
          * Intent: Provide required session range features from cache when possible, otherwise build them from ticks.
          * Precondition: Request and requirements must be valid.
          * Returns: Session range features needed by the strategy/events, or an empty list when not required.
-         * Postcondition: Missing features may be built in memory for this run but are not persisted here.
+         * Postcondition: Missing features are persisted and marked built before being returned.
          */
         if (requirements.getRequiredFeatureNames().isEmpty() && requirements.getRequiredEventNames().isEmpty()) {
             return List.of();
@@ -286,11 +328,14 @@ public class BacktestEngine {
             return List.of();
         }
         if (areSessionRangesBuilt(request)) {
-            return FacadeForgeData.getTheInstance().forgeDataAccess().loadSessionRanges(request.getContractWindows());
+            return derivedDataStore.loadSessionRanges(request.getContractWindows());
         }
         forge.feature.SessionRangeFeatureCalculator.Accumulator accumulator = featureBuildService.newSessionRangeAccumulator();
         streamTicks(request, listener, processedBeforePass, totalProgressTicks, accumulator);
-        return accumulator.getFeatures();
+        List<SessionRangeFeature> features = accumulator.getFeatures();
+        derivedDataStore.saveSessionRanges(features);
+        derivedDataStore.markSessionRangesBuilt(request.getContractWindows());
+        return features;
     }
 
     private List<MarketEventOccurrence> loadOrBuildMarketEventOccurrences(
@@ -305,20 +350,21 @@ public class BacktestEngine {
          * Intent: Provide required market event occurrences from cache when possible, otherwise detect them from ticks.
          * Precondition: Session range features must exist when first-hour breach detection is required.
          * Returns: Market event occurrences required by the strategy, or an empty list when not required.
-         * Postcondition: Missing occurrences may be built in memory for this run but are not persisted here.
+         * Postcondition: Missing event occurrences are persisted and marked built before being returned.
          */
         if (!requirements.requiresEvent(FirstHourBreachEvent.EVENT_NAME)) {
             return List.of();
         }
         if (areMarketEventOccurrencesBuilt(request)) {
-            return FacadeForgeData.getTheInstance()
-                    .forgeDataAccess()
-                    .loadMarketEventOccurrences(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
+            return derivedDataStore.loadMarketEventOccurrences(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
         }
         forge.event.FirstHourBreachEventDetector.Accumulator accumulator =
                 eventBuildService.newFirstHourBreachAccumulator(sessionRangeFeatures);
         streamTicks(request, listener, processedBeforePass, totalProgressTicks, accumulator);
-        return accumulator.getEvents();
+        List<MarketEventOccurrence> events = accumulator.getEvents();
+        derivedDataStore.saveMarketEventOccurrences(events);
+        derivedDataStore.markMarketEventOccurrencesBuilt(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
+        return events;
     }
 
     private int streamPasses(StrategyRequirements requirements, BacktestRequest request) {
@@ -356,7 +402,7 @@ public class BacktestEngine {
          * Postcondition: Data-access failures are treated as cache misses for backtest resilience.
          */
         try {
-            return FacadeForgeData.getTheInstance().forgeDataAccess().areSessionRangesBuilt(request.getContractWindows());
+            return derivedDataStore.areSessionRangesBuilt(request.getContractWindows());
         } catch (IllegalStateException exception) {
             return false;
         }
@@ -370,9 +416,7 @@ public class BacktestEngine {
          * Postcondition: Data-access failures are treated as cache misses for backtest resilience.
          */
         try {
-            return FacadeForgeData.getTheInstance()
-                    .forgeDataAccess()
-                    .areMarketEventOccurrencesBuilt(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
+            return derivedDataStore.areMarketEventOccurrencesBuilt(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
         } catch (IllegalStateException exception) {
             return false;
         }
@@ -381,6 +425,66 @@ public class BacktestEngine {
     private boolean requiresSessionRangeFeatures(StrategyRequirements requirements) {
         return requirements.requiresFeature(SessionRangeFeature.FEATURE_NAME)
                 || requirements.requiresEvent(FirstHourBreachEvent.EVENT_NAME);
+    }
+
+    private static QueryDerivedDataStore defaultDerivedDataStore() {
+        return new QueryDerivedDataStore() {
+            @Override
+            public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
+                return FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .areSessionRangesBuilt(windows);
+            }
+
+            @Override
+            public List<SessionRangeFeature> loadSessionRanges(List<ContractTradeWindow> windows) {
+                return FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .loadSessionRanges(windows);
+            }
+
+            @Override
+            public void saveSessionRanges(java.util.Collection<SessionRangeFeature> sessionRangeFeatures) {
+                FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .saveSessionRanges(sessionRangeFeatures);
+            }
+
+            @Override
+            public void markSessionRangesBuilt(List<ContractTradeWindow> windows) {
+                FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .markSessionRangesBuilt(windows);
+            }
+
+            @Override
+            public boolean areMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+                return FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .areMarketEventOccurrencesBuilt(windows, eventName);
+            }
+
+            @Override
+            public List<MarketEventOccurrence> loadMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
+                return FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .loadMarketEventOccurrences(windows, eventName);
+            }
+
+            @Override
+            public void saveMarketEventOccurrences(java.util.Collection<MarketEventOccurrence> marketEvents) {
+                FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .saveMarketEventOccurrences(marketEvents);
+            }
+
+            @Override
+            public void markMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+                FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .markMarketEventOccurrencesBuilt(windows, eventName);
+            }
+        };
     }
 
     private long streamTicks(

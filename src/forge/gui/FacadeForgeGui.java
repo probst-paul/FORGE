@@ -94,7 +94,7 @@ public class FacadeForgeGui {
          * Postcondition: The GUI can plan and run SCID imports without wiring app services directly.
          */
         public ImportDataController createImportDataController() {
-            return new ImportDataController(forgeApplication, new ImportDataViewModel());
+            return new ImportDataController(forgeApplication, forgeData, new ImportDataViewModel());
         }
 
         /*

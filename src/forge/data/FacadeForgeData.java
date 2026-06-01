@@ -197,6 +197,16 @@ public class FacadeForgeData {
             scidDataImportService.getTradeRepository().markMarketEventOccurrencesBuilt(windows, eventName);
         }
 
+        public int wipeDatabase() {
+            /*
+             * Intent: Remove all FORGE-owned tables from the currently configured database.
+             * Precondition: Caller must have performed any required destructive-action confirmation.
+             * Returns: Number of tables dropped.
+             * Postcondition: Imported contract, import metadata, and derived-data tables are removed.
+             */
+            return scidDataImportService.getTradeRepository().wipeDatabase();
+        }
+
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
             /*
              * Intent: Reconfigure all data services to use a new PostgreSQL database target.

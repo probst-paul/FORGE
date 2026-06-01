@@ -133,47 +133,41 @@ public class CliApplicationController {
      */
     private boolean selectAction(UserInput input, UserOutput output) {
         printSection(output, "Select Action");
-        output.printLine("1. Run Backtest");
-        output.printLine("2. Run Event Statistics");
-        output.printLine("3. Import Data");
-        output.printLine("4. Build/Refresh Derived Data");
-        output.printLine("5. Configure Database");
-        output.printLine("6. Run Benchmark Workflow");
+        output.printLine("1. Import Data");
+        output.printLine("2. Build/Refresh Derived Data");
+        output.printLine("3. Configure Database");
+        output.printLine("4. Run Benchmark Workflow");
+        output.printLine("5. Wipe Database");
 
         while (true) {
             int selectedAction = input.readInt("Select action (or enter 'quit' to exit program)");
             if (selectedAction == 1) {
-                runCliAction("run backtest setup", output, () -> runBacktestSetup(input, output));
-                output.printBlankLine();
-                return true;
-            }
-            if (selectedAction == 2) {
-                runCliAction("run event statistics", output, () -> runEventStatistics(input, output));
-                output.printBlankLine();
-                return true;
-            }
-            if (selectedAction == 3) {
                 runCliAction("import data", output, () -> runDataImport(input, output));
                 output.printBlankLine();
                 return true;
             }
-            if (selectedAction == 4) {
+            if (selectedAction == 2) {
                 runCliAction("build derived data", output, () -> runDerivedDataBuild(input, output));
                 output.printBlankLine();
                 return true;
             }
-            if (selectedAction == 5) {
+            if (selectedAction == 3) {
                 runCliAction("configure database", output, () -> configureDatabase(input, output));
                 output.printBlankLine();
                 return true;
             }
-            if (selectedAction == 6) {
+            if (selectedAction == 4) {
                 runCliAction("run benchmark workflow", output, () -> runBenchmarkWorkflow(input, output));
                 output.printBlankLine();
                 return true;
             }
+            if (selectedAction == 5) {
+                runCliAction("wipe database", output, () -> wipeDatabase(input, output));
+                output.printBlankLine();
+                return true;
+            }
 
-            output.printLine("Please select 1, 2, 3, 4, 5, or 6, or enter 'quit' to exit program.");
+            output.printLine("Please select 1, 2, 3, 4, or 5, or enter 'quit' to exit program.");
         }
     }
 
@@ -928,6 +922,54 @@ public class CliApplicationController {
         output.printBlankLine();
         output.printLine("Database configured:");
         output.printLine(acceptedRequest.getHost() + ":" + acceptedRequest.getPort() + "/" + acceptedRequest.getDatabaseName());
+    }
+
+    private void wipeDatabase(UserInput input, UserOutput output) {
+        /*
+         * Intent: Run the destructive admin workflow that removes all FORGE-owned database tables.
+         * Precondition: User must pass both confirmation prompts.
+         * Returns: Nothing.
+         * Postcondition: Database is wiped only after explicit confirmation, otherwise no data is changed.
+         */
+        printSection(output, "Wipe Database");
+        output.printLine("This will delete all imported contract data, import metadata, and derived data in the configured FORGE database.");
+        output.printLine("This cannot be undone from inside FORGE.");
+        if (!confirmDatabaseWipe(input, output)) {
+            output.printLine("Database wipe canceled. Returning to Select Action.");
+            return;
+        }
+
+        int droppedTables = forgeApplication.forgeApplicationAccess().wipeDatabase();
+        output.printBlankLine();
+        output.printLine("Database wipe complete.");
+        output.printLine("Tables dropped: " + droppedTables);
+    }
+
+    private boolean confirmDatabaseWipe(UserInput input, UserOutput output) {
+        /*
+         * Intent: Require two explicit confirmations before destructive database removal.
+         * Precondition: Input/output adapters must be active.
+         * Returns: True only when user answers y and then types WIPE.
+         * Postcondition: No data is changed by confirmation itself.
+         */
+        while (true) {
+            String confirmation = input.readString("Continue with database wipe? (y/n)");
+            String normalizedConfirmation = confirmation.trim().toLowerCase();
+            if ("n".equals(normalizedConfirmation)) {
+                return false;
+            }
+            if ("y".equals(normalizedConfirmation)) {
+                break;
+            }
+            output.printLine("Please type y to continue, n to cancel, or enter 'quit' to exit program.");
+        }
+
+        String typedConfirmation = input.readString("Type WIPE to permanently delete FORGE database tables");
+        if ("WIPE".equals(typedConfirmation.trim())) {
+            return true;
+        }
+        output.printLine("Confirmation text did not match WIPE.");
+        return false;
     }
 
     private void printTitle(UserOutput output) {

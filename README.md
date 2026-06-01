@@ -2,19 +2,20 @@
 
 **Futures Order Replay and Generalized Execution Engine**
 
-FORGE is an early-stage Java futures research and backtesting project. The current code focuses on SCID ingestion, futures contract modeling, reusable study/statistics layers, feature/event-driven strategy evaluation, and unit-tested behavior for the implemented classes.
+FORGE is an early-stage Java futures research and backtesting project. The current code focuses on SCID ingestion, PostgreSQL-backed market data storage, JavaFX research workflows, CLI administration tools, futures contract modeling, reusable study/statistics layers, feature/event-driven strategy evaluation, and unit-tested behavior for the implemented classes.
 
 It is not yet a complete historical market replay or backtesting engine.
 
 ## Currently Implemented
 
-- Command-line backtest setup flow in `forge.app.Main`
-- Command-line import flow for preparing PostgreSQL contract tables from SCID file names
+- JavaFX GUI for user-facing import, event statistics, and backtest workflows
+- CLI administration flow for import, derived-data builds, database configuration, benchmark runs, and database wipes
 - Maven build with JUnit 5 and PostgreSQL JDBC dependencies
 - Database-derived instrument/date catalog based on imported contract tables
+- GUI import flow with optional post-import derived-data checkboxes
 - Presentation-neutral database build/refresh workflow for derived session ranges and first-hour breach event occurrences
 - Date-based front-month rollover windows for imported equity index and CL futures
-- Batch-driven backtest replay over selected contract windows, with CLI progress reporting
+- Batch-driven backtest replay over selected contract windows, with GUI/CLI progress reporting
 - Position-based trade lifecycle for strategies that emit a trade plan, including target, stop, time-stop, P/L, MFE, and MAE tracking
 - MVP execution engine that fills generated orders at the current tick price
 - Futures contract model with symbol code, tick size, tick dollar amount, and expiration date
@@ -26,39 +27,46 @@ It is not yet a complete historical market replay or backtesting engine.
 - Research-first study/statistics layer for analyzing market setup frequency before adding trade simulation
 - Feature/event-driven strategy context and strategy decisions
 - Strategy requirements for declaring required features/events plus session and TPO-period evaluation filters
-- CLI strategy and event-statistic descriptions plus empty-result guidance
+- GUI strategy and event-statistic descriptions plus empty-result guidance
 - Market event interface with:
   - `OrderFlowExhaustionEvent`
   - `PriceCrossoverEvent`
 - Target/stop exit settings represented by strategy trade plans and the trade lifecycle layer
 - Basic trade order request and fill modeling
 - Completed-trade reporting metrics by instrument and contract
+- Risk management facade for per-trade and per-day risk checks
+- GUI preference save/load support using Java serialization to `.dat` files
 - JUnit 5 tests for implemented behavior
 - Mermaid class and sequence diagrams:
   - `class-model.md`
 
-## Current CLI Flow
+## Current User-Facing GUI Flow
+
+```text
+FORGE JavaFX GUI
+├─ Import Data
+│  ├─ Select a SCID file with the system file chooser
+│  ├─ Optionally build session ranges after import
+│  ├─ Optionally build first-hour breach events after import
+│  └─ Import with progress and summary output
+├─ Event Statistics
+│  ├─ Select an event-statistics study
+│  ├─ Select imported rollover-clipped contract windows
+│  ├─ Build missing derived data when needed and persist it to PostgreSQL
+│  └─ Display instrument and contract result cards/tabs
+└─ Backtest
+   ├─ Select imported rollover-clipped contract windows
+   ├─ Select strategy and risk settings
+   ├─ Build missing derived data when needed and persist it to PostgreSQL
+   └─ Display summary, instrument/contract tables, and simulated trades
+```
+
+The GUI is now the primary user-facing surface for research workflows. Backtest and event-statistics results persist while the GUI window remains open, but they are not persisted between sessions yet. Planned report persistence/export work will add saved report `.dat` files plus CSV/PDF export.
+
+## Current Admin CLI Flow
 
 ```text
 Select Action
-├─ Run Backtest
-│  ├─ Select Instrument(s)
-│  │  ├─ Choose an instrument's All Available front-month contracts
-│  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
-│  ├─ Select Trading Strategy
-│  ├─ Risk Settings
-│  ├─ Use or select strategy-compatible market event
-│  ├─ Event options when the selected event requires parameters
-│  ├─ Build BacktestRequest
-│  ├─ Run backtest with progress
-│  └─ Press Enter or type anything to return to Select Action
-├─ Run Event Statistics
-│  ├─ Select Instrument(s)
-│  │  ├─ Choose an instrument's All Available front-month contracts
-│  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
-│  ├─ Select Event Statistic
-│  ├─ Calculate session ranges and first-hour breach event occurrences
-│  └─ Display event counts by instrument and contract
 ├─ Import Data
 │  └─ Prepare PostgreSQL database/table for the selected SCID file
 ├─ Build/Refresh Derived Data
@@ -69,29 +77,31 @@ Select Action
 │  ├─ Choose whether to rebuild existing derived rows
 │  ├─ Review the build plan
 │  └─ Build selected derived data with a single-line status bar
+├─ Configure Database
+│  └─ Set PostgreSQL host, port, database, maintenance database, username, and password
 ├─ Run Benchmark Workflow
 │  └─ Run import, derived data, event statistics, and backtest with compact progress/timing output
-└─ Configure Database
-   └─ Set PostgreSQL host, port, database, maintenance database, username, and password
+└─ Wipe Database
+   └─ Drop FORGE-owned contract and forge_* tables after two confirmations
 ```
 
 The benchmark workflow takes a SCID file, runs import, derived-data build, event statistics, and backtest through the normal application facades, and displays only progress bars/timers plus a compact summary. It is intended for refactoring benchmarks and can be removed without affecting core workflows.
 
-At the `Select action` prompt, enter `quit` to exit the program. After the backtest setup summary is displayed, press Enter or type anything to return to `Select Action`, or enter `quit` to exit.
+At the CLI `Select action` prompt, enter `quit` to exit the program. The CLI is intentionally moving toward admin and maintenance operations, while backtest and event-statistics workflows are handled by the JavaFX GUI.
 
-Backtest setup no longer asks for a free-form date range. The CLI selects valid front-month contract windows instead. For example, `ES - All Available` includes all imported ES contract windows after rollover clipping, while `Select Custom Contracts` lets the user choose specific contracts such as `ESH25: 2024-12-16 to 2025-03-16` and `ESZ25: 2025-09-15 to 2025-12-14`. This avoids implying continuous data coverage when imported contract months have gaps.
+Backtest setup no longer asks for a free-form date range. The GUI and admin selection services use valid front-month contract windows instead. For example, `ES - All Available` includes all imported ES contract windows after rollover clipping, while custom contract selection lets the user choose specific contracts such as `ESH25: 2024-12-16 to 2025-03-16` and `ESZ25: 2025-09-15 to 2025-12-14`. This avoids implying continuous data coverage when imported contract months have gaps.
 
 `BacktestRequest` carries those selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.
 
-Event statistics reuse the same selected contract windows as backtests, but they are treated as the research base layer: first study how often a market setup occurs, then optionally simulate trades from that setup. `First Hour Breach Frequency` is defined as a market study, aggregated through the statistics layer, and executed through the engine layer with a single-line CLI progress bar. On the first run for a selected contract window, FORGE reads the selected trade ticks, stores derived session ranges and first-hour breach event occurrences in PostgreSQL, then reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract. Later runs for the same contract window reuse the stored derived rows instead of scanning the trade ticks again.
+Event statistics reuse the same selected contract windows as backtests, but they are treated as the research base layer: first study how often a market setup occurs, then optionally simulate trades from that setup. `First Hour Breach Frequency` is defined as a market study, aggregated through the statistics layer, and executed through the engine layer. On the first run for a selected contract window, FORGE reads the selected trade ticks, stores derived session ranges and first-hour breach event occurrences in PostgreSQL, then reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and by contract. Later runs for the same contract window reuse the stored derived rows instead of scanning the trade ticks again.
 
-The CLI also exposes `Build/Refresh Derived Data`, which runs the same reusable database build workflow without requiring a new SCID file. It uses selected contract windows, derived-data choices such as session ranges and first-hour breach event occurrences, and a rebuild flag to create a `DatabaseBuildRequest`. FORGE previews the work with a `DatabaseBuildPlan`, runs selected build work with a single-line status bar, and returns a `DatabaseBuildResult`. This is the same backend shape a future GUI can drive with checkboxes.
+The CLI also exposes `Build/Refresh Derived Data`, which runs the same reusable database build workflow without requiring a new SCID file. It uses selected contract windows, derived-data choices such as session ranges and first-hour breach event occurrences, and a rebuild flag to create a `DatabaseBuildRequest`. FORGE previews the work with a `DatabaseBuildPlan`, runs selected build work with a single-line status bar, and returns a `DatabaseBuildResult`. The GUI import screen uses the same backend through post-import checkboxes.
 
 Order settings are currently defaulted internally and are not exposed in the CLI.
 
-Strategies own their compatible market event and target choices. The CLI only asks the user to select a event or target when the selected strategy profile allows multiple choices. Strategy profiles also provide default event and target settings; for example, `RangeBreakoutStrategy` defaults to `OrderFlowExhaustionEvent`, also allows `PriceCrossoverEvent`, defaults to `Fixed Risk/Reward` at `2.0R`, and also allows `Fixed Target` with an `8` tick default.
+Strategies own their compatible market event choices and emit `TradePlan` objects with target, stop, and time-stop exits when a setup becomes tradeable. Strategy profiles provide default event settings and describe whether event selection is user-configurable.
 
-The CLI displays a short description beside each trading strategy and event statistic so users can choose by intent rather than by internal feature/event requirements. When a backtest or statistic has no usable ticks, no generated signals, no completed trades, or no complete event sessions, the CLI prints a short explanation and returns to `Select Action`.
+The GUI displays short descriptions for trading strategies and event statistics so users can choose by intent rather than by internal feature/event requirements. When a backtest or statistic has no usable ticks, no generated signals, no completed trades, or no complete event sessions, FORGE displays a short explanation instead of failing silently.
 
 `PriceCrossoverEvent` is configured in ticks. For a long event, the event is true when the current trade price reaches or exceeds the threshold. For a short event, the event is true when the current trade price reaches or falls below the threshold.
 
@@ -108,15 +118,14 @@ The MVP execution layer fills generated orders at the current tick price. This i
 - Full multi-position and scale-in/scale-out trade lifecycle behavior
 - Realistic market, limit, stop, and slippage execution simulation
 - Additional market event evaluation against market data
-- CLI stop selection and stop evaluation inside the backtest engine
 - Partial fills and advanced order execution simulation
 
 ## Project Structure
 
 ```text
-src/forge/app        Application facade, requests, console input/output abstractions
+src/forge/app        Application facade, workflow requests, progress listeners, console input/output abstractions
 src/forge/benchmark  Optional benchmark workflow over import, derived data, statistics, and backtest
-src/forge/cli        CLI controller and selection services
+src/forge/cli        Admin CLI controller and selection services
 src/forge/config     Backtest configuration objects
 src/forge/data       Data facade
 src/forge/data/build      Derived data build/refresh requests, plans, results, and service
@@ -126,15 +135,22 @@ src/forge/data/importing  SCID import services, import DTOs, and trade rows
 src/forge/data/market     Tick data provider abstraction, trade windows, and trade batch models
 src/forge/data/postgres   PostgreSQL settings, import repository, and tick data provider
 src/forge/data/rollover   Contract rollover calendars and rules
-src/forge/engine     Market context, batch-driven backtest engine, and event statistics query orchestration
+src/forge/engine     Engine facade and market context
+src/forge/engine/backtest        Batch-driven backtest engine and result objects
+src/forge/engine/eventstatistics Event statistics query orchestration and result objects
 src/forge/feature    Derived feature architecture, session ranges, and reusable range helpers
 src/forge/event      Market event interface, occurrence detection, catalog, facade, and result models
+src/forge/gui        JavaFX application, facade, controllers, views, view models, and presets
 src/forge/model      Instrument and futures contract models
+src/forge/risk       Risk manager, risk decisions, and risk facade
 src/forge/statistics Research/statistics aggregation services and facade
 src/forge/study      Market study definitions and study facade
 src/forge/strategy   Strategy interface, catalog, context/decision models, and strategies
 src/forge/trade      Order/fill models, MVP current-tick execution, position lifecycle, trade plans, trade results, and lifecycle facade
-src/forge/reporting  Backtest result and performance metric models
+src/forge/reporting  Reporting facade and performance metric models
+src/forge/reporting/backtest        Backtest report models
+src/forge/reporting/eventstatistics Event statistics report model
+src/forge/util       Small shared utilities for classpath catalogs and immutable list copies
 test/forge           JUnit 5 tests
 ```
 
@@ -142,8 +158,8 @@ test/forge           JUnit 5 tests
 
 - **Abstract class:** `Instrument` stores common instrument identity and requires subclasses to provide `getInstrumentType()`.
 - **Inheritance:** `FuturesInstrument` and `FuturesContract` extend `Instrument`.
-- **Interfaces:** `TradingStrategy`, `MarketEvent`, and `ExecutionEngine` define interchangeable behavior.
-- **Polymorphism:** Strategy and event implementations can be selected and evaluated through shared interfaces without depending on concrete classes.
+- **Interfaces:** `TradingStrategy`, `MarketEvent`, `ExecutionEngine`, and data source/store interfaces define interchangeable behavior.
+- **Polymorphism:** Strategy, event, execution, and data-access implementations can be selected and evaluated through shared interfaces without depending on concrete classes.
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 
@@ -153,6 +169,12 @@ From the project root:
 
 ```bash
 mvn exec:java
+```
+
+To launch the JavaFX GUI:
+
+```bash
+mvn javafx:run
 ```
 
 To build a runnable jar with dependencies included:
@@ -218,7 +240,7 @@ Username: postgres
 Password: postgres
 ```
 
-Then choose `2. Import Data` and enter a SCID path, for example:
+Then choose `1. Import Data` and enter a SCID path, for example:
 
 ```text
 /Users/paulprobst/path/to/ESU25_FUT_CME.scid
@@ -276,15 +298,15 @@ The `Select Instrument(s)` screen is driven by the `forge_contract_imports` meta
 
 The import flow skips records outside the contract's active front-month window before storing rows. For CME equity index roots (`ES`, `NQ`, `YM`, and `RTY`), FORGE clips each contract table to its active window using the common convention of rolling on the Monday before the third Friday of the contract month. For `CL`, FORGE estimates expiration as three business days before the 25th calendar day of the month before delivery, then rolls on the Friday before that expiration date. The backtest instrument list is derived from imported contract tables after that same active-window logic. Instruments without a rollover rule currently use the imported table date range as-is.
 
-The CLI renders import progress as a single updating terminal line. The underlying progress calculation is exposed through `ImportProgress`, so a future JavaFX or Swing UI can render the same import state with a graphical progress bar.
+The CLI renders import progress as a single updating terminal line, while the GUI renders the same progress state with JavaFX progress bars. The underlying progress calculation is exposed through `ImportProgress`.
 
-Backtest runs use the same presentation idea. Before replay begins, FORGE counts strategy-usable ticks for the selected contract windows, then renders a single-line backtest progress bar while batches are processed:
+Backtest runs use the same presentation idea. Before replay begins, FORGE counts strategy-usable ticks for the selected contract windows, then reports progress while batches are processed:
 
 ```text
 Running backtest [############------------] 50% 500000/1000000
 ```
 
-The reusable backtest progress state is exposed through `BacktestProgress` and `BacktestProgressListener`; the CLI only owns the terminal-specific rendering.
+The reusable backtest progress state is exposed through `BacktestProgress` and `BacktestProgressListener`; each UI layer owns only its specific rendering.
 
 ### Future Import Performance Ideas
 

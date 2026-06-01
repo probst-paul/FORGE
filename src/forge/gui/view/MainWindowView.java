@@ -97,15 +97,9 @@ public class MainWindowView {
         navigation.getChildren().add(title);
         addNavigationButton(navigation, navigationButtons, "Import Data", GuiWorkflowType.IMPORT_DATA,
                 owner, viewModel, root, workflowContentCache);
-        addNavigationButton(navigation, navigationButtons, "Derived Data", GuiWorkflowType.DERIVED_DATA,
-                owner, viewModel, root, workflowContentCache);
         addNavigationButton(navigation, navigationButtons, "Event Statistics", GuiWorkflowType.EVENT_STATISTICS,
                 owner, viewModel, root, workflowContentCache);
         addNavigationButton(navigation, navigationButtons, "Backtest", GuiWorkflowType.BACKTEST,
-                owner, viewModel, root, workflowContentCache);
-        addNavigationButton(navigation, navigationButtons, "Benchmark", GuiWorkflowType.BENCHMARK,
-                owner, viewModel, root, workflowContentCache);
-        addNavigationButton(navigation, navigationButtons, "Database Config", GuiWorkflowType.DATABASE_CONFIG,
                 owner, viewModel, root, workflowContentCache);
         updateNavigationButtonStyles(navigationButtons, viewModel.getActiveWorkflow());
         VBox.setVgrow(navigation.getChildren().get(navigation.getChildren().size() - 1), Priority.NEVER);
@@ -192,10 +186,6 @@ public class MainWindowView {
             content.getChildren().add(new ImportDataView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .createImportDataController()).createView(owner));
-        } else if (workflowType == GuiWorkflowType.DERIVED_DATA) {
-            content.getChildren().add(new DerivedDataView(FacadeForgeGui.getTheInstance()
-                    .forgeGuiAccess()
-                    .createDerivedDataController()).createView());
         } else if (workflowType == GuiWorkflowType.EVENT_STATISTICS) {
             content.getChildren().add(new EventStatisticsView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
@@ -204,14 +194,6 @@ public class MainWindowView {
             content.getChildren().add(new BacktestView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .createBacktestController()).createView());
-        } else if (workflowType == GuiWorkflowType.BENCHMARK) {
-            content.getChildren().add(new BenchmarkView(FacadeForgeGui.getTheInstance()
-                    .forgeGuiAccess()
-                    .createBenchmarkController()).createView(owner));
-        } else if (workflowType == GuiWorkflowType.DATABASE_CONFIG) {
-            content.getChildren().add(new DatabaseConfigView(FacadeForgeGui.getTheInstance()
-                    .forgeGuiAccess()
-                    .createDatabaseConfigController()).createView());
         } else {
             content.getChildren().add(createPlaceholder(workflowType));
         }

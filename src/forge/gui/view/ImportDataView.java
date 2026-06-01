@@ -1,5 +1,6 @@
 package forge.gui.view;
 
+import forge.data.build.DerivedDataBuildOption;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.gui.controller.ImportDataController;
@@ -13,6 +14,7 @@ import javafx.scene.Parent;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
@@ -23,7 +25,9 @@ import javafx.stage.FileChooser;
 import javafx.stage.Window;
 
 import java.io.File;
+import java.util.EnumSet;
 import java.util.Optional;
+import java.util.Set;
 
 public class ImportDataView {
     private final ImportDataController controller;
@@ -70,6 +74,11 @@ public class ImportDataView {
         importButton.disableProperty().bind(filePathField.textProperty().isEmpty().or(viewModel.runningProperty()));
         browseButton.disableProperty().bind(viewModel.runningProperty());
 
+        CheckBox buildSessionRanges = new CheckBox("Build session ranges after import");
+        CheckBox buildFirstHourBreachEvents = new CheckBox("Build first-hour breach events after import");
+        buildSessionRanges.disableProperty().bind(viewModel.runningProperty());
+        buildFirstHourBreachEvents.disableProperty().bind(viewModel.runningProperty());
+
         ProgressBar progressBar = new ProgressBar(0);
         progressBar.progressProperty().bind(viewModel.progressProperty());
         progressBar.setMaxWidth(Double.MAX_VALUE);
@@ -97,7 +106,11 @@ public class ImportDataView {
             }
         });
 
-        importButton.setOnAction(event -> importSelectedFile(owner, filePathField.getText()));
+        importButton.setOnAction(event -> importSelectedFile(
+                owner,
+                filePathField.getText(),
+                selectedDerivedDataOptions(buildSessionRanges, buildFirstHourBreachEvents)
+        ));
 
         HBox fileSelection = new HBox(8, filePathField, browseButton);
         fileSelection.setAlignment(Pos.CENTER_LEFT);
@@ -110,6 +123,9 @@ public class ImportDataView {
                 heading,
                 new Label("SCID data file"),
                 fileSelection,
+                new Label("Build derived data after import"),
+                buildSessionRanges,
+                buildFirstHourBreachEvents,
                 importButton,
                 progressBar,
                 statusLabel,
@@ -138,7 +154,11 @@ public class ImportDataView {
         return fileChooser.showOpenDialog(owner);
     }
 
-    private void importSelectedFile(Window owner, String scidFilePath) {
+    private void importSelectedFile(
+            Window owner,
+            String scidFilePath,
+            Set<DerivedDataBuildOption> derivedDataOptions
+    ) {
         /*
          * Intent: Confirm rebuild when needed and launch the import task.
          * Precondition: scidFilePath should identify the selected SCID file.
@@ -153,13 +173,33 @@ public class ImportDataView {
                 return;
             }
 
-            Task<DataImportResult> task = controller.importDataTask(scidFilePath, true);
+            Task<DataImportResult> task = controller.importDataTask(scidFilePath, true, derivedDataOptions);
             Thread thread = new Thread(task, "forge-gui-import-data");
             thread.setDaemon(true);
             thread.start();
         } catch (RuntimeException exception) {
             controller.getViewModel().markFailed("Could not start import.", exception);
         }
+    }
+
+    private Set<DerivedDataBuildOption> selectedDerivedDataOptions(
+            CheckBox buildSessionRanges,
+            CheckBox buildFirstHourBreachEvents
+    ) {
+        /*
+         * Intent: Convert post-import checkbox state into derived-data build options.
+         * Precondition: Checkboxes must be the controls from this import view.
+         * Returns: Selected derived-data build options.
+         * Postcondition: Checkbox state is unchanged.
+         */
+        Set<DerivedDataBuildOption> options = EnumSet.noneOf(DerivedDataBuildOption.class);
+        if (buildSessionRanges.isSelected()) {
+            options.add(DerivedDataBuildOption.SESSION_RANGES);
+        }
+        if (buildFirstHourBreachEvents.isSelected()) {
+            options.add(DerivedDataBuildOption.FIRST_HOUR_BREACH_EVENTS);
+        }
+        return options;
     }
 
     private boolean confirmRebuild(Window owner, DataImportPlan plan) {

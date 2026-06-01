@@ -365,6 +365,31 @@ public class PostgresTradeRepository {
         }
     }
 
+    public int wipeDatabase() {
+        /*
+         * Intent: Remove all FORGE-owned imported and derived-data tables from the configured database.
+         * Precondition: Caller must have confirmed this destructive admin action.
+         * Returns: Number of tables dropped.
+         * Postcondition: Contract tables and forge_* metadata/cache tables are removed from the current schema.
+         */
+        ensureDatabaseExists();
+
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        );
+             Statement statement = connection.createStatement()) {
+            List<String> tableNames = listForgeOwnedTables(connection);
+            for (String tableName : tableNames) {
+                statement.executeUpdate("DROP TABLE IF EXISTS " + quoteIdentifier(tableName) + " CASCADE");
+            }
+            return tableNames.size();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not wipe PostgreSQL database '" + settings.getDatabaseName() + "'", exception);
+        }
+    }
+
     public ImportCheckpoint prepareImportCheckpoint(
             String tableName,
             String sourceFileName,
@@ -1169,6 +1194,34 @@ public class PostgresTradeRepository {
 
     private boolean isContractTableName(String tableName) {
         return tableName != null && tableName.toUpperCase().matches("[A-Z]{1,3}[FGHJKMNQUVXZ][0-9]{1,2}");
+    }
+
+    private List<String> listForgeOwnedTables(Connection connection) throws SQLException {
+        /*
+         * Intent: Discover tables that belong to FORGE without touching unrelated tables in the same schema.
+         * Precondition: Connection must target the configured primary database.
+         * Returns: Table names for contract tables and forge_* metadata/cache tables.
+         * Postcondition: Database state is unchanged.
+         */
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT table_name FROM information_schema.tables " +
+                        "WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' " +
+                        "ORDER BY table_name"
+        );
+             ResultSet resultSet = statement.executeQuery()) {
+            List<String> tableNames = new ArrayList<>();
+            while (resultSet.next()) {
+                String tableName = resultSet.getString(1);
+                if (isForgeOwnedTable(tableName)) {
+                    tableNames.add(tableName);
+                }
+            }
+            return tableNames;
+        }
+    }
+
+    private boolean isForgeOwnedTable(String tableName) {
+        return tableName != null && (tableName.startsWith("forge_") || isContractTableName(tableName));
     }
 
     private void updateImportCheckpoint(

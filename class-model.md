@@ -10,6 +10,13 @@ classDiagram
     class FacadeForgeCli
     class ForgeCliAccess
     class CliApplicationController
+    class ForgeGuiApplication
+    class FacadeForgeGui
+    class MainWindowController
+    class MainWindowView
+    class ImportDataController
+    class EventStatisticsController
+    class BacktestController
     class FacadeForgeApplication
     class FacadeForgeConfig
     class FacadeForgeData
@@ -26,24 +33,28 @@ classDiagram
     class FacadeForgeStudy
     class FacadeForgeStatistics
     class FacadeForgeTrade
+    class FacadeForgeRisk
     class FacadeForgeReporting
     class ForgeApplicationAccess
     class InstrumentSelectionService
-    class StrategySelectionService
-    class EventSelectionService
-    class RiskSettingsSelectionService
 
     Main --> FacadeForgeCli
     FacadeForgeCli --> ForgeCliAccess
     ForgeCliAccess --> CliApplicationController
+    ForgeGuiApplication --> FacadeForgeGui
+    FacadeForgeGui --> MainWindowController
+    MainWindowController --> MainWindowView
+    MainWindowView --> ImportDataController
+    MainWindowView --> EventStatisticsController
+    MainWindowView --> BacktestController
+    ImportDataController --> FacadeForgeApplication
+    ImportDataController --> FacadeForgeData : optional derived build
+    EventStatisticsController --> FacadeForgeApplication
+    BacktestController --> FacadeForgeApplication
     CliApplicationController --> FacadeForgeApplication : request objects
     FacadeForgeApplication --> ForgeApplicationAccess
-    CliApplicationController --> InstrumentSelectionService : instruments + dates
-    CliApplicationController --> StrategySelectionService : strategy
-    CliApplicationController --> RiskSettingsSelectionService : risk settings
-    CliApplicationController --> EventSelectionService : event
-    CliApplicationController --> FacadeForgeConfig : build request
-    CliApplicationController --> FacadeForgeData : derived data build
+    CliApplicationController --> InstrumentSelectionService : admin contract selection
+    CliApplicationController --> FacadeForgeData : derived data build + wipe
 
     InstrumentSelectionService --> FacadeForgeData
     FacadeForgeData --> InstrumentDataCatalog : catalog access
@@ -53,9 +64,6 @@ classDiagram
     InstrumentDataCatalog --> ContractRolloverCalendar : active windows
     ScidDataImportService --> ContractNameResolver : contract root
     ScidDataImportService --> PostgresTradeRepository : persist rows
-    StrategySelectionService --> FacadeForgeStrategy
-    EventSelectionService --> FacadeForgeEvent
-
     ForgeApplicationAccess ..> FacadeForgeEngine : run backtests + statistics
     FacadeForgeEngine ..> FacadeForgeFeature : build features
     FacadeForgeEngine ..> FacadeForgeEvent : build event occurrences
@@ -63,9 +71,54 @@ classDiagram
     FacadeForgeEngine ..> FacadeForgeStatistics : aggregate outcomes
     ForgeApplicationAccess ..> FacadeForgeTrade : lifecycle support
     ForgeApplicationAccess ..> FacadeForgeTrade : later execute orders
+    ForgeApplicationAccess ..> FacadeForgeRisk : risk checks
     ForgeApplicationAccess ..> FacadeForgeReporting : later summarize result
     FacadeForgeFeature ..> FacadeForgeEvent : features feed event occurrences
     FacadeForgeEvent ..> FacadeForgeStatistics : event occurrences feed statistics
+```
+
+## GUI Interaction Overview
+
+```mermaid
+sequenceDiagram
+    participant GuiApp as ForgeGuiApplication
+    participant GuiFacade as FacadeForgeGui
+    participant MainWindow as MainWindowController
+    participant ImportView as ImportDataView
+    participant StatsView as EventStatisticsView
+    participant BacktestView
+    participant ImportController as ImportDataController
+    participant StatsController as EventStatisticsController
+    participant BacktestController
+    participant App as FacadeForgeApplication
+    participant Data as FacadeForgeData
+
+    GuiApp->>GuiFacade: forgeGuiAccess().createMainWindowController()
+    GuiFacade-->>GuiApp: MainWindowController
+    GuiApp->>MainWindow: show(stage)
+    MainWindow->>ImportView: default workflow content
+
+    alt Import Data
+        ImportView->>ImportController: planImport(scidFilePath)
+        ImportController->>App: planDataImport(request)
+        App-->>ImportController: DataImportPlan
+        ImportView->>ImportController: importDataTask(path, rebuild, derivedOptions)
+        ImportController->>App: importData(request)
+        opt Build selected derived data after import
+            ImportController->>Data: runDatabaseBuild(request, listener)
+        end
+        ImportController-->>ImportView: DataImportResult
+    else Event Statistics
+        StatsView->>StatsController: runEventStatisticsTask(request)
+        StatsController->>App: runEventStatistics(request)
+        App-->>StatsController: EventStatisticsReport
+        StatsController-->>StatsView: display report tabs/cards
+    else Backtest
+        BacktestView->>BacktestController: runBacktestTask(request)
+        BacktestController->>App: runBacktest(request, listener)
+        App-->>BacktestController: BacktestResult
+        BacktestController-->>BacktestView: display report tabs/tables/trades
+    end
 ```
 
 ## CLI Interaction Overview
@@ -80,59 +133,14 @@ sequenceDiagram
     participant Output as UserOutput
     participant Instruments as InstrumentSelectionService
     participant Data as FacadeForgeData
-    participant Strategies as StrategySelectionService
-    participant Strategy as FacadeForgeStrategy
-    participant Config as FacadeForgeConfig
 
     Main->>CliFacade: forgeCliAccess().run()
     CliFacade->>Cli: run(input, output)
     Cli->>Output: print title
-    Cli->>Output: print Run Backtest / Event Statistics / Import Data / Build Derived Data / Configure Database choices
+    Cli->>Output: print Import / Build Derived Data / Configure Database / Benchmark / Wipe Database choices
     Cli->>Input: readInt(action)
 
-    alt Run Backtest
-        Cli->>Instruments: selectContracts(input, output)
-        Instruments->>Data: forgeDataAccess().getAvailableInstruments()
-        Instruments->>Data: forgeDataAccess().getAvailableContracts()
-        Instruments->>Output: print All Available and custom contract choices
-        Instruments->>Input: read selection
-        Instruments-->>Cli: selected contract windows
-
-        Cli->>Strategies: selectStrategy(input, output)
-        Strategies->>Strategy: forgeStrategyAccess().findAvailableStrategies()
-        Strategies->>Strategy: forgeStrategyAccess().getDisplayName(strategy)
-        Strategies->>Input: readInt(selection)
-        Strategies-->>Cli: selected strategy class
-        Cli->>Strategies: getConfigurationProfile(selected strategy)
-        Strategies->>Strategy: forgeStrategyAccess().getConfigurationProfile(strategy)
-        Strategy-->>Strategies: StrategyConfigurationProfile
-        Strategies-->>Cli: strategy event profile
-        Cli->>Input: read risk and event settings
-        Cli->>Config: forgeConfigAccess().createBacktestRequest(...)
-        Config-->>Cli: BacktestRequest
-        Cli->>App: forgeApplicationAccess().runBacktest(request, progress listener)
-        App-->>Cli: BacktestResult
-        Cli->>Output: print backtest progress/result
-    else Build/Refresh Derived Data
-        Cli->>Instruments: selectContracts(input, output)
-        Instruments->>Data: forgeDataAccess().getAvailableInstruments()
-        Instruments->>Data: forgeDataAccess().getAvailableContracts()
-        Instruments-->>Cli: selected contract windows
-        Cli->>Input: readInt(derived data option)
-        Cli->>Input: readString(rebuild existing)
-        Cli->>Data: forgeDataAccess().planDatabaseBuild(request)
-        Data-->>Cli: DatabaseBuildPlan
-        Cli->>Data: forgeDataAccess().runDatabaseBuild(request, listener)
-        Data-->>Cli: DatabaseBuildResult
-        Cli->>Output: print build progress/result
-    else Run Event Statistics
-        Cli->>Instruments: selectContracts(input, output)
-        Instruments-->>Cli: selected contract windows
-        Cli->>Input: readInt(event statistic)
-        Cli->>App: forgeApplicationAccess().runEventStatistics(request)
-        App-->>Cli: EventStatisticsReport
-        Cli->>Output: print statistic progress/result
-    else Import Data
+    alt Import Data
         Cli->>Input: readString(SCID data file path)
         Cli->>App: forgeApplicationAccess().planDataImport(request)
         App->>Data: forgeDataAccess().planScidImport(path)
@@ -146,12 +154,31 @@ sequenceDiagram
         Data-->>App: DataImportResult
         App-->>Cli: DataImportResult
         Cli->>Output: print import progress/result
+    else Build/Refresh Derived Data
+        Cli->>Instruments: selectContracts(input, output)
+        Instruments->>Data: forgeDataAccess().getAvailableInstruments()
+        Instruments->>Data: forgeDataAccess().getAvailableContracts()
+        Instruments-->>Cli: selected contract windows
+        Cli->>Input: readInt(derived data option)
+        Cli->>Input: readString(rebuild existing)
+        Cli->>Data: forgeDataAccess().planDatabaseBuild(request)
+        Data-->>Cli: DatabaseBuildPlan
+        Cli->>Data: forgeDataAccess().runDatabaseBuild(request, listener)
+        Data-->>Cli: DatabaseBuildResult
+        Cli->>Output: print build progress/result
     else Configure Database
         Cli->>Input: read database settings
         Cli->>App: forgeApplicationAccess().configureDatabase(...)
         App->>Data: forgeDataAccess().configurePostgresDatabase(settings)
         Data-->>App: configured
         App-->>Cli: configured
+    else Wipe Database
+        Cli->>Input: confirm y/n
+        Cli->>Input: type WIPE
+        Cli->>App: forgeApplicationAccess().wipeDatabase()
+        App->>Data: forgeDataAccess().wipeDatabase()
+        Data-->>App: dropped table count
+        App-->>Cli: dropped table count
     end
 ```
 
@@ -173,9 +200,11 @@ classDiagram
     class ForgeApplicationAccess {
         +BacktestResult runBacktest(BacktestRequest request)
         +BacktestResult runBacktest(BacktestRequest request, BacktestProgressListener listener)
+        +EventStatisticsReport runEventStatistics(EventStatisticsRequest request)
         +DataImportPlan planDataImport(DataImportRequest request)
         +DataImportResult importData(DataImportRequest request)
-        +void configureDatabase(DatabaseConfigurationRequest request)
+        +DatabaseConnectionRequest configureDatabase(DatabaseConnectionRequest request)
+        +int wipeDatabase()
     }
 
     class DataImportRequest {
@@ -185,7 +214,7 @@ classDiagram
         +String getScidFilePath()
     }
 
-    class DatabaseConfigurationRequest {
+    class DatabaseConnectionRequest {
         -String host
         -int port
         -String databaseName
@@ -217,6 +246,23 @@ classDiagram
         +void onProgress(BacktestProgress progress)
     }
 
+    class EventStatisticsRequest {
+        -List~ContractTradeWindow~ contractWindows
+        -String eventName
+        -EventStatisticsProgressListener progressListener
+    }
+
+    class EventStatisticsProgress {
+        -long processedTicks
+        -long totalTicks
+        +int getCompletionPercent()
+    }
+
+    class EventStatisticsProgressListener {
+        <<interface>>
+        +void onProgress(EventStatisticsProgress progress)
+    }
+
     class UserInput {
         <<interface>>
         +String readString(String label)
@@ -242,19 +288,20 @@ classDiagram
         +void printLine(String text)
     }
 
-    Main --> ConsoleUserInput
-    Main --> ConsoleUserOutput
     Main --> FacadeForgeCli
     ConsoleUserInput ..|> UserInput
     ConsoleUserOutput ..|> UserOutput
     FacadeForgeApplication --> ForgeApplicationAccess
     ForgeApplicationAccess --> BacktestRequest
     ForgeApplicationAccess --> BacktestProgressListener
+    ForgeApplicationAccess --> EventStatisticsRequest
     ForgeApplicationAccess --> DataImportRequest
-    ForgeApplicationAccess --> DatabaseConfigurationRequest
+    ForgeApplicationAccess --> DatabaseConnectionRequest
     DataImportRequest --> ImportProgressListener
     ImportProgressListener --> ImportProgress
     BacktestProgressListener --> BacktestProgress
+    EventStatisticsRequest --> EventStatisticsProgressListener
+    EventStatisticsProgressListener --> EventStatisticsProgress
 ```
 
 ## cli Package
@@ -278,6 +325,8 @@ classDiagram
         +void run(UserInput input, UserOutput output)
     }
 
+    class FacadeForgeBenchmark
+
     class InstrumentSelectionService {
         +SelectedBacktestContracts selectContracts(UserInput input, UserOutput output)
         +List~String~ selectInstruments(UserInput input, UserOutput output)
@@ -289,29 +338,71 @@ classDiagram
         +LocalDate getEndDate()
     }
 
-    class StrategySelectionService {
-        +Class selectStrategy(UserInput input, UserOutput output)
-        +String getDisplayName(Class strategy)
-    }
-
-    class RiskSettingsSelectionService {
-        +RiskSettings readRiskSettings(UserInput input)
-    }
-
-    class EventSelectionService {
-        +Class selectEvent(UserInput input, UserOutput output)
-        +MarketEventOptions readEventOptions(UserInput input, UserOutput output, Class event)
-        +String getDisplayName(Class event)
-    }
-
     FacadeForgeCli --> ForgeCliAccess
     ForgeCliAccess --> CliApplicationController
     CliApplicationController --> FacadeForgeApplication
-    CliApplicationController --> FacadeForgeConfig
+    CliApplicationController --> FacadeForgeData : derived build
+    CliApplicationController --> FacadeForgeBenchmark : benchmark
     CliApplicationController --> InstrumentSelectionService
-    CliApplicationController --> StrategySelectionService
-    CliApplicationController --> RiskSettingsSelectionService
-    CliApplicationController --> EventSelectionService
+```
+
+## gui Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ForgeGuiApplication {
+        +static void launchGui(String[] args)
+        +void start(Stage stage)
+    }
+
+    class FacadeForgeGui {
+        +FacadeForgeGui getTheInstance()
+        +ForgeGuiAccess forgeGuiAccess()
+    }
+
+    class ForgeGuiAccess {
+        +MainWindowController createMainWindowController()
+        +ImportDataController createImportDataController()
+        +EventStatisticsController createEventStatisticsController()
+        +BacktestController createBacktestController()
+    }
+
+    class MainWindowController
+    class MainWindowView
+    class MainWindowViewModel
+    class ImportDataController {
+        +DataImportPlan planImport(String scidFilePath)
+        +Task~DataImportResult~ importDataTask(String path, boolean rebuild, Set~DerivedDataBuildOption~ options)
+    }
+    class EventStatisticsController
+    class BacktestController
+    class GuiWorkflowViewModel
+    class ImportDataView
+    class EventStatisticsView
+    class BacktestView
+    class GuiPreferencesStore
+    class GuiUserPreferences
+
+    ForgeGuiApplication --> FacadeForgeGui
+    FacadeForgeGui --> ForgeGuiAccess
+    ForgeGuiAccess --> MainWindowController
+    ForgeGuiAccess --> ImportDataController
+    ForgeGuiAccess --> EventStatisticsController
+    ForgeGuiAccess --> BacktestController
+    MainWindowController --> MainWindowView
+    MainWindowController --> MainWindowViewModel
+    MainWindowView --> ImportDataView
+    MainWindowView --> EventStatisticsView
+    MainWindowView --> BacktestView
+    ImportDataController --> FacadeForgeApplication
+    ImportDataController --> FacadeForgeData
+    EventStatisticsController --> FacadeForgeApplication
+    BacktestController --> FacadeForgeApplication
+    GuiWorkflowViewModel <|-- MainWindowViewModel
+    ImportDataView --> GuiPreferencesStore
+    GuiPreferencesStore --> GuiUserPreferences : ObjectInputStream/ObjectOutputStream .dat
 ```
 
 ## config Package
@@ -352,7 +443,9 @@ classDiagram
     }
 
     class RiskSettings {
+        -boolean perTradeRiskEnabled
         -double riskPerTrade
+        -boolean dailyRiskEnabled
         -double maxDailyLoss
     }
 
@@ -397,6 +490,7 @@ classDiagram
         +long countTradeTicks(List~ContractTradeWindow~ windows)
         +DatabaseBuildPlan planDatabaseBuild(DatabaseBuildRequest request)
         +DatabaseBuildResult runDatabaseBuild(DatabaseBuildRequest request, DataBuildProgressListener listener)
+        +int wipeDatabase()
         +void configurePostgresDatabase(PostgresDatabaseSettings settings)
     }
 
@@ -708,6 +802,7 @@ classDiagram
         +List~ContractDataSummary~ listImportedContractData()
         +ImportCheckpoint prepareImportCheckpoint(...)
         +int insertTradesAndAdvanceCheckpoint(...)
+        +int wipeDatabase()
     }
 
     class PostgresTickDataProvider {
@@ -970,7 +1065,7 @@ classDiagram
     EventResult --> EventDirection
 ```
 
-## engine Package
+## engine, engine.backtest, and engine.eventstatistics Packages
 
 ```mermaid
 classDiagram
@@ -997,6 +1092,11 @@ classDiagram
     class BacktestEngine {
         +BacktestResult run(BacktestRequest request)
         +BacktestResult run(BacktestRequest request, BacktestProgressListener listener)
+    }
+
+    class RiskManager {
+        +RiskDecision evaluateOpenTrade(...)
+        +boolean canOpenNewTrade(...)
     }
 
     class BacktestResult {
@@ -1099,6 +1199,7 @@ classDiagram
     BacktestEngine --> StrategyDecision : consumes
     BacktestEngine --> ExecutionEngine : creates fills
     BacktestEngine --> FacadeForgeTrade : creates lifecycle engines
+    BacktestEngine --> RiskManager : enforces risk settings
     BacktestEngine --> BacktestResult : creates
     BacktestResult --> InstrumentBacktestResult
     InstrumentBacktestResult --> ContractBacktestResult
@@ -1238,6 +1339,46 @@ classDiagram
     Order --> OrderSide
     Fill --> OrderSide
     Fill --> OrderType
+```
+
+## risk Package
+
+```mermaid
+classDiagram
+    direction LR
+
+    class FacadeForgeRisk {
+        +FacadeForgeRisk getTheInstance()
+        +ForgeRiskAccess forgeRiskAccess()
+    }
+
+    class ForgeRiskAccess {
+        +RiskManager createRiskManager()
+    }
+
+    class RiskManager {
+        +RiskDecision evaluateOpenTrade(RiskSettings settings, Position position, TradeTick tick)
+        +boolean canOpenNewTrade(RiskSettings settings, LocalDate tradingDay)
+        +void recordClosedTrade(TradeResult tradeResult)
+    }
+
+    class RiskDecision {
+        -boolean shouldCloseTrade
+        -String reason
+    }
+
+    class RiskSettings
+    class Position
+    class TradeTick
+    class TradeResult
+
+    FacadeForgeRisk --> ForgeRiskAccess
+    ForgeRiskAccess --> RiskManager : creates
+    RiskManager --> RiskSettings
+    RiskManager --> Position
+    RiskManager --> TradeTick
+    RiskManager --> TradeResult
+    RiskManager --> RiskDecision : returns
 ```
 
 ## reporting Package
@@ -1562,8 +1703,8 @@ classDiagram
 - **Polymorphism:** Backtest workflow code can work with interfaces such as `TradingStrategy`, `MarketEvent`, and `ExecutionEngine` without depending on specific implementations.
 - **Upcasting:** `FuturesInstrument` and `FuturesContract` objects can be stored or passed as `Instrument` references.
 - **Downcasting:** `InstrumentDataCatalog` can downcast an `Instrument` to `FuturesInstrument` when futures-specific details such as tick size or tick dollar amount are needed.
-- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `planDataImport(...)`, `importData(...)`, and `configureDatabase(...)` through `forgeApplicationAccess()`, so the CLI does not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeEvent`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeStudy`, `FacadeForgeStatistics`, `FacadeForgeTrade`, and `FacadeForgeReporting` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
+- **Facade design pattern:** `FacadeForgeApplication` is the main application facade. It exposes high-level operations such as `runBacktest(...)`, `runEventStatistics(...)`, `planDataImport(...)`, `importData(...)`, `configureDatabase(...)`, and `wipeDatabase()` through `forgeApplicationAccess()`, so the GUI and CLI do not directly coordinate the engine, data import service, PostgreSQL repository, or configuration builders. Other package facades such as `FacadeForgeGui`, `FacadeForgeCli`, `FacadeForgeConfig`, `FacadeForgeData`, `FacadeForgeStrategy`, `FacadeForgeEvent`, `FacadeForgeEngine`, `FacadeForgeFeature`, `FacadeForgeStudy`, `FacadeForgeStatistics`, `FacadeForgeTrade`, `FacadeForgeRisk`, and `FacadeForgeReporting` follow the singleton `getTheInstance()` pattern and expose package behavior through package access methods such as `forgeDataAccess()` and `forgeStrategyAccess()`.
 - **Integrated file I/O:** `ScidTradeReader.readTrades(...)` performs the core file I/O by opening a SCID file with `FileChannel.open(scidFilePath, StandardOpenOption.READ)`, reading binary records into a `ByteBuffer`, validating the SCID header, and converting complete records into `TradeRow` objects. `ScidDataImportService` integrates that file reader into the import workflow and also uses `Files.size(...)` and `Files.getLastModifiedTime(...)` to capture file metadata for checkpointing.
 - **Exception handling:** `ConsoleUserInput` throws the user-defined `UserQuitException` when the user enters `quit` or console input ends, and `CliApplicationController` catches it to exit cleanly. Validation failures use `IllegalArgumentException` to reject invalid settings, unsupported contracts, and malformed SCID records before processing continues. File and database failures are caught as lower-level exceptions such as `IOException` or `SQLException` and wrapped in `IllegalStateException` with application-level messages.
-- **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the application workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation.
-- **Service decomposition:** The app selection services own individual setup steps so the app facade can focus on coordinating the overall backtest setup.
+- **Input/output abstraction:** `UserInput` and `UserOutput` keep console input/output separate from the CLI workflow, while `ConsoleUserInput` and `ConsoleUserOutput` provide the terminal implementation. JavaFX controllers use view models and background tasks instead of console I/O.
+- **Service decomposition:** CLI and GUI controllers delegate domain work through package facades, while selection/build services own focused setup and maintenance steps.

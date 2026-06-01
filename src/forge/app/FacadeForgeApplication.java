@@ -148,5 +148,15 @@ public class FacadeForgeApplication {
             return request;
         }
 
+        /*
+         * Intent: Wipe all FORGE-owned data tables from the configured database.
+         * Precondition: Caller must have completed destructive-action confirmation.
+         * Returns: Number of tables dropped.
+         * Postcondition: Imported contract, import metadata, and derived-data tables are removed.
+         */
+        public int wipeDatabase() {
+            return forgeData.forgeDataAccess().wipeDatabase();
+        }
+
     }
 }

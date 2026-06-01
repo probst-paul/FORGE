@@ -8,8 +8,10 @@ import forge.config.MarketEventOptions;
 import forge.data.market.ContractTradeWindow;
 import forge.data.market.InMemoryTickDataProvider;
 import forge.data.market.TradeTick;
+import forge.engine.QueryDerivedDataStore;
+import forge.event.MarketEventOccurrence;
+import forge.feature.SessionRangeFeature;
 import forge.trade.OrderType;
-import forge.engine.backtest.BacktestResult;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -22,6 +24,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,10 +38,11 @@ class BacktestEngineTest {
     class Run {
         @Test
         void processesSelectedContractWindowTicksInBatches() {
+            RecordingDerivedDataStore derivedDataStore = new RecordingDerivedDataStore();
             BacktestEngine engine = new BacktestEngine(new InMemoryTickDataProvider(List.of(
                     tick(1),
                     tick(2)
-            )));
+            )), derivedDataStore);
             List<Long> progressTicks = new ArrayList<>();
 
             BacktestResult result = engine.run(request(), progress -> progressTicks.add(progress.getProcessedTicks()));
@@ -51,10 +56,13 @@ class BacktestEngineTest {
             assertEquals(1, result.getInstrumentResults().get(0).getContractResults().size());
             assertEquals("ESU25", result.getInstrumentResults().get(0).getContractResults().get(0).getContractSymbol());
             assertEquals(List.of(0L, 2L), progressTicks);
+            assertEquals(0, derivedDataStore.savedSessionRanges.size());
+            assertEquals(0, derivedDataStore.savedMarketEvents.size());
         }
 
         @Test
-        void createsTradeFromOpeningRangeSignalAndTradePlan() {
+        void createsTradeFromOpeningRangeSignalAndTradePlanAndPersistsMissingDerivedData() {
+            RecordingDerivedDataStore derivedDataStore = new RecordingDerivedDataStore();
             BacktestEngine engine = new BacktestEngine(new InMemoryTickDataProvider(List.of(
                     tickAtCentral(LocalDate.of(2025, 1, 5), LocalTime.of(17, 0), 100, 1),
                     tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(8, 0), 90, 2),
@@ -62,7 +70,7 @@ class BacktestEngineTest {
                     tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 29, 59), 98, 4),
                     tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 30), 98, 5),
                     tickAtCentral(LocalDate.of(2025, 1, 6), LocalTime.of(9, 31), 100, 6)
-            )));
+            )), derivedDataStore);
 
             BacktestResult result = engine.run(openingRangeRequest());
 
@@ -75,6 +83,10 @@ class BacktestEngineTest {
             assertEquals(1, result.getInstrumentResults().get(0).getContractResults().get(0).getOrderSignalsGenerated());
             assertEquals(1, result.getInstrumentResults().get(0).getPerformanceMetrics().getTotalTrades());
             assertEquals(25.0, result.getInstrumentResults().get(0).getPerformanceMetrics().getNetProfitLoss());
+            assertEquals(1, derivedDataStore.savedSessionRanges.size());
+            assertEquals(1, derivedDataStore.savedMarketEvents.size());
+            assertEquals(1, derivedDataStore.sessionRangeMarkCount);
+            assertEquals(1, derivedDataStore.marketEventMarkCount);
         }
     }
 
@@ -126,5 +138,52 @@ class BacktestEngineTest {
                 1,
                 scidRecordIndex
         );
+    }
+
+    private static class RecordingDerivedDataStore implements QueryDerivedDataStore {
+        private final List<SessionRangeFeature> savedSessionRanges = new ArrayList<>();
+        private final List<MarketEventOccurrence> savedMarketEvents = new ArrayList<>();
+        private int sessionRangeMarkCount;
+        private int marketEventMarkCount;
+
+        @Override
+        public boolean areSessionRangesBuilt(List<ContractTradeWindow> windows) {
+            return false;
+        }
+
+        @Override
+        public List<SessionRangeFeature> loadSessionRanges(List<ContractTradeWindow> windows) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public void saveSessionRanges(Collection<SessionRangeFeature> sessionRangeFeatures) {
+            savedSessionRanges.addAll(sessionRangeFeatures);
+        }
+
+        @Override
+        public void markSessionRangesBuilt(List<ContractTradeWindow> windows) {
+            sessionRangeMarkCount++;
+        }
+
+        @Override
+        public boolean areMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+            return false;
+        }
+
+        @Override
+        public List<MarketEventOccurrence> loadMarketEventOccurrences(List<ContractTradeWindow> windows, String eventName) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public void saveMarketEventOccurrences(Collection<MarketEventOccurrence> marketEvents) {
+            savedMarketEvents.addAll(marketEvents);
+        }
+
+        @Override
+        public void markMarketEventOccurrencesBuilt(List<ContractTradeWindow> windows, String eventName) {
+            marketEventMarkCount++;
+        }
     }
 }
