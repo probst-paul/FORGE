@@ -1,11 +1,14 @@
 package forge.trade;
 
-import forge.trade.OrderSide;
-
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
 
-public class TradeResult {
+public class TradeResult implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private final String instrumentSymbol;
     private final String contractSymbol;
     private final OrderSide side;

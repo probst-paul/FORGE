@@ -3,9 +3,14 @@ package forge.reporting.eventstatistics;
 import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.util.ImmutableLists;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.List;
 
-public class EventStatisticsReport {
+public class EventStatisticsReport implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private final String eventName;
     private final List<EventStatisticsResult> instrumentResults;
     private final List<EventStatisticsResult> contractResults;

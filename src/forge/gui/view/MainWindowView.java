@@ -181,10 +181,10 @@ public class MainWindowView {
                     .createImportDataController()).createView(owner);
             case EVENT_STATISTICS -> new EventStatisticsView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
-                    .createEventStatisticsController()).createView();
+                    .createEventStatisticsController()).createView(owner);
             case BACKTEST -> new BacktestView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
-                    .createBacktestController()).createView();
+                    .createBacktestController()).createView(owner);
         });
         return content;
     }

@@ -2,9 +2,14 @@ package forge.reporting;
 
 import forge.trade.TradeResult;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.List;
 
-public class PerformanceMetrics {
+public class PerformanceMetrics implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private final int totalTrades;
     private final int winningTrades;
     private final int losingTrades;

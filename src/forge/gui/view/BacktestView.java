@@ -6,6 +6,8 @@ import forge.config.RiskSettings;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.gui.controller.BacktestController;
+import forge.gui.report.GuiReportStore;
+import forge.gui.report.SavedReport;
 import forge.gui.viewmodel.BacktestViewModel;
 import forge.model.FuturesInstrumentSpec;
 import forge.model.StaticFuturesInstrumentSpecProvider;
@@ -18,6 +20,8 @@ import forge.strategy.TradingStrategy;
 import forge.trade.TradeResult;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -42,15 +46,25 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
 import java.math.BigDecimal;
+import java.io.File;
+import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 public class BacktestView {
+    private static final String REPORT_TYPE = "backtest";
+
     private final BacktestController controller;
     private final StaticFuturesInstrumentSpecProvider instrumentSpecProvider = new StaticFuturesInstrumentSpecProvider();
+    private final GuiReportStore reportStore = new GuiReportStore();
 
     public BacktestView(BacktestController controller) {
         if (controller == null) {
@@ -59,7 +73,7 @@ public class BacktestView {
         this.controller = controller;
     }
 
-    public Parent createView() {
+    public Parent createView(Window owner) {
         /*
          * Intent: Build the backtest screen and wire strategy, condition, target, and contract selections.
          * Precondition: Controller must be initialized and imported contract windows may be available.
@@ -89,6 +103,7 @@ public class BacktestView {
         contractScrollPane.setMinHeight(140);
 
         List<ContractSelection> contractSelections = new ArrayList<>();
+        ObjectProperty<BacktestResult> currentReport = new SimpleObjectProperty<>();
         Button refreshButton = new Button("Refresh Contracts");
         refreshButton.disableProperty().bind(viewModel.runningProperty());
         refreshButton.setOnAction(event -> loadAvailableContracts(contractList, contractSelections));
@@ -116,6 +131,11 @@ public class BacktestView {
 
         Button runButton = new Button("Run Backtest");
         runButton.disableProperty().bind(viewModel.runningProperty());
+        Button saveButton = new Button("Save Report");
+        saveButton.disableProperty().bind(viewModel.runningProperty().or(currentReport.isNull()));
+        saveButton.setOnAction(event -> saveReport(owner, currentReport.get(), viewModel));
+        Button loadButton = new Button("Load Report");
+        loadButton.disableProperty().bind(viewModel.runningProperty());
 
         ProgressBar progressBar = new ProgressBar(0);
         progressBar.progressProperty().bind(viewModel.progressProperty());
@@ -133,6 +153,8 @@ public class BacktestView {
 
         HBox actions = new HBox(8, refreshButton, runButton);
         actions.setAlignment(Pos.CENTER_LEFT);
+        HBox reportActions = new HBox(8, saveButton, loadButton);
+        reportActions.setAlignment(Pos.CENTER_LEFT);
 
         VBox setupContent = new VBox(10);
         setupContent.setPadding(new Insets(8));
@@ -167,8 +189,10 @@ public class BacktestView {
                 dailyRiskEnabledCheckBox,
                 maxDailyLossField,
                 resultsTabs,
-                setupPane
+                setupPane,
+                currentReport
         ));
+        loadButton.setOnAction(event -> loadReport(owner, resultsTabs, currentReport, viewModel));
 
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
@@ -177,6 +201,7 @@ public class BacktestView {
                 heading,
                 setupPane,
                 progressSection,
+                reportActions,
                 resultsTabs,
                 errorLabel
         );
@@ -610,6 +635,115 @@ public class BacktestView {
         resultsTabs.getSelectionModel().select(0);
     }
 
+    private void saveReport(Window owner, BacktestResult report, BacktestViewModel viewModel) {
+        if (report == null) {
+            viewModel.markFailed("Could not save backtest report.", new RuntimeException("Run or load a report first."));
+            return;
+        }
+        FileChooser chooser = reportFileChooser("Save Backtest Report", defaultBacktestReportFileName(report));
+        File selectedFile = chooser.showSaveDialog(owner);
+        if (selectedFile == null) {
+            return;
+        }
+        try {
+            Path reportPath = withDatExtension(selectedFile.toPath());
+            reportStore.save(reportPath, new SavedReport<>(REPORT_TYPE, report));
+            viewModel.setStatusMessage("Saved backtest report to " + reportPath.getFileName() + ".");
+        } catch (RuntimeException exception) {
+            viewModel.markFailed("Could not save backtest report.", exception);
+        }
+    }
+
+    private void loadReport(
+            Window owner,
+            TabPane resultsTabs,
+            ObjectProperty<BacktestResult> currentReport,
+            BacktestViewModel viewModel
+    ) {
+        FileChooser chooser = reportFileChooser("Load Backtest Report", "backtest-report");
+        File selectedFile = chooser.showOpenDialog(owner);
+        if (selectedFile == null) {
+            return;
+        }
+        try {
+            SavedReport<BacktestResult> savedReport = reportStore.load(
+                    selectedFile.toPath(),
+                    BacktestResult.class,
+                    REPORT_TYPE
+            );
+            currentReport.set(savedReport.getReport());
+            viewModel.setResultSummary(savedReport.getReport().toString());
+            viewModel.setStatusMessage("Loaded backtest report from " + selectedFile.getName() + ".");
+            renderReport(resultsTabs, savedReport.getReport());
+        } catch (RuntimeException exception) {
+            viewModel.markFailed("Could not load backtest report.", exception);
+        }
+    }
+
+    private FileChooser reportFileChooser(String title, String initialFileName) {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(title);
+        chooser.setInitialDirectory(reportStore.ensureReportDirectory().toFile());
+        chooser.setInitialFileName(initialFileName);
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("FORGE report data", "*.dat"));
+        return chooser;
+    }
+
+    private Path withDatExtension(Path path) {
+        String fileName = path.getFileName().toString();
+        if (fileName.toLowerCase().endsWith(".dat")) {
+            return path;
+        }
+        Path parent = path.getParent();
+        Path normalizedFileName = Path.of(fileName + ".dat");
+        return parent == null ? normalizedFileName : parent.resolve(normalizedFileName);
+    }
+
+    private String defaultBacktestReportFileName(BacktestResult report) {
+        Set<String> instrumentSymbols = new LinkedHashSet<>();
+        for (String contractSymbol : report.getContractSymbols()) {
+            instrumentSymbols.add(instrumentFromContract(contractSymbol));
+        }
+        String instruments = instrumentSymbols.isEmpty()
+                ? "contracts"
+                : String.join("-", instrumentSymbols);
+        return sanitizeFileName(instruments)
+                + "_"
+                + sanitizeFileName(report.getStrategyName())
+                + "_"
+                + LocalDate.now();
+    }
+
+    private String instrumentFromContract(String contractSymbol) {
+        if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
+            return "UNKNOWN";
+        }
+        String normalized = contractSymbol.trim().toUpperCase();
+        int firstDigitIndex = -1;
+        for (int i = 0; i < normalized.length(); i++) {
+            if (Character.isDigit(normalized.charAt(i))) {
+                firstDigitIndex = i;
+                break;
+            }
+        }
+        if (firstDigitIndex > 0) {
+            return normalized.substring(0, firstDigitIndex - 1);
+        }
+        return normalized;
+    }
+
+    private String sanitizeFileName(String value) {
+        String sanitized = value == null ? "" : value.trim().replaceAll("[^A-Za-z0-9._-]+", "-");
+        sanitized = sanitized.replaceAll("-+", "-");
+        if (sanitized.startsWith("-")) {
+            sanitized = sanitized.substring(1);
+        }
+        if (sanitized.endsWith("-")) {
+            sanitized = sanitized.substring(0, sanitized.length() - 1);
+        }
+        return sanitized.isEmpty() ? "report" : sanitized;
+    }
+
     private void runBacktest(
             List<ContractSelection> contractSelections,
             StrategySelection strategySelection,
@@ -619,7 +753,8 @@ public class BacktestView {
             CheckBox dailyRiskEnabledCheckBox,
             TextField maxDailyLossField,
             TabPane resultsTabs,
-            TitledPane setupPane
+            TitledPane setupPane,
+            ObjectProperty<BacktestResult> currentReport
     ) {
         /*
          * Intent: Validate backtest inputs, create the request, and start a background backtest task.
@@ -666,6 +801,7 @@ public class BacktestView {
                     WorkerStateEvent.WORKER_STATE_SUCCEEDED,
                     event -> {
                         viewModel.setResultSummary(task.getValue().toString());
+                        currentReport.set(task.getValue());
                         renderReport(resultsTabs, task.getValue());
                         setupPane.setExpanded(false);
                     }

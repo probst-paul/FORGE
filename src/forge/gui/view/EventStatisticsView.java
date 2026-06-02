@@ -5,9 +5,13 @@ import forge.data.market.ContractTradeWindow;
 import forge.reporting.eventstatistics.EventStatisticsReport;
 import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.gui.controller.EventStatisticsController;
+import forge.gui.report.GuiReportStore;
+import forge.gui.report.SavedReport;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.study.MarketStudy;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.geometry.Insets;
@@ -26,12 +30,19 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 public class EventStatisticsView {
+    private static final String REPORT_TYPE = "event-statistics";
+
     private final EventStatisticsController controller;
+    private final GuiReportStore reportStore = new GuiReportStore();
 
     public EventStatisticsView(EventStatisticsController controller) {
         if (controller == null) {
@@ -40,7 +51,7 @@ public class EventStatisticsView {
         this.controller = controller;
     }
 
-    public Parent createView() {
+    public Parent createView(Window owner) {
         /*
          * Intent: Build the event-statistics screen and wire study/contract selections.
          * Precondition: Controller must be initialized and derived event data may be available.
@@ -74,12 +85,18 @@ public class EventStatisticsView {
         contractScrollPane.setMinHeight(140);
 
         List<ContractSelection> contractSelections = new ArrayList<>();
+        ObjectProperty<EventStatisticsReport> currentReport = new SimpleObjectProperty<>();
         Button refreshButton = new Button("Refresh Contracts");
         refreshButton.disableProperty().bind(viewModel.runningProperty());
         refreshButton.setOnAction(event -> loadAvailableContracts(contractList, contractSelections));
 
         Button runButton = new Button("Run Statistics");
         runButton.disableProperty().bind(viewModel.runningProperty());
+        Button saveButton = new Button("Save Report");
+        saveButton.disableProperty().bind(viewModel.runningProperty().or(currentReport.isNull()));
+        saveButton.setOnAction(event -> saveReport(owner, currentReport.get(), viewModel));
+        Button loadButton = new Button("Load Report");
+        loadButton.disableProperty().bind(viewModel.runningProperty());
 
         ProgressBar progressBar = new ProgressBar(0);
         progressBar.progressProperty().bind(viewModel.progressProperty());
@@ -95,7 +112,7 @@ public class EventStatisticsView {
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.setStyle("-fx-text-fill: #b00020;");
 
-        HBox actions = new HBox(8, refreshButton, runButton);
+        HBox actions = new HBox(8, refreshButton, runButton, saveButton, loadButton);
         actions.setAlignment(Pos.CENTER_LEFT);
 
         VBox setupContent = new VBox(10);
@@ -116,8 +133,10 @@ public class EventStatisticsView {
                 contractSelections,
                 studyComboBox.getValue(),
                 resultsTabs,
-                setupPane
+                setupPane,
+                currentReport
         ));
+        loadButton.setOnAction(event -> loadReport(owner, resultsTabs, currentReport, viewModel));
 
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
@@ -314,11 +333,76 @@ public class EventStatisticsView {
         resultsTabs.getSelectionModel().select(0);
     }
 
+    private void saveReport(Window owner, EventStatisticsReport report, EventStatisticsViewModel viewModel) {
+        if (report == null) {
+            viewModel.markFailed("Could not save event statistics report.", new RuntimeException("Run or load a report first."));
+            return;
+        }
+        FileChooser chooser = reportFileChooser("Save Event Statistics Report", "event-statistics-report");
+        File selectedFile = chooser.showSaveDialog(owner);
+        if (selectedFile == null) {
+            return;
+        }
+        try {
+            Path reportPath = withDatExtension(selectedFile.toPath());
+            reportStore.save(reportPath, new SavedReport<>(REPORT_TYPE, report));
+            viewModel.setStatusMessage("Saved event statistics report to " + reportPath.getFileName() + ".");
+        } catch (RuntimeException exception) {
+            viewModel.markFailed("Could not save event statistics report.", exception);
+        }
+    }
+
+    private void loadReport(
+            Window owner,
+            TabPane resultsTabs,
+            ObjectProperty<EventStatisticsReport> currentReport,
+            EventStatisticsViewModel viewModel
+    ) {
+        FileChooser chooser = reportFileChooser("Load Event Statistics Report", "event-statistics-report");
+        File selectedFile = chooser.showOpenDialog(owner);
+        if (selectedFile == null) {
+            return;
+        }
+        try {
+            SavedReport<EventStatisticsReport> savedReport = reportStore.load(
+                    selectedFile.toPath(),
+                    EventStatisticsReport.class,
+                    REPORT_TYPE
+            );
+            currentReport.set(savedReport.getReport());
+            viewModel.setResultSummary(formatReport(savedReport.getReport()));
+            viewModel.setStatusMessage("Loaded event statistics report from " + selectedFile.getName() + ".");
+            renderReport(resultsTabs, savedReport.getReport());
+        } catch (RuntimeException exception) {
+            viewModel.markFailed("Could not load event statistics report.", exception);
+        }
+    }
+
+    private FileChooser reportFileChooser(String title, String initialFileName) {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(title);
+        chooser.setInitialDirectory(reportStore.ensureReportDirectory().toFile());
+        chooser.setInitialFileName(initialFileName);
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("FORGE report data", "*.dat"));
+        return chooser;
+    }
+
+    private Path withDatExtension(Path path) {
+        String fileName = path.getFileName().toString();
+        if (fileName.toLowerCase().endsWith(".dat")) {
+            return path;
+        }
+        Path parent = path.getParent();
+        Path normalizedFileName = Path.of(fileName + ".dat");
+        return parent == null ? normalizedFileName : parent.resolve(normalizedFileName);
+    }
+
     private void runStatistics(
             List<ContractSelection> contractSelections,
             StudySelection studySelection,
             TabPane resultsTabs,
-            TitledPane setupPane
+            TitledPane setupPane,
+            ObjectProperty<EventStatisticsReport> currentReport
     ) {
         /*
          * Intent: Validate statistics selections and start a background statistics task.
@@ -347,6 +431,7 @@ public class EventStatisticsView {
                     WorkerStateEvent.WORKER_STATE_SUCCEEDED,
                     event -> {
                         viewModel.setResultSummary(formatReport(task.getValue()));
+                        currentReport.set(task.getValue());
                         renderReport(resultsTabs, task.getValue());
                         setupPane.setExpanded(false);
                     }

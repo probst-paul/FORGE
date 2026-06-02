@@ -1,6 +1,12 @@
 package forge.engine.eventstatistics;
 
-public class EventStatisticsResult {
+import java.io.Serial;
+import java.io.Serializable;
+
+public class EventStatisticsResult implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private final String scopeName;
     private final String eventName;
     private final long sessionsAnalyzed;

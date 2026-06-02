@@ -4,10 +4,15 @@ import forge.reporting.PerformanceMetrics;
 import forge.trade.TradeResult;
 import forge.util.ImmutableLists;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class InstrumentBacktestResult {
+public class InstrumentBacktestResult implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private final String instrumentSymbol;
     private final long ticksProcessed;
     private final long orderSignalsGenerated;

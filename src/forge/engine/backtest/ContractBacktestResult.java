@@ -4,9 +4,14 @@ import forge.reporting.PerformanceMetrics;
 import forge.trade.TradeResult;
 import forge.util.ImmutableLists;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.List;
 
-public class ContractBacktestResult {
+public class ContractBacktestResult implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private final String contractSymbol;
     private final long ticksProcessed;
     private final long orderSignalsGenerated;

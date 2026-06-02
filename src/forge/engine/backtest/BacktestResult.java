@@ -3,11 +3,16 @@ package forge.engine.backtest;
 import forge.reporting.PerformanceMetrics;
 import forge.util.ImmutableLists;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class BacktestResult {
+public class BacktestResult implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private final String strategyName;
     private final List<String> contractSymbols;
     private final long ticksProcessed;
