@@ -15,15 +15,17 @@ FORGE JavaFX GUI
 │  ├─ Select an event-statistics study
 │  ├─ Select imported rollover-clipped contract windows
 │  ├─ Build missing derived data when needed and persist it to PostgreSQL
-│  └─ Display instrument and contract result cards/tabs
+│  ├─ Display instrument and contract result cards/tabs
+│  └─ Save/load the latest statistics report as a project-local .dat file
 └─ Backtest
    ├─ Select imported rollover-clipped contract windows
    ├─ Select strategy and risk settings
    ├─ Build missing derived data when needed and persist it to PostgreSQL
-   └─ Display summary, instrument/contract tables, and simulated trades
+   ├─ Display summary, instrument/contract tables, and simulated trades
+   └─ Save/load the latest backtest report as a project-local .dat file
 ```
 
-The GUI is the primary user-facing surface for market research. Backtest and event-statistics results persist while the GUI window remains open.
+The GUI is the primary user-facing surface for market research. Backtest and event-statistics results persist while the GUI window remains open, and report snapshots can be saved and loaded from project-local `.dat` files.
 
 ### GUI Import Data
 
@@ -35,9 +37,13 @@ The GUI event-statistics screen lets the user select a study and imported rollov
 
 `First Hour Breach Frequency` reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and contract. Missing derived data is built and persisted to PostgreSQL before the statistic is displayed.
 
+Event-statistics reports can be saved to and loaded from `.dat` files in `runtime/reports`. The saved file contains the report snapshot, not database connection settings.
+
 ### GUI Backtest
 
 The GUI backtest screen lets the user select rollover-clipped contract windows, a strategy, and risk settings. Backtest results include summary metrics, instrument and contract tables, and simulated trade rows.
+
+Backtest reports can be saved to and loaded from `.dat` files in `runtime/reports`. The most recent run also remains available in memory while the GUI window is open.
 
 ## Admin CLI Workflows
 

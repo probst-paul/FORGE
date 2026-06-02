@@ -18,7 +18,7 @@ FORGE is an early-stage system rather than a complete historical market replay o
 - Derived session features for overnight, first-hour RTH, and full RTH ranges
 - Event/statistics workflow for studying market setup frequency before simulating trades
 - Basic backtest simulation with trade plans, risk checks, target/stop/time-stop exits, P/L, MFE, and MAE
-- Java serialization support for GUI import-path preference save/load files using `.dat`
+- Java serialization support for GUI import-path preferences and saved report `.dat` files
 - Unit-tested behavior across implemented application, data, engine, GUI, risk, statistics, strategy, and trade layers
 
 ## User-Facing GUI
@@ -34,15 +34,17 @@ FORGE JavaFX GUI
 │  ├─ Select an event-statistics study
 │  ├─ Select imported rollover-clipped contract windows
 │  ├─ Build missing derived data when needed and persist it to PostgreSQL
-│  └─ Display instrument and contract result cards/tabs
+│  ├─ Display instrument and contract result cards/tabs
+│  └─ Save/load the latest statistics report as a project-local .dat file
 └─ Backtest
    ├─ Select imported rollover-clipped contract windows
    ├─ Select strategy and risk settings
    ├─ Build missing derived data when needed and persist it to PostgreSQL
-   └─ Display summary, instrument/contract tables, and simulated trades
+   ├─ Display summary, instrument/contract tables, and simulated trades
+   └─ Save/load the latest backtest report as a project-local .dat file
 ```
 
-The GUI is the primary user-facing surface for research workflows. Backtest and event-statistics results persist while the GUI window remains open.
+The GUI is the primary user-facing surface for research workflows. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
 
 ## Admin CLI
 
@@ -67,7 +69,7 @@ The CLI is reserved for admin and maintenance operations. The benchmark workflow
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 - **Generics:** Utility/catalog classes such as `ImmutableLists` and `ClasspathCatalog` use generic type parameters to preserve compile-time type safety across reusable collection operations.
-- **Serialization:** GUI import-path preferences are saved and loaded through `ObjectOutputStream`, `ObjectInputStream`, and `Serializable` preference models.
+- **Serialization:** GUI import-path preferences and report snapshots are saved and loaded through `ObjectOutputStream`, `ObjectInputStream`, and `Serializable` models.
 
 ## Project Structure
 

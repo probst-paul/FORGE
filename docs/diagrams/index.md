@@ -1,10 +1,9 @@
 # Diagrams
 
-These diagrams summarize the major FORGE architecture and workflow relationships. The full detailed class reference remains in [class-model.md](class-model.md).
+These diagrams summarize the major FORGE architecture, workflow, data import, object-oriented design relationships, class models, and sequences.
 
 - [Architecture Overview](architecture-overview.md)
-- [User Workflows](user-workflows.md)
 - [Data Import Flow](data-import-flow.md)
-- [Research and Backtest Flow](research-and-backtest-flow.md)
+- [Workflow Sequences](workflow-sequences.md)
 - [Object-Oriented Design](object-oriented-design.md)
-- [Full Class Model](class-model.md)
+- [Class Model](class-model.md)

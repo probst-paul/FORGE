@@ -100,6 +100,16 @@ Run tests:
 mvn test
 ```
 
+## Runtime Files
+
+FORGE writes GUI preferences and saved report snapshots to project-local runtime folders. Saved event-statistics and backtest reports are stored as `.dat` files under:
+
+```text
+runtime/reports
+```
+
+These files are local runtime artifacts and are not intended to be committed.
+
 ## Sample SCID File
 
 The repository includes a small sample SCID file for local testing:

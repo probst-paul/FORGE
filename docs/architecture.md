@@ -50,7 +50,7 @@ See the [diagram index](diagrams/index.md) for architecture, workflow, data impo
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 - **Generics:** Utility/catalog classes such as `ImmutableLists` and `ClasspathCatalog` use generic type parameters to preserve compile-time type safety across reusable collection operations.
-- **Serialization:** GUI import-path preferences are saved and loaded through `ObjectOutputStream`, `ObjectInputStream`, and `Serializable` preference models.
+- **Serialization:** GUI import-path preferences and report snapshots are saved and loaded through `ObjectOutputStream`, `ObjectInputStream`, and `Serializable` models.
 
 ## Tick-Native Strategy Math
 
