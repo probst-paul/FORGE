@@ -43,13 +43,6 @@ public class MainWindowView {
             "-fx-border-color: #1d4ed8;"
     );
 
-    public void render(MainWindowViewModel viewModel) {
-        if (viewModel == null) {
-            throw new IllegalArgumentException("viewModel is required");
-        }
-        System.out.println(viewModel.getStatusMessage());
-    }
-
     public void render(Stage stage, MainWindowViewModel viewModel) {
         /*
          * Intent: Construct and show the main JavaFX shell for all GUI workflows.
@@ -182,36 +175,18 @@ public class MainWindowView {
          */
         StackPane content = new StackPane();
         content.setPadding(new Insets(28));
-        if (workflowType == GuiWorkflowType.IMPORT_DATA) {
-            content.getChildren().add(new ImportDataView(FacadeForgeGui.getTheInstance()
+        content.getChildren().add(switch (workflowType) {
+            case IMPORT_DATA -> new ImportDataView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
-                    .createImportDataController()).createView(owner));
-        } else if (workflowType == GuiWorkflowType.EVENT_STATISTICS) {
-            content.getChildren().add(new EventStatisticsView(FacadeForgeGui.getTheInstance()
+                    .createImportDataController()).createView(owner);
+            case EVENT_STATISTICS -> new EventStatisticsView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
-                    .createEventStatisticsController()).createView());
-        } else if (workflowType == GuiWorkflowType.BACKTEST) {
-            content.getChildren().add(new BacktestView(FacadeForgeGui.getTheInstance()
+                    .createEventStatisticsController()).createView();
+            case BACKTEST -> new BacktestView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
-                    .createBacktestController()).createView());
-        } else {
-            content.getChildren().add(createPlaceholder(workflowType));
-        }
+                    .createBacktestController()).createView();
+        });
         return content;
-    }
-
-    private VBox createPlaceholder(GuiWorkflowType workflowType) {
-        VBox panel = new VBox(10);
-        panel.setAlignment(Pos.TOP_LEFT);
-
-        Label heading = new Label(toDisplayName(workflowType));
-        heading.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-
-        Label body = new Label("JavaFX view placeholder. Controller and view model wiring is available for this workflow.");
-        body.setWrapText(true);
-
-        panel.getChildren().addAll(heading, body);
-        return panel;
     }
 
     private Label createStatusBar(MainWindowViewModel viewModel) {
@@ -224,14 +199,4 @@ public class MainWindowView {
         return status;
     }
 
-    private String toDisplayName(GuiWorkflowType workflowType) {
-        return switch (workflowType) {
-            case IMPORT_DATA -> "Import Data";
-            case DERIVED_DATA -> "Derived Data";
-            case EVENT_STATISTICS -> "Event Statistics";
-            case BACKTEST -> "Backtest";
-            case BENCHMARK -> "Benchmark";
-            case DATABASE_CONFIG -> "Database Config";
-        };
-    }
 }

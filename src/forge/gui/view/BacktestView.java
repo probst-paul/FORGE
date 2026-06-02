@@ -35,7 +35,6 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.FlowPane;
@@ -126,7 +125,7 @@ public class BacktestView {
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
         VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel);
 
-        TabPane resultsTabs = createResultsTabs(viewModel);
+        TabPane resultsTabs = createResultsTabs();
 
         Label errorLabel = new Label();
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
@@ -381,14 +380,11 @@ public class BacktestView {
         }
     }
 
-    private TabPane createResultsTabs(BacktestViewModel viewModel) {
+    private TabPane createResultsTabs() {
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabPane.getTabs().add(createSummaryTab(null));
         tabPane.getTabs().add(createTradesTab(null));
-        tabPane.getTabs().add(createPlaceholderTab("Tables", "Tabular backtest results will be added here."));
-        tabPane.getTabs().add(createPlaceholderTab("Charts", "Equity curves and performance charts will be added here."));
-        tabPane.getTabs().add(createExportTab(viewModel));
         return tabPane;
     }
 
@@ -600,25 +596,6 @@ public class BacktestView {
                         metrics.getMaxAdverseExcursion()))
         );
         return card;
-    }
-
-    private Tab createPlaceholderTab(String title, String message) {
-        VBox content = new VBox(8);
-        content.setPadding(new Insets(12));
-        content.getChildren().add(new Label(message));
-        Tab tab = new Tab(title);
-        tab.setContent(content);
-        return tab;
-    }
-
-    private Tab createExportTab(BacktestViewModel viewModel) {
-        TextArea exportText = new TextArea();
-        exportText.setEditable(false);
-        exportText.setWrapText(false);
-        exportText.textProperty().bind(viewModel.resultSummaryProperty());
-        Tab tab = new Tab("Export Text");
-        tab.setContent(exportText);
-        return tab;
     }
 
     private void renderReport(TabPane resultsTabs, BacktestResult result) {

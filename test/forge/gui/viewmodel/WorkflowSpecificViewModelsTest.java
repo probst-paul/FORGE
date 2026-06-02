@@ -57,22 +57,9 @@ class WorkflowSpecificViewModelsTest {
     }
 
     @Nested
-    class DatabaseConfig {
-        @Test
-        void validatesPortRange() {
-            DatabaseConfigViewModel viewModel = new DatabaseConfigViewModel();
-
-            assertThrows(IllegalArgumentException.class, () -> viewModel.setPort(0));
-            assertThrows(IllegalArgumentException.class, () -> viewModel.setPort(65536));
-            viewModel.setPort(5433);
-            assertEquals(5433, viewModel.getPort());
-        }
-    }
-
-    @Nested
     class ContractWindowWorkflows {
         @Test
-        void copyContractWindowsForDerivedDataEventStatisticsAndBacktest() {
+        void copyContractWindowsForEventStatisticsAndBacktest() {
             ContractTradeWindow window = new ContractTradeWindow(
                     "ESU25",
                     LocalDate.of(2025, 9, 1),
@@ -80,18 +67,14 @@ class WorkflowSpecificViewModelsTest {
             );
             List<ContractTradeWindow> windows = List.of(window);
 
-            DerivedDataViewModel derivedData = new DerivedDataViewModel();
             EventStatisticsViewModel eventStatistics = new EventStatisticsViewModel();
             BacktestViewModel backtest = new BacktestViewModel();
 
-            derivedData.setContractWindows(windows);
             eventStatistics.setContractWindows(windows);
             backtest.setContractWindows(windows);
 
-            assertEquals(windows, derivedData.getContractWindows());
             assertEquals(windows, eventStatistics.getContractWindows());
             assertEquals(windows, backtest.getContractWindows());
-            assertThrows(UnsupportedOperationException.class, () -> derivedData.getContractWindows().add(window));
             assertThrows(UnsupportedOperationException.class, () -> eventStatistics.getContractWindows().add(window));
             assertThrows(UnsupportedOperationException.class, () -> backtest.getContractWindows().add(window));
         }
@@ -101,8 +84,6 @@ class WorkflowSpecificViewModelsTest {
     class NegativeCounters {
         @Test
         void rejectNegativeCounters() {
-            assertThrows(IllegalArgumentException.class, () -> new BenchmarkViewModel().setRowsImported(-1));
-            assertThrows(IllegalArgumentException.class, () -> new DerivedDataViewModel().setTicksRead(-1));
             assertThrows(IllegalArgumentException.class, () -> new EventStatisticsViewModel().setContractResultCount(-1));
             assertThrows(IllegalArgumentException.class, () -> new BacktestViewModel().setTicksProcessed(-1));
             assertThrows(IllegalArgumentException.class, () -> new ImportDataViewModel().setRowsImported(-1));

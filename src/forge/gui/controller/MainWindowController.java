@@ -23,17 +23,6 @@ public class MainWindowController {
         this.view = view;
     }
 
-    public void show() {
-        /*
-         * Intent: Render the non-JavaFX placeholder output used by lightweight callers/tests.
-         * Precondition: View and view model must be initialized.
-         * Returns: Nothing.
-         * Postcondition: The view receives a ready status message.
-         */
-        viewModel.setStatusMessage("JavaFX GUI placeholder is ready.");
-        view.render(viewModel);
-    }
-
     public void show(Stage stage) {
         /*
          * Intent: Render the full JavaFX main window.

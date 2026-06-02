@@ -21,7 +21,6 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -90,7 +89,7 @@ public class EventStatisticsView {
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
         VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel);
 
-        TabPane resultsTabs = createResultsTabs(viewModel);
+        TabPane resultsTabs = createResultsTabs();
 
         Label errorLabel = new Label();
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
@@ -235,13 +234,10 @@ public class EventStatisticsView {
         }
     }
 
-    private TabPane createResultsTabs(EventStatisticsViewModel viewModel) {
+    private TabPane createResultsTabs() {
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabPane.getTabs().add(createSummaryTab(null));
-        tabPane.getTabs().add(createPlaceholderTab("Tables", "Tabular event statistics will be added here."));
-        tabPane.getTabs().add(createPlaceholderTab("Charts", "Charts for event rates and directional splits will be added here."));
-        tabPane.getTabs().add(createExportTab(viewModel));
         return tabPane;
     }
 
@@ -305,25 +301,6 @@ public class EventStatisticsView {
                 new Label(String.format("Event Rate: %.2f%%", result.getEventRate() * 100.0))
         );
         return card;
-    }
-
-    private Tab createPlaceholderTab(String title, String message) {
-        VBox content = new VBox(8);
-        content.setPadding(new Insets(12));
-        content.getChildren().add(new Label(message));
-        Tab tab = new Tab(title);
-        tab.setContent(content);
-        return tab;
-    }
-
-    private Tab createExportTab(EventStatisticsViewModel viewModel) {
-        TextArea exportText = new TextArea();
-        exportText.setEditable(false);
-        exportText.setWrapText(false);
-        exportText.textProperty().bind(viewModel.resultSummaryProperty());
-        Tab tab = new Tab("Export Text");
-        tab.setContent(exportText);
-        return tab;
     }
 
     private void renderReport(TabPane resultsTabs, EventStatisticsReport report) {

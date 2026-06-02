@@ -382,8 +382,15 @@ classDiagram
     class ImportDataView
     class EventStatisticsView
     class BacktestView
-    class GuiPreferencesStore
-    class GuiUserPreferences
+    class GuiPreferencesStore {
+        +void save(GuiUserPreferences preferences)
+        +GuiUserPreferences load()
+    }
+    class GuiUserPreferences {
+        <<Serializable>>
+        -String lastScidDirectory
+        -String importScidFilePath
+    }
 
     ForgeGuiApplication --> FacadeForgeGui
     FacadeForgeGui --> ForgeGuiAccess

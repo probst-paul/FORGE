@@ -55,7 +55,8 @@ classDiagram
 
     class GuiUserPreferences {
         <<Serializable>>
-        -String lastScidFilePath
+        -String lastScidDirectory
+        -String importScidFilePath
     }
 
     class GuiPreferencesStore {

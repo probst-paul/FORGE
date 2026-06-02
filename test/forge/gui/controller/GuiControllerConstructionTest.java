@@ -1,13 +1,8 @@
 package forge.gui.controller;
 
 import forge.app.FacadeForgeApplication;
-import forge.benchmark.FacadeForgeBenchmark;
-import forge.data.FacadeForgeData;
 import forge.gui.view.MainWindowView;
 import forge.gui.viewmodel.BacktestViewModel;
-import forge.gui.viewmodel.BenchmarkViewModel;
-import forge.gui.viewmodel.DatabaseConfigViewModel;
-import forge.gui.viewmodel.DerivedDataViewModel;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.gui.viewmodel.ImportDataViewModel;
 import forge.gui.viewmodel.MainWindowViewModel;
@@ -24,11 +19,8 @@ class GuiControllerConstructionTest {
         @Test
         void createControllersWithViewModels() {
             assertNotNull(new ImportDataController().getViewModel());
-            assertNotNull(new DerivedDataController().getViewModel());
             assertNotNull(new EventStatisticsController().getViewModel());
             assertNotNull(new BacktestController().getViewModel());
-            assertNotNull(new BenchmarkController().getViewModel());
-            assertNotNull(new DatabaseConfigController().getViewModel());
         }
     }
 
@@ -37,19 +29,12 @@ class GuiControllerConstructionTest {
         @Test
         void preserveInjectedViewModels() {
             ImportDataViewModel importDataViewModel = new ImportDataViewModel();
-            DerivedDataViewModel derivedDataViewModel = new DerivedDataViewModel();
             EventStatisticsViewModel eventStatisticsViewModel = new EventStatisticsViewModel();
             BacktestViewModel backtestViewModel = new BacktestViewModel();
-            BenchmarkViewModel benchmarkViewModel = new BenchmarkViewModel();
-            DatabaseConfigViewModel databaseConfigViewModel = new DatabaseConfigViewModel();
 
             assertSame(importDataViewModel, new ImportDataController(
                     FacadeForgeApplication.getTheInstance(),
                     importDataViewModel
-            ).getViewModel());
-            assertSame(derivedDataViewModel, new DerivedDataController(
-                    FacadeForgeData.getTheInstance(),
-                    derivedDataViewModel
             ).getViewModel());
             assertSame(eventStatisticsViewModel, new EventStatisticsController(
                     FacadeForgeApplication.getTheInstance(),
@@ -58,14 +43,6 @@ class GuiControllerConstructionTest {
             assertSame(backtestViewModel, new BacktestController(
                     FacadeForgeApplication.getTheInstance(),
                     backtestViewModel
-            ).getViewModel());
-            assertSame(benchmarkViewModel, new BenchmarkController(
-                    FacadeForgeBenchmark.getTheInstance(),
-                    benchmarkViewModel
-            ).getViewModel());
-            assertSame(databaseConfigViewModel, new DatabaseConfigController(
-                    FacadeForgeApplication.getTheInstance(),
-                    databaseConfigViewModel
             ).getViewModel());
         }
 

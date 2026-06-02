@@ -18,7 +18,7 @@ FORGE is an early-stage system rather than a complete historical market replay o
 - Derived session features for overnight, first-hour RTH, and full RTH ranges
 - Event/statistics workflow for studying market setup frequency before simulating trades
 - Basic backtest simulation with trade plans, risk checks, target/stop/time-stop exits, P/L, MFE, and MAE
-- Java serialization support for GUI preference save/load files using `.dat`
+- Java serialization support for GUI import-path preference save/load files using `.dat`
 - Unit-tested behavior across implemented application, data, engine, GUI, risk, statistics, strategy, and trade layers
 
 ## User-Facing GUI
@@ -67,7 +67,7 @@ The CLI is reserved for admin and maintenance operations. The benchmark workflow
 - **Upcasting:** `InstrumentDataCatalog` creates `FuturesInstrument` entries from imported contract tables and stores them as `Instrument`.
 - **Downcasting:** `InstrumentDataCatalog.AvailableInstrumentData` safely downcasts `Instrument` to `FuturesInstrument` when futures-specific tick details are needed.
 - **Generics:** Utility/catalog classes such as `ImmutableLists` and `ClasspathCatalog` use generic type parameters to preserve compile-time type safety across reusable collection operations.
-- **Serialization:** GUI preferences are saved and loaded through `ObjectOutputStream`, `ObjectInputStream`, and `Serializable` preference models.
+- **Serialization:** GUI import-path preferences are saved and loaded through `ObjectOutputStream`, `ObjectInputStream`, and `Serializable` preference models.
 
 ## Project Structure
 

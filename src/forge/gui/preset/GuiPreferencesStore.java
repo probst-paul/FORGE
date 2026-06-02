@@ -8,8 +8,8 @@ import java.nio.file.Path;
 
 public class GuiPreferencesStore {
     private static final Path DEFAULT_PATH = Path.of(
-            System.getProperty("user.home"),
-            ".forge",
+            System.getProperty("user.dir"),
+            "runtime",
             "gui-preferences.dat"
     );
 

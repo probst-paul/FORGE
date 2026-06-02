@@ -1,9 +1,6 @@
 package forge.gui;
 
 import forge.gui.controller.BacktestController;
-import forge.gui.controller.BenchmarkController;
-import forge.gui.controller.DatabaseConfigController;
-import forge.gui.controller.DerivedDataController;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.MainWindowController;
@@ -43,18 +40,12 @@ class FacadeForgeGuiTest {
             FacadeForgeGui.ForgeGuiAccess access = FacadeForgeGui.getTheInstance().forgeGuiAccess();
 
             ImportDataController importDataController = access.createImportDataController();
-            DerivedDataController derivedDataController = access.createDerivedDataController();
             EventStatisticsController eventStatisticsController = access.createEventStatisticsController();
             BacktestController backtestController = access.createBacktestController();
-            BenchmarkController benchmarkController = access.createBenchmarkController();
-            DatabaseConfigController databaseConfigController = access.createDatabaseConfigController();
 
             assertNotNull(importDataController);
-            assertNotNull(derivedDataController);
             assertNotNull(eventStatisticsController);
             assertNotNull(backtestController);
-            assertNotNull(benchmarkController);
-            assertNotNull(databaseConfigController);
         }
     }
 }
