@@ -3,10 +3,12 @@ package forge.gui.view;
 import forge.data.build.DerivedDataBuildOption;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
+import forge.gui.FacadeForgeGui;
 import forge.gui.controller.ImportDataController;
 import forge.gui.preset.GuiPreferencesStore;
 import forge.gui.preset.GuiUserPreferences;
 import forge.gui.viewmodel.ImportDataViewModel;
+import forge.gui.viewmodel.GuiWorkflowType;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -174,9 +176,9 @@ public class ImportDataView {
             }
 
             Task<DataImportResult> task = controller.importDataTask(scidFilePath, true, derivedDataOptions);
-            Thread thread = new Thread(task, "forge-gui-import-data");
-            thread.setDaemon(true);
-            thread.start();
+            FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .submitWorkflowTask(GuiWorkflowType.IMPORT_DATA, task);
         } catch (RuntimeException exception) {
             controller.getViewModel().markFailed("Could not start import.", exception);
         }

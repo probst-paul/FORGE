@@ -29,6 +29,19 @@ public class ForgeGuiApplication extends Application {
         controller.show(stage);
     }
 
+    @Override
+    public void stop() {
+        /*
+         * Intent: Release GUI background workflow resources when JavaFX exits.
+         * Precondition: JavaFX is stopping the application.
+         * Returns: Nothing.
+         * Postcondition: Queued/running GUI workflow tasks are asked to stop.
+         */
+        FacadeForgeGui.getTheInstance()
+                .forgeGuiAccess()
+                .shutdownWorkflowRunner();
+    }
+
     /*
      * Intent: Provide a facade-friendly entry point for launching this JavaFX application.
      * Precondition: JavaFX must not already have been launched in the same JVM.

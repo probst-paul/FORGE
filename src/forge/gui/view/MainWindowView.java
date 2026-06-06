@@ -9,7 +9,9 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -189,14 +191,40 @@ public class MainWindowView {
         return content;
     }
 
-    private Label createStatusBar(MainWindowViewModel viewModel) {
+    private HBox createStatusBar(MainWindowViewModel viewModel) {
         Label status = new Label();
         status.textProperty().bind(viewModel.statusMessageProperty());
         status.setMinHeight(34);
         status.setMaxWidth(Double.MAX_VALUE);
         status.setPadding(new Insets(6, 12, 6, 12));
-        status.setStyle("-fx-background-color: #eef1f4; -fx-border-color: #d7dde3; -fx-border-width: 1 0 0 0;");
-        return status;
+        HBox.setHgrow(status, Priority.ALWAYS);
+
+        FacadeForgeGui.ForgeGuiAccess guiAccess = FacadeForgeGui.getTheInstance().forgeGuiAccess();
+        Label taskLabel = new Label();
+        taskLabel.textProperty().bind(guiAccess.taskQueueTextProperty());
+        taskLabel.setStyle("-fx-text-fill: #263238;");
+
+        Label taskPercentLabel = new Label();
+        taskPercentLabel.textProperty().bind(guiAccess.taskPercentTextProperty());
+        taskPercentLabel.setMinWidth(42);
+        taskPercentLabel.setPrefWidth(42);
+        taskPercentLabel.setAlignment(Pos.CENTER_RIGHT);
+        taskPercentLabel.setStyle("-fx-text-fill: #263238;");
+
+        HBox taskStatus = new HBox(16, taskLabel, taskPercentLabel);
+        taskStatus.setAlignment(Pos.CENTER_RIGHT);
+        taskStatus.setPadding(new Insets(0, 12, 0, 0));
+        taskStatus.visibleProperty().bind(guiAccess.taskIndicatorVisibleProperty());
+        taskStatus.managedProperty().bind(guiAccess.taskIndicatorVisibleProperty());
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox statusBar = new HBox(status, spacer, taskStatus);
+        statusBar.setAlignment(Pos.CENTER_LEFT);
+        statusBar.setMinHeight(34);
+        statusBar.setStyle("-fx-background-color: #eef1f4; -fx-border-color: #d7dde3; -fx-border-width: 1 0 0 0;");
+        return statusBar;
     }
 
 }

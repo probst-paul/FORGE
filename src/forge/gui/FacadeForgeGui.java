@@ -6,27 +6,37 @@ import forge.gui.controller.BacktestController;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.MainWindowController;
+import forge.gui.concurrency.GuiWorkflowJob;
+import forge.gui.concurrency.GuiWorkflowRunner;
 import forge.gui.viewmodel.BacktestViewModel;
 import forge.gui.viewmodel.EventStatisticsViewModel;
+import forge.gui.viewmodel.GuiWorkflowType;
 import forge.gui.viewmodel.ImportDataViewModel;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyDoubleProperty;
+import javafx.beans.property.ReadOnlyStringProperty;
+import javafx.concurrent.Task;
 
 public class FacadeForgeGui {
     private static final FacadeForgeGui THE_INSTANCE = new FacadeForgeGui();
 
     private final FacadeForgeApplication forgeApplication;
     private final FacadeForgeData forgeData;
+    private final GuiWorkflowRunner workflowRunner;
     private final ForgeGuiAccess access = new ForgeGuiAccess();
 
     private FacadeForgeGui() {
         this(
                 FacadeForgeApplication.getTheInstance(),
-                FacadeForgeData.getTheInstance()
+                FacadeForgeData.getTheInstance(),
+                new GuiWorkflowRunner()
         );
     }
 
     private FacadeForgeGui(
             FacadeForgeApplication forgeApplication,
-            FacadeForgeData forgeData
+            FacadeForgeData forgeData,
+            GuiWorkflowRunner workflowRunner
     ) {
         if (forgeApplication == null) {
             throw new IllegalArgumentException("forgeApplication is required");
@@ -34,8 +44,12 @@ public class FacadeForgeGui {
         if (forgeData == null) {
             throw new IllegalArgumentException("forgeData is required");
         }
+        if (workflowRunner == null) {
+            throw new IllegalArgumentException("workflowRunner is required");
+        }
         this.forgeApplication = forgeApplication;
         this.forgeData = forgeData;
+        this.workflowRunner = workflowRunner;
     }
 
     public static FacadeForgeGui getTheInstance() {
@@ -89,6 +103,46 @@ public class FacadeForgeGui {
 
         public BacktestController createBacktestController() {
             return new BacktestController(forgeApplication, new BacktestViewModel());
+        }
+
+        public <T> GuiWorkflowJob<T> submitWorkflowTask(GuiWorkflowType workflowType, Task<T> task) {
+            /*
+             * Intent: Queue a GUI workflow task on the shared background runner.
+             * Precondition: workflowType and task must describe a GUI import/statistics/backtest workflow.
+             * Returns: Job handle with status and cancellation access.
+             * Postcondition: The task is submitted without each view creating its own thread.
+             */
+            return workflowRunner.submit(workflowType, task);
+        }
+
+        public void shutdownWorkflowRunner() {
+            /*
+             * Intent: Stop queued/running GUI background work during application shutdown.
+             * Precondition: JavaFX application is closing or no more GUI work should be accepted.
+             * Returns: Nothing.
+             * Postcondition: The shared executor is asked to interrupt active work and clear queued work.
+             */
+            workflowRunner.shutdown();
+        }
+
+        public ReadOnlyStringProperty taskStatusTextProperty() {
+            return workflowRunner.taskStatusTextProperty();
+        }
+
+        public ReadOnlyStringProperty taskQueueTextProperty() {
+            return workflowRunner.taskQueueTextProperty();
+        }
+
+        public ReadOnlyStringProperty taskPercentTextProperty() {
+            return workflowRunner.taskPercentTextProperty();
+        }
+
+        public ReadOnlyDoubleProperty currentTaskProgressProperty() {
+            return workflowRunner.currentTaskProgressProperty();
+        }
+
+        public ReadOnlyBooleanProperty taskIndicatorVisibleProperty() {
+            return workflowRunner.taskIndicatorVisibleProperty();
         }
     }
 }

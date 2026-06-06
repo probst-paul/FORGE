@@ -4,10 +4,12 @@ import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.reporting.eventstatistics.EventStatisticsReport;
 import forge.engine.eventstatistics.EventStatisticsResult;
+import forge.gui.FacadeForgeGui;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.report.GuiReportStore;
 import forge.gui.report.SavedReport;
 import forge.gui.viewmodel.EventStatisticsViewModel;
+import forge.gui.viewmodel.GuiWorkflowType;
 import forge.study.MarketStudy;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
@@ -436,9 +438,9 @@ public class EventStatisticsView {
                         setupPane.setExpanded(false);
                     }
             );
-            Thread thread = new Thread(task, "forge-gui-event-statistics");
-            thread.setDaemon(true);
-            thread.start();
+            FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .submitWorkflowTask(GuiWorkflowType.EVENT_STATISTICS, task);
         } catch (RuntimeException exception) {
             viewModel.markFailed("Could not run event statistics.", exception);
         }

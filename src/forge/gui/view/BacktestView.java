@@ -5,10 +5,12 @@ import forge.config.BacktestRequest;
 import forge.config.RiskSettings;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
+import forge.gui.FacadeForgeGui;
 import forge.gui.controller.BacktestController;
 import forge.gui.report.GuiReportStore;
 import forge.gui.report.SavedReport;
 import forge.gui.viewmodel.BacktestViewModel;
+import forge.gui.viewmodel.GuiWorkflowType;
 import forge.model.FuturesInstrumentSpec;
 import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.engine.backtest.BacktestResult;
@@ -806,9 +808,9 @@ public class BacktestView {
                         setupPane.setExpanded(false);
                     }
             );
-            Thread thread = new Thread(task, "forge-gui-backtest");
-            thread.setDaemon(true);
-            thread.start();
+            FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .submitWorkflowTask(GuiWorkflowType.BACKTEST, task);
         } catch (RuntimeException exception) {
             viewModel.markFailed("Could not run backtest.", exception);
         }
