@@ -1,5 +1,7 @@
 package forge.gui.view;
 
+import forge.app.BacktestProgress;
+import forge.app.BacktestProgressListener;
 import forge.event.MarketEvent;
 import forge.config.BacktestRequest;
 import forge.config.RiskSettings;
@@ -11,6 +13,7 @@ import forge.gui.report.GuiReportStore;
 import forge.gui.report.SavedReport;
 import forge.gui.viewmodel.BacktestViewModel;
 import forge.gui.viewmodel.GuiWorkflowType;
+import forge.gui.viewmodel.GuiWorkflowTask;
 import forge.model.FuturesInstrumentSpec;
 import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.engine.backtest.BacktestResult;
@@ -145,7 +148,9 @@ public class BacktestView {
 
         Label statusLabel = new Label();
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
-        VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel);
+        VBox contractProgressRows = new VBox(5);
+        ContractProgressPanel contractProgressPanel = new ContractProgressPanel(contractProgressRows);
+        VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel, contractProgressRows);
 
         TabPane resultsTabs = createResultsTabs();
 
@@ -192,7 +197,8 @@ public class BacktestView {
                 maxDailyLossField,
                 resultsTabs,
                 setupPane,
-                currentReport
+                currentReport,
+                contractProgressPanel
         ));
         loadButton.setOnAction(event -> loadReport(owner, resultsTabs, currentReport, viewModel));
 
@@ -248,7 +254,8 @@ public class BacktestView {
     private VBox createProgressSection(
             BacktestViewModel viewModel,
             ProgressBar progressBar,
-            Label statusLabel
+            Label statusLabel,
+            VBox contractProgressRows
     ) {
         Label progressLabel = new Label("Backtest progress");
         progressLabel.setStyle("-fx-font-weight: bold;");
@@ -276,7 +283,7 @@ public class BacktestView {
         HBox progressRow = new HBox(10, progressBar, progressDetails);
         progressRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox section = new VBox(6, progressLabel, progressRow, statusLabel);
+        VBox section = new VBox(6, progressLabel, progressRow, contractProgressRows, statusLabel);
         section.setPadding(new Insets(8));
         section.setStyle(
                 "-fx-background-color: #ffffff;"
@@ -756,7 +763,8 @@ public class BacktestView {
             TextField maxDailyLossField,
             TabPane resultsTabs,
             TitledPane setupPane,
-            ObjectProperty<BacktestResult> currentReport
+            ObjectProperty<BacktestResult> currentReport,
+            ContractProgressPanel contractProgressPanel
     ) {
         /*
          * Intent: Validate backtest inputs, create the request, and start a background backtest task.
@@ -798,22 +806,55 @@ public class BacktestView {
                     riskSettings
             );
 
-            Task<BacktestResult> task = controller.runBacktestTask(request);
+            contractProgressPanel.configure(selectedWindows);
+            Task<BacktestResult> task = controller.runBacktestTask(
+                    request,
+                    workflowTask -> backtestProgressListener(workflowTask, contractProgressPanel)
+            );
             task.addEventHandler(
                     WorkerStateEvent.WORKER_STATE_SUCCEEDED,
                     event -> {
+                        contractProgressPanel.collapse();
                         viewModel.setResultSummary(task.getValue().toString());
                         currentReport.set(task.getValue());
                         renderReport(resultsTabs, task.getValue());
                         setupPane.setExpanded(false);
                     }
             );
+            task.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED, event -> contractProgressPanel.collapse());
+            task.addEventHandler(WorkerStateEvent.WORKER_STATE_CANCELLED, event -> contractProgressPanel.collapse());
             FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .submitWorkflowTask(GuiWorkflowType.BACKTEST, task);
         } catch (RuntimeException exception) {
+            contractProgressPanel.collapse();
             viewModel.markFailed("Could not run backtest.", exception);
         }
+    }
+
+    private BacktestProgressListener backtestProgressListener(
+            GuiWorkflowTask<BacktestResult> task,
+            ContractProgressPanel contractProgressPanel
+    ) {
+        return new BacktestProgressListener() {
+            @Override
+            public void onProgress(BacktestProgress progress) {
+                task.publishProgress(progress.getProcessedTicks(), progress.getTotalTicks());
+                task.publishStatusMessage("Running backtest...");
+                if (progress.getProcessedTicks() == progress.getTotalTicks()) {
+                    contractProgressPanel.collapse();
+                }
+            }
+
+            @Override
+            public void onContractProgress(String contractSymbol, BacktestProgress progress) {
+                contractProgressPanel.update(
+                        contractSymbol,
+                        progress.getProcessedTicks(),
+                        progress.getTotalTicks()
+                );
+            }
+        };
     }
 
     private double parseDouble(TextField field, String name) {

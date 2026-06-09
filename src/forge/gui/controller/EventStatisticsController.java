@@ -1,6 +1,7 @@
 package forge.gui.controller;
 
 import forge.app.EventStatisticsRequest;
+import forge.app.EventStatisticsProgressListener;
 import forge.app.FacadeForgeApplication;
 import forge.data.FacadeForgeData;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
@@ -13,6 +14,7 @@ import forge.study.MarketStudy;
 import javafx.concurrent.Task;
 
 import java.util.List;
+import java.util.function.Function;
 
 public class EventStatisticsController {
     private final FacadeForgeApplication forgeApplication;
@@ -108,6 +110,18 @@ public class EventStatisticsController {
             List<ContractTradeWindow> contractWindows,
             String eventName
     ) {
+        return runEventStatisticsTask(
+                contractWindows,
+                eventName,
+                task -> GuiProgressBindings.eventStatisticsProgress(task, "Running event statistics...")
+        );
+    }
+
+    public Task<EventStatisticsReport> runEventStatisticsTask(
+            List<ContractTradeWindow> contractWindows,
+            String eventName,
+            Function<forge.gui.viewmodel.GuiWorkflowTask<EventStatisticsReport>, EventStatisticsProgressListener> listenerFactory
+    ) {
         /*
          * Intent: Create a JavaFX task for event statistics off the UI thread.
          * Precondition: contractWindows must be selected and eventName must name a supported study/event.
@@ -124,7 +138,7 @@ public class EventStatisticsController {
                         new EventStatisticsRequest(
                                 contractWindows,
                                 eventName,
-                                GuiProgressBindings.eventStatisticsProgress(task, "Running event statistics...")
+                                listenerFactory.apply(task)
                         )
                 ),
                 this::applyEventStatisticsReport

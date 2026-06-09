@@ -15,6 +15,8 @@ import forge.event.FirstHourBreachEvent;
 import forge.event.MarketEventOccurrence;
 import forge.engine.MarketContext;
 import forge.engine.QueryDerivedDataStore;
+import forge.engine.concurrency.EngineJob;
+import forge.engine.concurrency.EngineJobRunner;
 import forge.trade.ExecutionEngine;
 import forge.trade.FacadeForgeTrade;
 import forge.trade.Fill;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BacktestEngine {
     private static final int DEFAULT_BATCH_SIZE = 100_000;
@@ -63,6 +66,7 @@ public class BacktestEngine {
     private final TradingDayClassifier tradingDayClassifier;
     private final TpoPeriodClassifier tpoPeriodClassifier;
     private final QueryDerivedDataStore derivedDataStore;
+    private final EngineJobRunner jobRunner;
 
     public BacktestEngine() {
         /*
@@ -95,7 +99,8 @@ public class BacktestEngine {
                 new EventBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier(),
-                defaultDerivedDataStore()
+                defaultDerivedDataStore(),
+                new EngineJobRunner("forge-backtest")
         );
     }
 
@@ -128,7 +133,8 @@ public class BacktestEngine {
                 new EventBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier(),
-                defaultDerivedDataStore()
+                defaultDerivedDataStore(),
+                new EngineJobRunner("forge-backtest")
         );
     }
 
@@ -161,7 +167,8 @@ public class BacktestEngine {
                 new EventBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier(),
-                derivedDataStore
+                derivedDataStore,
+                new EngineJobRunner("forge-backtest")
         );
     }
 
@@ -182,7 +189,8 @@ public class BacktestEngine {
                 new EventBuildService(),
                 new TradingDayClassifier(),
                 new TpoPeriodClassifier(),
-                defaultDerivedDataStore()
+                defaultDerivedDataStore(),
+                new EngineJobRunner("forge-backtest")
         );
     }
 
@@ -197,6 +205,34 @@ public class BacktestEngine {
             TradingDayClassifier tradingDayClassifier,
             TpoPeriodClassifier tpoPeriodClassifier,
             QueryDerivedDataStore derivedDataStore
+    ) {
+        this(
+                tradeBatchReaderFactory,
+                strategyCatalog,
+                contractNameResolver,
+                futuresInstrumentSpecProvider,
+                executionEngine,
+                featureBuildService,
+                eventBuildService,
+                tradingDayClassifier,
+                tpoPeriodClassifier,
+                derivedDataStore,
+                new EngineJobRunner("forge-backtest")
+        );
+    }
+
+    BacktestEngine(
+            TradeBatchReaderFactory tradeBatchReaderFactory,
+            StrategyCatalog strategyCatalog,
+            ContractNameResolver contractNameResolver,
+            FuturesInstrumentSpecProvider futuresInstrumentSpecProvider,
+            ExecutionEngine executionEngine,
+            FeatureBuildService featureBuildService,
+            EventBuildService eventBuildService,
+            TradingDayClassifier tradingDayClassifier,
+            TpoPeriodClassifier tpoPeriodClassifier,
+            QueryDerivedDataStore derivedDataStore,
+            EngineJobRunner jobRunner
     ) {
         /*
          * Intent: Create a fully wired backtest engine with explicit testable dependencies.
@@ -214,6 +250,7 @@ public class BacktestEngine {
         this.tradingDayClassifier = Objects.requireNonNull(tradingDayClassifier, "tradingDayClassifier is required");
         this.tpoPeriodClassifier = Objects.requireNonNull(tpoPeriodClassifier, "tpoPeriodClassifier is required");
         this.derivedDataStore = Objects.requireNonNull(derivedDataStore, "derivedDataStore is required");
+        this.jobRunner = Objects.requireNonNull(jobRunner, "jobRunner is required");
     }
 
     public BacktestResult run(BacktestRequest request) {
@@ -235,6 +272,79 @@ public class BacktestEngine {
          */
         Objects.requireNonNull(request, "request is required");
         BacktestProgressListener listener = progressListener == null ? BacktestProgressListener.NO_OP : progressListener;
+        List<List<ContractTradeWindow>> windowGroups = groupWindowsForConcurrency(request);
+        if (windowGroups.size() > 1) {
+            return runConcurrent(request, listener, windowGroups);
+        }
+        return runSequential(request, listener);
+    }
+
+    private BacktestResult runConcurrent(
+            BacktestRequest request,
+            BacktestProgressListener listener,
+            List<List<ContractTradeWindow>> windowGroups
+    ) {
+        /*
+         * Intent: Run independent backtest window groups concurrently and merge their results.
+         * Precondition: Request must contain windows that can be split without sharing same-day risk state.
+         * Returns: BacktestResult aggregated across completed instrument jobs.
+         * Postcondition: Overlapping same-instrument windows remain grouped; independent windows run in parallel.
+         */
+        StrategyRequirements requirements = createStrategy(request.getStrategyOptions().getStrategyName()).getRequirements();
+        List<BacktestRequest> groupedRequests = new ArrayList<>();
+        for (List<ContractTradeWindow> windows : windowGroups) {
+            BacktestRequest groupedRequest = new BacktestRequest(
+                    request.getStrategyOptions(),
+                    windows,
+                    request.getMarketEventOptions(),
+                    request.getRiskSettings(),
+                    request.getOrderSettings()
+            );
+            groupedRequests.add(groupedRequest);
+        }
+        long totalTicks = countProgressTicks(requirements, groupedRequests);
+        AtomicLong processedTicks = new AtomicLong(0);
+        listener.onProgress(new BacktestProgress(0, totalTicks));
+
+        List<EngineJob<BacktestResult>> jobs = new ArrayList<>();
+        for (BacktestRequest groupedRequest : groupedRequests) {
+            BacktestProgressListener aggregateListener = aggregateProgressListener(listener, processedTicks, totalTicks);
+            jobs.add(() -> runSequential(groupedRequest, aggregateListener));
+        }
+
+        List<BacktestResult> results = jobRunner.runAll(jobs);
+        if (processedTicks.get() < totalTicks) {
+            listener.onProgress(new BacktestProgress(totalTicks, totalTicks));
+        }
+        return mergeResults(request.getStrategyOptions().getStrategyName(), results);
+    }
+
+    private long countProgressTicks(StrategyRequirements requirements, List<BacktestRequest> groupedRequests) {
+        /*
+         * Intent: Count expected progress ticks for independent backtest groups without serial startup delay.
+         * Precondition: Grouped requests must be safe to count independently.
+         * Returns: Total expected progress units for aggregate reporting.
+         * Postcondition: No trade simulation has run; only counts and derived-data cache checks are performed.
+         */
+        List<EngineJob<Long>> countJobs = new ArrayList<>();
+        for (BacktestRequest groupedRequest : groupedRequests) {
+            countJobs.add(() -> tradeBatchReaderFactory.countTicks(groupedRequest.getContractWindows())
+                    * streamPasses(requirements, groupedRequest));
+        }
+        long totalTicks = 0;
+        for (Long count : jobRunner.runAll(countJobs)) {
+            totalTicks += count;
+        }
+        return totalTicks;
+    }
+
+    private BacktestResult runSequential(BacktestRequest request, BacktestProgressListener listener) {
+        /*
+         * Intent: Run one backtest workflow sequentially over the supplied request windows.
+         * Precondition: Request and listener must be non-null.
+         * Returns: BacktestResult grouped by instrument and contract.
+         * Postcondition: Progress is reported for this request's tick-stream passes.
+         */
         TradingStrategy strategy = createStrategy(request.getStrategyOptions().getStrategyName());
         StrategyRequirements requirements = strategy.getRequirements();
         strategy.onBacktestStart();
@@ -244,6 +354,7 @@ public class BacktestEngine {
         long processedProgressTicks = 0;
         boolean willStreamSessionRangeFeatures = shouldStreamSessionRangeFeatures(request, requirements);
         boolean willStreamMarketEventOccurrences = shouldStreamMarketEventOccurrences(request, requirements);
+        ContractProgressTracker contractProgressTracker = new ContractProgressTracker(request, streamPasses);
         listener.onProgress(new BacktestProgress(0, totalProgressTicks));
 
         List<SessionRangeFeature> sessionRangeFeatures = loadOrBuildSessionRangeFeatures(
@@ -251,7 +362,8 @@ public class BacktestEngine {
                 requirements,
                 listener,
                 processedProgressTicks,
-                totalProgressTicks
+                totalProgressTicks,
+                contractProgressTracker
         );
         if (willStreamSessionRangeFeatures) {
             processedProgressTicks += totalTicks;
@@ -263,7 +375,8 @@ public class BacktestEngine {
                 sessionRangeFeatures,
                 listener,
                 processedProgressTicks,
-                totalProgressTicks
+                totalProgressTicks,
+                contractProgressTracker
         );
         if (willStreamMarketEventOccurrences) {
             processedProgressTicks += totalTicks;
@@ -283,6 +396,7 @@ public class BacktestEngine {
                 listener,
                 processedProgressTicks,
                 totalProgressTicks,
+                contractProgressTracker,
                 new BacktestRunProcessor(
                         strategy,
                         requirements,
@@ -308,12 +422,111 @@ public class BacktestEngine {
         );
     }
 
+    private List<List<ContractTradeWindow>> groupWindowsForConcurrency(BacktestRequest request) {
+        /*
+         * Intent: Group selected contract windows into independent backtest jobs.
+         * Precondition: Request must contain validated contract windows.
+         * Returns: Window groups where non-overlapping same-instrument contracts can run separately.
+         * Postcondition: Request windows are not modified.
+         */
+        Map<String, List<ContractTradeWindow>> windowsByInstrument = new LinkedHashMap<>();
+        for (ContractTradeWindow window : request.getContractWindows()) {
+            windowsByInstrument
+                    .computeIfAbsent(contractNameResolver.resolveInstrumentSymbol(window.getContractSymbol()), ignored -> new ArrayList<>())
+                    .add(window);
+        }
+        List<List<ContractTradeWindow>> windowGroups = new ArrayList<>();
+        for (List<ContractTradeWindow> windows : windowsByInstrument.values()) {
+            if (canRunContractsIndependently(windows)) {
+                for (ContractTradeWindow window : windows) {
+                    windowGroups.add(List.of(window));
+                }
+            } else {
+                windowGroups.add(windows);
+            }
+        }
+        return windowGroups;
+    }
+
+    private boolean canRunContractsIndependently(List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Decide whether same-instrument contract windows can be simulated in parallel.
+         * Precondition: Windows belong to the same root instrument.
+         * Returns: True when no selected windows overlap by date.
+         * Postcondition: Windows are not modified.
+         */
+        for (int i = 0; i < windows.size(); i++) {
+            for (int j = i + 1; j < windows.size(); j++) {
+                if (overlaps(windows.get(i), windows.get(j))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean overlaps(ContractTradeWindow first, ContractTradeWindow second) {
+        return !first.getEndDate().isBefore(second.getStartDate())
+                && !second.getEndDate().isBefore(first.getStartDate());
+    }
+
+    private BacktestProgressListener aggregateProgressListener(
+            BacktestProgressListener listener,
+            AtomicLong aggregateProcessedTicks,
+            long totalTicks
+    ) {
+        /*
+         * Intent: Convert one instrument job's progress into aggregate backtest progress.
+         * Precondition: Listener and aggregate counter are shared across instrument jobs.
+         * Returns: Listener safe for one instrument job to call.
+         * Postcondition: Aggregate progress increases by this job's local delta.
+         */
+        AtomicLong localProcessedTicks = new AtomicLong(0);
+        return new BacktestProgressListener() {
+            @Override
+            public void onProgress(BacktestProgress progress) {
+                long previousLocal = localProcessedTicks.getAndSet(progress.getProcessedTicks());
+                long delta = Math.max(0, progress.getProcessedTicks() - previousLocal);
+                long aggregate = aggregateProcessedTicks.addAndGet(delta);
+                listener.onProgress(new BacktestProgress(Math.min(aggregate, totalTicks), totalTicks));
+            }
+
+            @Override
+            public void onContractProgress(String contractSymbol, BacktestProgress progress) {
+                listener.onContractProgress(contractSymbol, progress);
+            }
+        };
+    }
+
+    private BacktestResult mergeResults(String strategyName, List<BacktestResult> results) {
+        /*
+         * Intent: Merge independent instrument backtest results into one final result.
+         * Precondition: Results must all come from the same strategy.
+         * Returns: Aggregated BacktestResult.
+         * Postcondition: Source result objects are not modified.
+         */
+        Map<String, List<ContractBacktestResult>> contractsByInstrument = new LinkedHashMap<>();
+        for (BacktestResult result : results) {
+            for (InstrumentBacktestResult instrumentResult : result.getInstrumentResults()) {
+                contractsByInstrument
+                        .computeIfAbsent(instrumentResult.getInstrumentSymbol(), ignored -> new ArrayList<>())
+                        .addAll(instrumentResult.getContractResults());
+            }
+        }
+        List<InstrumentBacktestResult> instrumentResults = new ArrayList<>();
+        for (Map.Entry<String, List<ContractBacktestResult>> entry : contractsByInstrument.entrySet()) {
+            instrumentResults.add(new InstrumentBacktestResult(entry.getKey(), entry.getValue()));
+        }
+        return new BacktestResult(strategyName, instrumentResults);
+    }
+
     private List<SessionRangeFeature> loadOrBuildSessionRangeFeatures(
             BacktestRequest request,
             StrategyRequirements requirements,
             BacktestProgressListener listener,
             long processedBeforePass,
-            long totalProgressTicks
+            long totalProgressTicks,
+            ContractProgressTracker contractProgressTracker
     ) {
         /*
          * Intent: Provide required session range features from cache when possible, otherwise build them from ticks.
@@ -331,7 +544,7 @@ public class BacktestEngine {
             return derivedDataStore.loadSessionRanges(request.getContractWindows());
         }
         forge.feature.SessionRangeFeatureCalculator.Accumulator accumulator = featureBuildService.newSessionRangeAccumulator();
-        streamTicks(request, listener, processedBeforePass, totalProgressTicks, accumulator);
+        streamTicks(request, listener, processedBeforePass, totalProgressTicks, contractProgressTracker, accumulator);
         List<SessionRangeFeature> features = accumulator.getFeatures();
         derivedDataStore.saveSessionRanges(features);
         derivedDataStore.markSessionRangesBuilt(request.getContractWindows());
@@ -344,7 +557,8 @@ public class BacktestEngine {
             List<SessionRangeFeature> sessionRangeFeatures,
             BacktestProgressListener listener,
             long processedBeforePass,
-            long totalProgressTicks
+            long totalProgressTicks,
+            ContractProgressTracker contractProgressTracker
     ) {
         /*
          * Intent: Provide required market event occurrences from cache when possible, otherwise detect them from ticks.
@@ -360,7 +574,7 @@ public class BacktestEngine {
         }
         forge.event.FirstHourBreachEventDetector.Accumulator accumulator =
                 eventBuildService.newFirstHourBreachAccumulator(sessionRangeFeatures);
-        streamTicks(request, listener, processedBeforePass, totalProgressTicks, accumulator);
+        streamTicks(request, listener, processedBeforePass, totalProgressTicks, contractProgressTracker, accumulator);
         List<MarketEventOccurrence> events = accumulator.getEvents();
         derivedDataStore.saveMarketEventOccurrences(events);
         derivedDataStore.markMarketEventOccurrencesBuilt(request.getContractWindows(), FirstHourBreachEvent.EVENT_NAME);
@@ -492,6 +706,7 @@ public class BacktestEngine {
             BacktestProgressListener listener,
             long processedBeforePass,
             long totalProgressTicks,
+            ContractProgressTracker contractProgressTracker,
             TradeTickStreamProcessor processor
     ) {
         /*
@@ -511,6 +726,7 @@ public class BacktestEngine {
             for (TradeTick tick : batch) {
                 processor.onTick(tick);
             }
+            contractProgressTracker.recordBatch(batch, listener);
             processedTicks += batch.size();
             listener.onProgress(new BacktestProgress(
                     Math.min(processedBeforePass + processedTicks, totalProgressTicks),
@@ -807,6 +1023,50 @@ public class BacktestEngine {
         TradeBatchReader openReader(List<ContractTradeWindow> windows, int batchSize);
 
         long countTicks(List<ContractTradeWindow> windows);
+    }
+
+    private class ContractProgressTracker {
+        private final Map<String, Long> totalTicksByContract = new LinkedHashMap<>();
+        private final Map<String, Long> processedTicksByContract = new HashMap<>();
+
+        private ContractProgressTracker(BacktestRequest request, int streamPasses) {
+            /*
+             * Intent: Pre-calculate per-contract progress totals for a backtest request.
+             * Precondition: Request windows and stream pass count must match the active run.
+             * Returns: Constructed tracker.
+             * Postcondition: Each selected contract has an independent progress total.
+             */
+            for (ContractTradeWindow window : request.getContractWindows()) {
+                long windowTicks = tradeBatchReaderFactory.countTicks(List.of(window)) * streamPasses;
+                totalTicksByContract.merge(window.getContractSymbol(), windowTicks, Long::sum);
+                processedTicksByContract.putIfAbsent(window.getContractSymbol(), 0L);
+            }
+        }
+
+        private void recordBatch(List<TradeTick> batch, BacktestProgressListener listener) {
+            /*
+             * Intent: Add one streamed batch to per-contract progress totals.
+             * Precondition: Batch must belong to the active request's selected contracts.
+             * Returns: Nothing.
+             * Postcondition: Listener receives scoped progress updates for contracts present in the batch.
+             */
+            Map<String, Long> batchCounts = new HashMap<>();
+            for (TradeTick tick : batch) {
+                if (tick != null) {
+                    batchCounts.merge(tick.getContractSymbol(), 1L, Long::sum);
+                }
+            }
+            for (Map.Entry<String, Long> entry : batchCounts.entrySet()) {
+                String contractSymbol = entry.getKey();
+                long total = totalTicksByContract.getOrDefault(contractSymbol, 0L);
+                long processed = Math.min(
+                        total,
+                        processedTicksByContract.getOrDefault(contractSymbol, 0L) + entry.getValue()
+                );
+                processedTicksByContract.put(contractSymbol, processed);
+                listener.onContractProgress(contractSymbol, new BacktestProgress(processed, total));
+            }
+        }
     }
 
     private static class SessionKey {

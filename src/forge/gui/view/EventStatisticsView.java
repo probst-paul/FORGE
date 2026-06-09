@@ -1,5 +1,7 @@
 package forge.gui.view;
 
+import forge.app.EventStatisticsProgress;
+import forge.app.EventStatisticsProgressListener;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.reporting.eventstatistics.EventStatisticsReport;
@@ -10,6 +12,7 @@ import forge.gui.report.GuiReportStore;
 import forge.gui.report.SavedReport;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.gui.viewmodel.GuiWorkflowType;
+import forge.gui.viewmodel.GuiWorkflowTask;
 import forge.study.MarketStudy;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
@@ -106,7 +109,9 @@ public class EventStatisticsView {
 
         Label statusLabel = new Label();
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
-        VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel);
+        VBox contractProgressRows = new VBox(5);
+        ContractProgressPanel contractProgressPanel = new ContractProgressPanel(contractProgressRows);
+        VBox progressSection = createProgressSection(viewModel, progressBar, statusLabel, contractProgressRows);
 
         TabPane resultsTabs = createResultsTabs();
 
@@ -136,7 +141,8 @@ public class EventStatisticsView {
                 studyComboBox.getValue(),
                 resultsTabs,
                 setupPane,
-                currentReport
+                currentReport,
+                contractProgressPanel
         ));
         loadButton.setOnAction(event -> loadReport(owner, resultsTabs, currentReport, viewModel));
 
@@ -160,7 +166,8 @@ public class EventStatisticsView {
     private VBox createProgressSection(
             EventStatisticsViewModel viewModel,
             ProgressBar progressBar,
-            Label statusLabel
+            Label statusLabel,
+            VBox contractProgressRows
     ) {
         Label progressLabel = new Label("Event statistics progress");
         progressLabel.setStyle("-fx-font-weight: bold;");
@@ -188,7 +195,7 @@ public class EventStatisticsView {
         HBox progressRow = new HBox(10, progressBar, progressDetails);
         progressRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox section = new VBox(6, progressLabel, progressRow, statusLabel);
+        VBox section = new VBox(6, progressLabel, progressRow, contractProgressRows, statusLabel);
         section.setPadding(new Insets(8));
         section.setStyle(
                 "-fx-background-color: #ffffff;"
@@ -404,7 +411,8 @@ public class EventStatisticsView {
             StudySelection studySelection,
             TabPane resultsTabs,
             TitledPane setupPane,
-            ObjectProperty<EventStatisticsReport> currentReport
+            ObjectProperty<EventStatisticsReport> currentReport,
+            ContractProgressPanel contractProgressPanel
     ) {
         /*
          * Intent: Validate statistics selections and start a background statistics task.
@@ -425,25 +433,56 @@ public class EventStatisticsView {
         }
 
         try {
+            contractProgressPanel.configure(selectedWindows);
             Task<EventStatisticsReport> task = controller.runEventStatisticsTask(
                     selectedWindows,
-                    studySelection.study().getName()
+                    studySelection.study().getName(),
+                    workflowTask -> eventStatisticsProgressListener(workflowTask, contractProgressPanel)
             );
             task.addEventHandler(
                     WorkerStateEvent.WORKER_STATE_SUCCEEDED,
                     event -> {
+                        contractProgressPanel.collapse();
                         viewModel.setResultSummary(formatReport(task.getValue()));
                         currentReport.set(task.getValue());
                         renderReport(resultsTabs, task.getValue());
                         setupPane.setExpanded(false);
                     }
             );
+            task.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED, event -> contractProgressPanel.collapse());
+            task.addEventHandler(WorkerStateEvent.WORKER_STATE_CANCELLED, event -> contractProgressPanel.collapse());
             FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .submitWorkflowTask(GuiWorkflowType.EVENT_STATISTICS, task);
         } catch (RuntimeException exception) {
+            contractProgressPanel.collapse();
             viewModel.markFailed("Could not run event statistics.", exception);
         }
+    }
+
+    private EventStatisticsProgressListener eventStatisticsProgressListener(
+            GuiWorkflowTask<EventStatisticsReport> task,
+            ContractProgressPanel contractProgressPanel
+    ) {
+        return new EventStatisticsProgressListener() {
+            @Override
+            public void onProgress(EventStatisticsProgress progress) {
+                task.publishProgress(progress.getProcessedTicks(), progress.getTotalTicks());
+                task.publishStatusMessage("Running event statistics...");
+                if (progress.getProcessedTicks() == progress.getTotalTicks()) {
+                    contractProgressPanel.collapse();
+                }
+            }
+
+            @Override
+            public void onContractProgress(String contractSymbol, EventStatisticsProgress progress) {
+                contractProgressPanel.update(
+                        contractSymbol,
+                        progress.getProcessedTicks(),
+                        progress.getTotalTicks()
+                );
+            }
+        };
     }
 
     private List<ContractTradeWindow> selectedWindows(List<ContractSelection> contractSelections) {

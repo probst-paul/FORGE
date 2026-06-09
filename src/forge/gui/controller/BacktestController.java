@@ -1,6 +1,7 @@
 package forge.gui.controller;
 
 import forge.app.FacadeForgeApplication;
+import forge.app.BacktestProgressListener;
 import forge.config.BacktestRequest;
 import forge.config.FacadeForgeConfig;
 import forge.config.MarketEventOptions;
@@ -20,6 +21,7 @@ import forge.strategy.TradingStrategy;
 import javafx.concurrent.Task;
 
 import java.util.List;
+import java.util.function.Function;
 
 public class BacktestController {
     private final FacadeForgeApplication forgeApplication;
@@ -162,6 +164,16 @@ public class BacktestController {
     }
 
     public Task<BacktestResult> runBacktestTask(BacktestRequest request) {
+        return runBacktestTask(
+                request,
+                task -> GuiProgressBindings.backtestProgress(task, "Running backtest...")
+        );
+    }
+
+    public Task<BacktestResult> runBacktestTask(
+            BacktestRequest request,
+            Function<forge.gui.viewmodel.GuiWorkflowTask<BacktestResult>, BacktestProgressListener> listenerFactory
+    ) {
         /*
          * Intent: Create a JavaFX task for running a backtest off the UI thread.
          * Precondition: request must be a complete backtest configuration.
@@ -178,7 +190,7 @@ public class BacktestController {
                 "Could not run backtest.",
                 task -> forgeApplication.forgeApplicationAccess().runBacktest(
                         request,
-                        GuiProgressBindings.backtestProgress(task, "Running backtest...")
+                        listenerFactory.apply(task)
                 ),
                 this::applyBacktestResult
         );
