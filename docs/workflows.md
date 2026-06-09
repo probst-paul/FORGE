@@ -25,7 +25,7 @@ FORGE JavaFX GUI
    └─ Save/load the latest backtest report as a project-local .dat file
 ```
 
-The GUI is the primary user-facing surface for market research. Backtest and event-statistics results persist while the GUI window remains open, and report snapshots can be saved and loaded from project-local `.dat` files.
+The GUI is the primary user-facing surface for market research. Import, event-statistics, and backtest runs execute as background tasks so the window remains responsive. Backtest and event-statistics results persist while the GUI window remains open, and report snapshots can be saved and loaded from project-local `.dat` files.
 
 ### GUI Import Data
 
@@ -37,11 +37,15 @@ The GUI event-statistics screen lets the user select a study and imported rollov
 
 `First Hour Breach Frequency` reports long breaches, short breaches, no-breach sessions, and breach rate by instrument and contract. Missing derived data is built and persisted to PostgreSQL before the statistic is displayed.
 
+When multiple contract windows are selected, independent event-statistics jobs can run concurrently. The screen reports aggregate progress for the full run and per-contract progress rows while contract-specific work is active.
+
 Event-statistics reports can be saved to and loaded from `.dat` files in `runtime/reports`. The saved file contains the report snapshot, not database connection settings.
 
 ### GUI Backtest
 
 The GUI backtest screen lets the user select rollover-clipped contract windows, a strategy, and risk settings. Backtest results include summary metrics, instrument and contract tables, and simulated trade rows.
+
+When multiple non-overlapping contract windows are selected, the backtest engine can run those windows concurrently. Overlapping same-instrument windows remain grouped to preserve daily risk and strategy state. The screen reports aggregate progress for the full run and temporary per-contract progress rows while each contract is active.
 
 Backtest reports can be saved to and loaded from `.dat` files in `runtime/reports`. The most recent run also remains available in memory while the GUI window is open.
 

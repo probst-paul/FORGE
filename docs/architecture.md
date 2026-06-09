@@ -24,7 +24,7 @@ strategy/
   trade interpretation for a setup, including entry decisions, exits, filters, and risk settings
 
 engine/
-  execution of event statistics and backtest simulation workflows
+  execution of event statistics and backtest simulation workflows, including independent concurrent engine jobs
 
 trade/
   order, fill, position lifecycle, trade plan, and trade result models
@@ -67,6 +67,14 @@ RTH TPO periods are 30-minute Central Time periods starting at `08:30`: `A` is `
 `OpeningRangeContinuationStrategy` uses derived Central Time session features and first-hour breach event occurrences. The feature layer calculates the overnight range from `17:00` through `08:29:59`, the RTH first-hour range from `08:30` through `09:29:59`, and the event layer detects the first breach after the first hour.
 
 The strategy declares that it requires session ranges and first-hour breach event occurrences, and that entries should only evaluate during RTH TPO periods `C` and `D` (`09:30-10:29`). It only arms if the first-hour range remains inside the overnight range, allows one trade per day, and targets the overnight high/low with a first-hour opposite-side stop and `10:30` time stop.
+
+## Engine Concurrency
+
+The GUI submits import, event-statistics, and backtest work as background JavaFX tasks so long-running database reads and simulations do not block the UI thread. The engine layer also uses `EngineJobRunner` to run independent event-statistics and backtest jobs concurrently.
+
+For backtests, FORGE splits selected contract windows into independent jobs when the windows do not overlap. Overlapping windows for the same instrument stay grouped so strategy state and daily risk checks are evaluated consistently. Completed contract-level results are merged back into instrument-level reports before display.
+
+Event-statistics runs use the same concurrent job pattern for independent contract windows. Both event statistics and backtests report aggregate progress, and the GUI can also display per-contract progress rows while multi-contract work is running.
 
 ## Execution
 

@@ -17,6 +17,7 @@ FORGE is an early-stage system rather than a complete historical market replay o
 - Tick-native price storage and strategy math using `BIGINT` tick counts instead of floating-point price fields
 - Derived session features for overnight, first-hour RTH, and full RTH ranges
 - Event/statistics workflow for studying market setup frequency before simulating trades
+- Concurrent event-statistics and backtest execution for independent contract windows, with aggregate and per-contract progress reporting
 - Basic backtest simulation with trade plans, risk checks, target/stop/time-stop exits, P/L, MFE, and MAE
 - Java serialization support for GUI import-path preferences and saved report `.dat` files
 - Unit-tested behavior across implemented application, data, engine, GUI, risk, statistics, strategy, and trade layers
@@ -44,7 +45,7 @@ FORGE JavaFX GUI
    └─ Save/load the latest backtest report as a project-local .dat file
 ```
 
-The GUI is the primary user-facing surface for research workflows. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
+The GUI is the primary user-facing surface for research workflows. Backtest and event-statistics runs execute as background tasks so the JavaFX window remains responsive. Multi-contract runs display aggregate progress plus per-contract progress while work is active. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
 
 ## Admin CLI
 
@@ -79,7 +80,7 @@ src/forge/benchmark  Optional benchmark workflow over import, derived data, stat
 src/forge/cli        Admin CLI controller and selection services
 src/forge/config     Backtest configuration objects
 src/forge/data       Data facade, importing, PostgreSQL, market data, catalog, rollover, and derived build packages
-src/forge/engine     Engine facade, market context, backtest engine, and event-statistics engine packages
+src/forge/engine     Engine facade, market context, concurrent job runner, backtest engine, and event-statistics engine packages
 src/forge/feature    Derived feature architecture, session ranges, and reusable range helpers
 src/forge/event      Market event interface, occurrence detection, catalog, facade, and result models
 src/forge/gui        JavaFX application, facade, controllers, views, view models, and presets

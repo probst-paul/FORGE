@@ -1,113 +1,29 @@
 # FORGE Class Model
 
 ```mermaid
+---
+config:
+  layout: elk
+---
 classDiagram
     direction LR
 
-    class Main {
-        +main(String[] args)
-    }
+    class Main
+    class ForgeGuiApplication
+    class FacadeForgeCli
+    class FacadeForgeGui
+    class FacadeForgeApplication
+    class FacadeForgeData
+    class FacadeForgeEngine
+    class FacadeForgeReporting
+    class FacadeForgeRisk
+    class FacadeForgeTrade
 
-    class ForgeGuiApplication {
-        +launchGui(String[] args)
-        +start(Stage stage)
-    }
-
-    class FacadeForgeCli {
-        +getTheInstance()
-        +forgeCliAccess()
-    }
-
-    class FacadeForgeGui {
-        +getTheInstance()
-        +forgeGuiAccess()
-    }
-
-    class FacadeForgeApplication {
-        +getTheInstance()
-        +forgeApplicationAccess()
-    }
-
-    class FacadeForgeData {
-        +getTheInstance()
-        +forgeDataAccess()
-    }
-
-    class FacadeForgeEngine {
-        +getTheInstance()
-        +forgeEngineAccess()
-    }
-
-    class FacadeForgeReporting {
-        +getTheInstance()
-        +forgeReportingAccess()
-    }
-
-    class FacadeForgeRisk {
-        +getTheInstance()
-        +forgeRiskAccess()
-    }
-
-    class FacadeForgeTrade {
-        +getTheInstance()
-        +forgeTradeAccess()
-    }
-
-    class CliApplicationController {
-        +run()
-    }
-
-    class InstrumentSelectionService {
-        +selectContracts(...)
-    }
-
-    class MainWindowController {
-        +createView()
-    }
-
-    class ImportDataController {
-        +planImport(String path)
-        +importDataTask(...)
-    }
-
-    class EventStatisticsController {
-        +runEventStatisticsTask(...)
-    }
-
-    class BacktestController {
-        +runBacktestTask(...)
-    }
-
-    class MainWindowView
-    class ImportDataView
-    class EventStatisticsView
-    class BacktestView
-
-    class InstrumentDataCatalog {
-        +getAvailableInstruments()
-        +getAvailableContractWindows()
-    }
-
-    class ScidDataImportService {
-        +planImport(Path path)
-        +importFile(...)
-    }
-
-    class DerivedDataBuildService {
-        +planBuild(...)
-        +runBuild(...)
-    }
-
-    class PostgresTradeRepository {
-        +importTrades(...)
-        +readTicks(...)
-        +persistDerivedData(...)
-        +wipeForgeTables()
-    }
-
-    class ContractRolloverCalendar {
-        +getActiveWindow(...)
-    }
+    class CliApplicationController
+    class MainWindowController
+    class ImportDataController
+    class EventStatisticsController
+    class BacktestController
 
     class BacktestEngine {
         +run(BacktestRequest request)
@@ -118,58 +34,24 @@ classDiagram
         +run(EventStatisticsQueryRequest request)
     }
 
-    class BacktestRequest {
-        -List~ContractTradeWindow~ contractWindows
-        -StrategyOptions strategyOptions
-        -RiskSettings riskSettings
+    class EngineJobRunner {
+        +runAll(List~EngineJob~ jobs)
     }
 
-    class EventStatisticsQueryRequest {
-        -List~ContractTradeWindow~ contractWindows
-        -String studyName
+    class EngineJob~T~ {
+        <<interface>>
+        +run()
     }
 
-    class BacktestResult {
-        -List~InstrumentBacktestResult~ instrumentResults
-        -long ticksProcessed
-        -long orderSignals
-    }
-
-    class EventStatisticsResult {
-        -EventStatisticsReport report
-    }
-
-    class BacktestReport {
-        -List~InstrumentPerformanceReport~ instrumentReports
-    }
-
-    class EventStatisticsReport {
-        -List~InstrumentEventStatistics~ instrumentStatistics
-    }
+    class BacktestRequest
+    class EventStatisticsQueryRequest
+    class BacktestResult
+    class EventStatisticsResult
+    class ReportingModels
+    class DataAccess
 
     class TradingStrategy {
         <<interface>>
-        +evaluate(MarketContext context)
-        +getConfigurationProfile()
-    }
-
-    class MarketEvent {
-        <<interface>>
-        +getEventName()
-        +getEventVersion()
-    }
-
-    class FeatureBuildService {
-        +buildRequiredFeatures(...)
-    }
-
-    class StudyDefinition {
-        +getStudyName()
-        +getRequiredEvents()
-    }
-
-    class StatisticsService {
-        +aggregate(...)
     }
 
     class RiskManager {
@@ -187,68 +69,33 @@ classDiagram
         +fill(OrderRequest request, TradeTick tick)
     }
 
-    class GuiPreferencesStore {
-        +save(GuiUserPreferences preferences)
-        +load()
+    class GuiBackgroundTasks:::redNote {
+        Concurrency
+        JavaFX Task
+        background import, statistics, backtest
     }
 
-    class GuiUserPreferences {
-        <<Serializable>>
-        -String lastScidDirectory
-        -String importScidFilePath
+    class EngineConcurrentJobs:::redNote {
+        Concurrency
+        ExecutorService
+        Future
+        ThreadFactory
     }
 
-    class GuiReportStore {
-        +save(Path path, SavedReport~T~ report)
-        +load(Path path, Class~T~ reportClass, String expectedType)
-    }
-
-    class SavedReport~T~ {
-        <<Serializable>>
-        -String reportType
-        -T report
-        -LocalDateTime savedAt
-    }
-
-    class ClasspathCatalog~T~ {
-        +discover()
-    }
-
-    class LambdaUsage {
-        Lambdas
-        GUI event handlers
-        progress listeners
-        computeIfAbsent callbacks
-    }
-
-    class StreamUsage {
-        Streams
-        filter rollover trades
-        parse contract selections
-        discover classpath implementations
-    }
-
-    class ObjectReadWriteUsage {
-        Object read/write
-        ObjectInputStream
-        ObjectOutputStream
-        project-local .dat files
+    class ContractWindowConcurrency:::redNote {
+        Concurrency
+        independent contract windows
+        aggregate and per-contract progress
     }
 
     Main --> FacadeForgeCli
     ForgeGuiApplication --> FacadeForgeGui
 
     FacadeForgeCli --> CliApplicationController
-    CliApplicationController --> InstrumentSelectionService
     FacadeForgeGui --> MainWindowController
-    MainWindowController --> MainWindowView
-    MainWindowView --> ImportDataView
-    MainWindowView --> EventStatisticsView
-    MainWindowView --> BacktestView
-
-    ImportDataView --> ImportDataController
-    EventStatisticsView --> EventStatisticsController
-    BacktestView --> BacktestController
+    MainWindowController --> ImportDataController
+    MainWindowController --> EventStatisticsController
+    MainWindowController --> BacktestController
 
     CliApplicationController --> FacadeForgeApplication
     ImportDataController --> FacadeForgeApplication
@@ -259,60 +106,44 @@ classDiagram
     FacadeForgeApplication --> FacadeForgeEngine
     FacadeForgeApplication --> FacadeForgeReporting
 
-    FacadeForgeData --> InstrumentDataCatalog
-    FacadeForgeData --> ScidDataImportService
-    FacadeForgeData --> DerivedDataBuildService
-    InstrumentDataCatalog --> ContractRolloverCalendar
-    InstrumentDataCatalog --> PostgresTradeRepository
-    ScidDataImportService --> PostgresTradeRepository
-    DerivedDataBuildService --> PostgresTradeRepository
-
     FacadeForgeEngine --> BacktestEngine
     FacadeForgeEngine --> EventStatisticsEngine
+
+    BacktestEngine --> EngineJobRunner
+    EventStatisticsEngine --> EngineJobRunner
+    EngineJobRunner --> EngineJob
+
     BacktestEngine --> BacktestRequest
     BacktestEngine --> TradingStrategy
-    BacktestEngine --> FeatureBuildService
-    BacktestEngine --> MarketEvent
     BacktestEngine --> FacadeForgeRisk
     BacktestEngine --> FacadeForgeTrade
     BacktestEngine --> BacktestResult
+
     EventStatisticsEngine --> EventStatisticsQueryRequest
-    EventStatisticsEngine --> StudyDefinition
-    EventStatisticsEngine --> StatisticsService
     EventStatisticsEngine --> EventStatisticsResult
 
+    FacadeForgeData --> DataAccess
     FacadeForgeRisk --> RiskManager
     FacadeForgeTrade --> TradeLifecycleEngine
     TradeLifecycleEngine --> ExecutionEngine
 
-    FacadeForgeReporting --> BacktestReport
-    FacadeForgeReporting --> EventStatisticsReport
-    BacktestResult --> BacktestReport
-    EventStatisticsResult --> EventStatisticsReport
+    FacadeForgeReporting --> ReportingModels
+    BacktestResult --> ReportingModels
+    EventStatisticsResult --> ReportingModels
 
-    ImportDataView --> GuiPreferencesStore
-    GuiPreferencesStore --> GuiUserPreferences : Object I/O .dat
-    EventStatisticsView --> GuiReportStore
-    BacktestView --> GuiReportStore
-    GuiReportStore --> SavedReport : Object I/O .dat
+    GuiBackgroundTasks ..> ImportDataController : background task
+    GuiBackgroundTasks ..> EventStatisticsController : background task
+    GuiBackgroundTasks ..> BacktestController : background task
 
-    LambdaUsage ..> BacktestView : lambdas
-    LambdaUsage ..> EventStatisticsView : lambdas
-    LambdaUsage ..> ImportDataView : lambdas
-    LambdaUsage ..> CliApplicationController : lambdas
-    LambdaUsage ..> RiskManager : lambdas
-    LambdaUsage ..> BacktestEngine : lambdas
+    EngineConcurrentJobs ..> EngineJobRunner : worker pool
+    EngineConcurrentJobs ..> EngineJob : submitted job
+    EngineConcurrentJobs ..> BacktestEngine : concurrent backtest groups
+    EngineConcurrentJobs ..> EventStatisticsEngine : concurrent statistics jobs
 
-    StreamUsage ..> ScidDataImportService : streams
-    StreamUsage ..> InstrumentSelectionService : streams
-    StreamUsage ..> ClasspathCatalog : streams
+    ContractWindowConcurrency ..> BacktestEngine : split non-overlapping windows
+    ContractWindowConcurrency ..> EventStatisticsEngine : split selected windows
+    ContractWindowConcurrency ..> BacktestController : per-contract progress
+    ContractWindowConcurrency ..> EventStatisticsController : per-contract progress
 
-    ObjectReadWriteUsage ..> GuiPreferencesStore : object read/write
-    ObjectReadWriteUsage ..> GuiReportStore : object read/write
-    ObjectReadWriteUsage ..> SavedReport : Serializable payload
-
-    classDef redNote fill:#ffe5e5,stroke:#cc0000,color:#990000,stroke-width:2px
-    class LambdaUsage redNote
-    class StreamUsage redNote
-    class ObjectReadWriteUsage redNote
+    classDef redNote fill:#ffe5e5,stroke:#cc0000,color:#990000,stroke-width:2px;
 ```

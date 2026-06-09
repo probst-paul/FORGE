@@ -72,13 +72,15 @@ For `CL`, FORGE estimates expiration as three business days before the 25th cale
 
 The CLI renders import progress as a single updating terminal line, while the GUI renders the same progress state with JavaFX progress bars. The underlying progress calculation is exposed through `ImportProgress`.
 
-Backtest runs use the same presentation idea. Before replay begins, FORGE counts strategy-usable ticks for the selected contract windows, then reports progress while batches are processed:
+Backtest and event-statistics runs use the same presentation idea. Before replay begins, FORGE counts strategy-usable ticks for the selected contract windows, then reports progress while batches are processed:
 
 ```text
 Running backtest [############------------] 50% 500000/1000000
 ```
 
-The reusable backtest progress state is exposed through `BacktestProgress` and `BacktestProgressListener`; each UI layer owns only its specific rendering.
+The reusable backtest progress state is exposed through `BacktestProgress` and `BacktestProgressListener`; event statistics use the equivalent event-statistics progress objects. Each UI layer owns only its specific rendering.
+
+For multi-contract research runs, the GUI displays one aggregate progress bar and, while work is active, per-contract progress rows underneath it. Independent contract windows can be processed concurrently by the engine, so per-contract rows may advance at the same time. When aggregate progress reaches 100%, the contract rows collapse back to the single aggregate view.
 
 ## Import Performance Notes
 

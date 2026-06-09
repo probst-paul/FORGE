@@ -49,6 +49,7 @@ sequenceDiagram
     participant Builder as DerivedDataBuildService
     participant StatsEngine as EventStatisticsEngine
     participant BacktestEngine as BacktestEngine
+    participant Jobs as EngineJobRunner
     participant Repo as PostgreSQL Tick Provider
     participant Strategy as TradingStrategy
     participant Risk as RiskManager
@@ -87,41 +88,67 @@ sequenceDiagram
     StatsEngine->>Data: Build missing required derived data
     Data->>Builder: Build missing session/event rows
     Builder->>Repo: Persist missing derived rows
-    StatsEngine->>Repo: Read stored derived event data
-    Repo-->>StatsEngine: Event/statistics rows
+    StatsEngine->>Jobs: Run independent contract statistic jobs
+    Jobs->>Repo: Read stored derived event data by contract window
+    Repo-->>Jobs: Event/statistics rows
+    Jobs-->>StatsEngine: Contract-level statistics results
+    StatsEngine-->>GUI: Aggregate and per-contract progress
     StatsEngine->>Report: Build event-statistics report
     Report-->>StatsEngine: EventStatisticsReport
     StatsEngine-->>App: EventStatisticsResult
     App-->>GUI: EventStatisticsResult
     GUI-->>Trader: Display event-statistics cards/tabs
 
-    Trader->>GUI: Select futures market and contract windows
-    Trader->>GUI: Select strategy, event, and risk settings
+    Trader->>GUI: Select futures market, date range, and contract windows
+    Trader->>GUI: Select strategy and risk settings
     GUI->>GUI: Validate required selections and numeric risk values
+    GUI->>GUI: Create JavaFX background backtest task
     GUI->>App: runBacktest(BacktestRequest, progressListener)
+    Note over GUI,App: GUI remains responsive while backtest runs
 
     App->>BacktestEngine: run(request, progressListener)
     BacktestEngine->>Data: Validate selected rollover-filtered contract windows
     BacktestEngine->>Data: Build missing required derived data
     Data->>Builder: Persist any missing required derived rows
-    BacktestEngine->>Repo: Open batch reader for selected windows
+    BacktestEngine->>Jobs: Submit independent contract-window jobs
+    Note over BacktestEngine,Jobs: Overlapping same-instrument windows stay grouped for strategy state and daily risk correctness
 
-    loop Historical tick batches
-        Repo-->>BacktestEngine: TradeTick batch
-        BacktestEngine->>Strategy: evaluate(MarketContext)
-        Strategy-->>BacktestEngine: StrategyDecision / TradePlan
-        BacktestEngine->>Risk: Check per-trade and daily risk limits
-        Risk-->>BacktestEngine: RiskDecision
-        BacktestEngine->>Trade: Open, update, or close simulated position
-        Trade-->>BacktestEngine: Trade activity and completed TradeResult
-        BacktestEngine-->>GUI: BacktestProgress
+    par Independent contract window jobs
+        Jobs->>Repo: Open batch reader for contract window A
+        Repo-->>Jobs: TradeTick batches
+        Jobs->>Strategy: evaluate(MarketContext)
+        Strategy-->>Jobs: StrategyDecision / TradePlan
+        Jobs->>Risk: Check per-trade and daily risk limits
+        Risk-->>Jobs: RiskDecision
+        Jobs->>Trade: Open, update, or close simulated position
+        Trade-->>Jobs: Trade activity and completed TradeResult
+        Jobs-->>GUI: Per-contract BacktestProgress
+    and Independent contract window jobs
+        Jobs->>Repo: Open batch reader for contract window B
+        Repo-->>Jobs: TradeTick batches
+        Jobs->>Strategy: evaluate(MarketContext)
+        Strategy-->>Jobs: StrategyDecision / TradePlan
+        Jobs->>Risk: Check per-trade and daily risk limits
+        Risk-->>Jobs: RiskDecision
+        Jobs->>Trade: Open, update, or close simulated position
+        Trade-->>Jobs: Trade activity and completed TradeResult
+        Jobs-->>GUI: Per-contract BacktestProgress
     end
 
+    Jobs-->>BacktestEngine: Contract/instrument backtest results
+    BacktestEngine-->>GUI: Aggregate BacktestProgress
     BacktestEngine->>Report: Aggregate trades into performance metrics
     Report-->>BacktestEngine: BacktestResult
     BacktestEngine-->>App: BacktestResult
     App-->>GUI: BacktestResult
     GUI-->>Trader: Display summary cards and simulated trades table
+
+    alt Backtest failure
+        Jobs-->>BacktestEngine: Job failure
+        BacktestEngine-->>App: Error
+        App-->>GUI: Error
+        GUI-->>Trader: Display failure message without freezing application
+    end
 
     opt Save report
         Trader->>GUI: Save Report

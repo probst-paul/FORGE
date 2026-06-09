@@ -18,7 +18,7 @@ flowchart LR
     end
 
     subgraph Runtime["Execution Runtime"]
-        ENGINE["engine/<br/>event statistics + backtest orchestration"]
+        ENGINE["engine/<br/>concurrent event statistics + backtest orchestration"]
         TRADE["trade/<br/>orders, fills, positions, lifecycle"]
         RISK["risk/<br/>per-trade and per-day guardrails"]
         REPORTING["reporting/<br/>display/export report models"]
