@@ -35,13 +35,13 @@ public class TradeTick {
             throw new IllegalArgumentException("tradeDateTime is required");
         }
         if (quantity <= 0) {
-            throw new IllegalArgumentException("quantity must be greater than zero");
+            throw new IllegalArgumentException("Trade tick quantity must be greater than zero.");
         }
         if (side != 1 && side != -1) {
-            throw new IllegalArgumentException("side must be 1 or -1");
+            throw new IllegalArgumentException("Trade tick side must be 1 or -1.");
         }
         if (scidRecordIndex < 1) {
-            throw new IllegalArgumentException("scidRecordIndex must be positive");
+            throw new IllegalArgumentException("Trade tick SCID record index must be positive.");
         }
         this.contractSymbol = contractSymbol.trim().toUpperCase();
         this.tradeDateTime = tradeDateTime;

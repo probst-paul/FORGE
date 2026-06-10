@@ -205,18 +205,33 @@ public class PostgresTickDataProvider implements TickDataProvider {
          * Postcondition: ResultSet cursor position is unchanged.
          */
         Timestamp timestamp = resultSet.getTimestamp(1);
+        long quantity = resultSet.getLong(5);
+        int side = resultSet.getInt(6);
+        long scidRecordIndex = resultSet.getLong(7);
         Long bidPriceTicks = nullableLong(resultSet, 3);
         Long askPriceTicks = nullableLong(resultSet, 4);
-        return new TradeTick(
-                contractSymbol,
-                timestamp.toInstant(),
-                resultSet.getLong(2),
-                bidPriceTicks,
-                askPriceTicks,
-                resultSet.getLong(5),
-                resultSet.getInt(6),
-                resultSet.getLong(7)
-        );
+        try {
+            return new TradeTick(
+                    contractSymbol,
+                    timestamp.toInstant(),
+                    resultSet.getLong(2),
+                    bidPriceTicks,
+                    askPriceTicks,
+                    quantity,
+                    side,
+                    scidRecordIndex
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException(
+                    "Invalid trade tick in PostgreSQL data. Contract: " + contractSymbol +
+                            ", tradeDateTime: " + timestamp.toInstant() +
+                            ", scidRecordIndex: " + scidRecordIndex +
+                            ", quantity: " + quantity +
+                            ", side: " + side +
+                            ". " + exception.getMessage(),
+                    exception
+            );
+        }
     }
 
     private Long nullableLong(ResultSet resultSet, int columnIndex) throws SQLException {
