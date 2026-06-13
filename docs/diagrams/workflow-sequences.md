@@ -10,7 +10,7 @@ flowchart TB
         G3["Event Statistics<br/>select study, instruments, contracts"]
         G4["Backtest<br/>select instruments, contracts, strategy, risk"]
         G5["Result Views<br/>summary, details, simulated trades"]
-        G6["Settings<br/>confirmed database wipe"]
+        G6["Settings<br/>repair/create database or confirmed wipe"]
     end
 
     subgraph CLI["Admin CLI"]
@@ -57,6 +57,12 @@ sequenceDiagram
     participant Risk as RiskManager
     participant Trade as TradeLifecycleEngine
     participant Report as Reporting Models
+
+    Trader->>GUI: Launch JavaFX GUI
+    GUI->>App: prepareDatabase()
+    App->>Data: ensure configured database and support tables
+    Data->>Repo: CREATE DATABASE / CREATE TABLE IF missing
+    Repo-->>GUI: Database ready or failure shown in Settings
 
     Trader->>GUI: Select Import Data
     Trader->>GUI: Choose SCID file with system file browser
@@ -167,8 +173,18 @@ sequenceDiagram
         GUI-->>Trader: Display loaded summary cards and simulated trades table
     end
 
+    opt Settings repair/create database
+        Trader->>GUI: Select Settings
+        Trader->>GUI: Click Repair/Create Database
+        GUI->>App: prepareDatabase()
+        App->>Data: ensure configured database and support tables
+        Data->>Repo: Create missing database/support tables
+        Repo-->>GUI: Database ready or failure shown in Settings
+    end
+
     opt Settings database wipe
         Trader->>GUI: Select Settings
+        Trader->>GUI: Click Drop Database Tables
         GUI->>GUI: Require explicit confirmation
         GUI->>App: wipeDatabase()
         App->>Data: wipeDatabase()

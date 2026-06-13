@@ -149,6 +149,16 @@ public class FacadeForgeApplication {
         }
 
         /*
+         * Intent: Prepare the configured database for GUI workflows without requiring explicit user setup.
+         * Precondition: PostgreSQL settings must be available from environment/default configuration.
+         * Returns: Nothing.
+         * Postcondition: Database and required FORGE support tables exist if PostgreSQL is reachable.
+         */
+        public void prepareDatabase() {
+            forgeData.forgeDataAccess().prepareDatabase();
+        }
+
+        /*
          * Intent: Wipe all FORGE-owned data tables from the configured database.
          * Precondition: Caller must have completed destructive-action confirmation.
          * Returns: Number of tables dropped.

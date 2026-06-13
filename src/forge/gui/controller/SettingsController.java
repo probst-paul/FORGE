@@ -27,6 +27,27 @@ public class SettingsController {
         return viewModel;
     }
 
+    public Task<Void> prepareDatabaseTask() {
+        /*
+         * Intent: Create/repair the configured database and non-destructive FORGE support tables.
+         * Precondition: PostgreSQL settings must be available from environment/default configuration.
+         * Returns: Task that completes when database preparation succeeds.
+         * Postcondition: Settings view model reports database readiness or failure details.
+         */
+        return GuiControllerTasks.create(
+                viewModel,
+                "Preparing database...",
+                "Could not prepare database.",
+                task -> {
+                    task.publishProgress(0, 1);
+                    forgeApplication.forgeApplicationAccess().prepareDatabase();
+                    task.publishProgress(1, 1);
+                    return null;
+                },
+                ignored -> applyPrepareDatabaseResult()
+        );
+    }
+
     public Task<Integer> wipeDatabaseTask() {
         /*
          * Intent: Create a JavaFX task that drops configured FORGE database tables.
@@ -45,6 +66,19 @@ public class SettingsController {
                     return droppedTables;
                 },
                 this::applyWipeResult
+        );
+    }
+
+    private void applyPrepareDatabaseResult() {
+        /*
+         * Intent: Copy successful database preparation state into GUI state.
+         * Precondition: Database preparation task must have completed successfully.
+         * Returns: Nothing.
+         * Postcondition: Settings view model shows database ready status.
+         */
+        viewModel.markSucceeded(
+                "Database ready.",
+                "Database and FORGE support tables are available."
         );
     }
 

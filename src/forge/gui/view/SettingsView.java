@@ -44,6 +44,14 @@ public class SettingsView {
         Label databaseHeading = new Label("Database Maintenance");
         databaseHeading.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
+        Label prepareDescription = new Label(
+                "Creates the configured PostgreSQL database if missing and ensures FORGE support tables are available."
+        );
+        prepareDescription.setWrapText(true);
+
+        Button prepareButton = new Button("Repair/Create Database");
+        prepareButton.disableProperty().bind(viewModel.runningProperty());
+
         Label warning = new Label(
                 "Drops all FORGE-owned database tables in the configured PostgreSQL database. " +
                         "Imported trades, derived data, and import metadata will be removed."
@@ -71,6 +79,7 @@ public class SettingsView {
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.setStyle("-fx-text-fill: #b00020;");
 
+        prepareButton.setOnAction(event -> prepareDatabase());
         wipeButton.setOnAction(event -> wipeDatabase(owner));
 
         VBox root = new VBox(12);
@@ -79,6 +88,8 @@ public class SettingsView {
         root.getChildren().addAll(
                 heading,
                 databaseHeading,
+                prepareDescription,
+                prepareButton,
                 warning,
                 wipeButton,
                 progressBar,
@@ -87,6 +98,23 @@ public class SettingsView {
                 errorLabel
         );
         return root;
+    }
+
+    private void prepareDatabase() {
+        /*
+         * Intent: Submit the non-destructive database repair/create workflow from Settings.
+         * Precondition: Settings view has been constructed with a controller.
+         * Returns: Nothing.
+         * Postcondition: Database prepare task is queued on the shared GUI workflow runner.
+         */
+        try {
+            Task<Void> task = controller.prepareDatabaseTask();
+            FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .submitWorkflowTask(GuiWorkflowType.SETTINGS, task);
+        } catch (RuntimeException exception) {
+            controller.getViewModel().markFailed("Could not start database preparation.", exception);
+        }
     }
 
     private void wipeDatabase(Window owner) {

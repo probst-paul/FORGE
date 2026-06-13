@@ -37,9 +37,9 @@ Exit `psql`:
 
 ## Database Configuration
 
-In this build, configure the database from the admin CLI before using the JavaFX GUI. The GUI expects the database connection and schema setup to already be available.
+The JavaFX GUI automatically prepares the configured PostgreSQL database on startup. If the database is missing, FORGE attempts to create it and ensure the required support tables exist. The Settings screen also provides a `Repair/Create Database` action for manually rerunning the same non-destructive preparation workflow.
 
-Start the admin CLI:
+The admin CLI can still be used to change database connection settings when needed:
 
 ```bash
 mvn exec:java
@@ -56,7 +56,7 @@ Username: postgres
 Password: postgres
 ```
 
-After database configuration succeeds, launch the JavaFX GUI:
+Launch the JavaFX GUI:
 
 ```bash
 mvn javafx:run

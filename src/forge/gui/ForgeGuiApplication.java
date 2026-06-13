@@ -27,6 +27,9 @@ public class ForgeGuiApplication extends Application {
                 .forgeGuiAccess()
                 .createMainWindowController();
         controller.show(stage);
+        FacadeForgeGui.getTheInstance()
+                .forgeGuiAccess()
+                .prepareDatabaseInBackground();
     }
 
     @Override

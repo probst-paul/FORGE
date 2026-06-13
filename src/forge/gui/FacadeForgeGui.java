@@ -25,20 +25,23 @@ public class FacadeForgeGui {
     private final FacadeForgeApplication forgeApplication;
     private final FacadeForgeData forgeData;
     private final GuiWorkflowRunner workflowRunner;
+    private final SettingsViewModel settingsViewModel;
     private final ForgeGuiAccess access = new ForgeGuiAccess();
 
     private FacadeForgeGui() {
         this(
                 FacadeForgeApplication.getTheInstance(),
                 FacadeForgeData.getTheInstance(),
-                new GuiWorkflowRunner()
+                new GuiWorkflowRunner(),
+                new SettingsViewModel()
         );
     }
 
     private FacadeForgeGui(
             FacadeForgeApplication forgeApplication,
             FacadeForgeData forgeData,
-            GuiWorkflowRunner workflowRunner
+            GuiWorkflowRunner workflowRunner,
+            SettingsViewModel settingsViewModel
     ) {
         if (forgeApplication == null) {
             throw new IllegalArgumentException("forgeApplication is required");
@@ -49,9 +52,13 @@ public class FacadeForgeGui {
         if (workflowRunner == null) {
             throw new IllegalArgumentException("workflowRunner is required");
         }
+        if (settingsViewModel == null) {
+            throw new IllegalArgumentException("settingsViewModel is required");
+        }
         this.forgeApplication = forgeApplication;
         this.forgeData = forgeData;
         this.workflowRunner = workflowRunner;
+        this.settingsViewModel = settingsViewModel;
     }
 
     public static FacadeForgeGui getTheInstance() {
@@ -108,7 +115,20 @@ public class FacadeForgeGui {
         }
 
         public SettingsController createSettingsController() {
-            return new SettingsController(forgeApplication, new SettingsViewModel());
+            return new SettingsController(forgeApplication, settingsViewModel);
+        }
+
+        public GuiWorkflowJob<Void> prepareDatabaseInBackground() {
+            /*
+             * Intent: Queue non-destructive database preparation when the GUI starts.
+             * Precondition: PostgreSQL settings must be available from environment/default configuration.
+             * Returns: Job handle for the startup database preparation task.
+             * Postcondition: Database preparation runs off the JavaFX application thread.
+             */
+            return submitWorkflowTask(
+                    GuiWorkflowType.SETTINGS,
+                    createSettingsController().prepareDatabaseTask()
+            );
         }
 
         public <T> GuiWorkflowJob<T> submitWorkflowTask(GuiWorkflowType workflowType, Task<T> task) {

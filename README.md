@@ -12,6 +12,7 @@ FORGE is an early-stage system rather than a complete historical market replay o
 
 - JavaFX GUI for user-facing import, event statistics, backtest, and settings workflows
 - Admin CLI for database configuration, import, derived-data refresh, benchmarks, and database wipes
+- Automatic GUI startup database preparation with manual repair/create support in Settings
 - PostgreSQL-backed SCID ingestion with contract validation, fill-missing/overwrite-overlap import modes, checkpointing, rollover filtering, and progress reporting
 - Database-derived instrument catalog based on imported, rollover-clipped contract windows
 - Tick-native price storage and strategy math using `BIGINT` tick counts instead of floating-point price fields
@@ -45,11 +46,11 @@ FORGE JavaFX GUI
 │  ├─ Display summary, instrument/contract tables, and simulated trades
 │  └─ Save/load the latest backtest report as a project-local .dat file
 └─ Settings
-   ├─ Run administrative maintenance from the GUI
+   ├─ Repair/create the configured database and support tables
    └─ Drop FORGE-owned database tables after explicit confirmation
 ```
 
-The GUI is the primary user-facing surface for research workflows. Backtest and event-statistics runs execute as background tasks so the JavaFX window remains responsive. Multi-contract runs display aggregate progress plus per-contract progress while work is active. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
+The GUI is the primary user-facing surface for research workflows. It prepares the configured PostgreSQL database in the background on startup. Backtest and event-statistics runs execute as background tasks so the JavaFX window remains responsive. Multi-contract runs display aggregate progress plus per-contract progress while work is active. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
 
 ## Admin CLI
 

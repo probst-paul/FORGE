@@ -226,8 +226,21 @@ public class FacadeForgeData {
              * Precondition: Caller must have performed any required destructive-action confirmation.
              * Returns: Number of tables dropped.
              * Postcondition: Imported contract, import metadata, and derived-data tables are removed.
-             */
+            */
             return scidDataImportService.getTradeRepository().wipeDatabase();
+        }
+
+        public void prepareDatabase() {
+            /*
+             * Intent: Create the configured database and required FORGE support tables when missing.
+             * Precondition: PostgreSQL connection settings must point to an accessible server.
+             * Returns: Nothing.
+             * Postcondition: Primary database, import metadata table, and derived-data tables exist.
+             */
+            PostgresTradeRepository tradeRepository = scidDataImportService.getTradeRepository();
+            tradeRepository.ensureDatabaseExists();
+            tradeRepository.ensureImportCheckpointTableExists();
+            tradeRepository.ensureDerivedDataTablesExist();
         }
 
         public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
