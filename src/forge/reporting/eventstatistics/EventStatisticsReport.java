@@ -1,5 +1,6 @@
 package forge.reporting.eventstatistics;
 
+import forge.engine.eventstatistics.EventStatisticsDetail;
 import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.util.ImmutableLists;
 
@@ -14,11 +15,21 @@ public class EventStatisticsReport implements Serializable {
     private final String eventName;
     private final List<EventStatisticsResult> instrumentResults;
     private final List<EventStatisticsResult> contractResults;
+    private final List<EventStatisticsDetail> eventDetails;
 
     public EventStatisticsReport(
             String eventName,
             List<EventStatisticsResult> instrumentResults,
             List<EventStatisticsResult> contractResults
+    ) {
+        this(eventName, instrumentResults, contractResults, List.of());
+    }
+
+    public EventStatisticsReport(
+            String eventName,
+            List<EventStatisticsResult> instrumentResults,
+            List<EventStatisticsResult> contractResults,
+            List<EventStatisticsDetail> eventDetails
     ) {
         /*
          * Intent: Store event-statistics results at instrument and contract scopes.
@@ -32,6 +43,7 @@ public class EventStatisticsReport implements Serializable {
         this.eventName = eventName.trim();
         this.instrumentResults = ImmutableLists.copyOfRequired(instrumentResults, "instrumentResults");
         this.contractResults = ImmutableLists.copyOfRequired(contractResults, "contractResults");
+        this.eventDetails = ImmutableLists.copyOfRequired(eventDetails, "eventDetails");
     }
 
     public String getEventName() {
@@ -46,4 +58,7 @@ public class EventStatisticsReport implements Serializable {
         return contractResults;
     }
 
+    public List<EventStatisticsDetail> getEventDetails() {
+        return eventDetails;
+    }
 }

@@ -49,7 +49,7 @@ class EventScaffoldTest {
                     LocalDate.of(2025, 8, 1),
                     FirstHourBreachEvent.EVENT_NAME,
                     FirstHourBreachEvent.EVENT_VERSION,
-                    EventSide.LONG,
+                    EventSide.HIGH,
                     Instant.parse("2025-08-01T14:30:00Z"),
                     24000
             );
@@ -57,7 +57,7 @@ class EventScaffoldTest {
             assertEquals("ESU25", event.getContractSymbol());
             assertEquals(LocalDate.of(2025, 8, 1), event.getSessionDate());
             assertEquals(FirstHourBreachEvent.EVENT_NAME, event.getEventName());
-            assertEquals(EventSide.LONG, event.getSide());
+            assertEquals(EventSide.HIGH, event.getSide());
             assertEquals(24000, event.getEventPriceTicks());
         }
 
@@ -68,7 +68,7 @@ class EventScaffoldTest {
                     LocalDate.of(2025, 8, 1),
                     FirstHourBreachEvent.EVENT_NAME,
                     FirstHourBreachEvent.EVENT_VERSION,
-                    EventSide.LONG,
+                    EventSide.HIGH,
                     Instant.parse("2025-08-01T14:30:00Z"),
                     0
             ));
@@ -99,7 +99,7 @@ class EventScaffoldTest {
             ));
 
             assertEquals(1, events.size());
-            assertEquals(EventSide.LONG, events.get(0).getSide());
+            assertEquals(EventSide.HIGH, events.get(0).getSide());
             assertEquals(116, events.get(0).getEventPriceTicks());
         }
 
@@ -123,7 +123,7 @@ class EventScaffoldTest {
                     ));
 
             assertEquals(1, events.size());
-            assertEquals(EventSide.SHORT, events.get(0).getSide());
+            assertEquals(EventSide.LOW, events.get(0).getSide());
         }
 
         private TradeTick tick(LocalDate centralDate, LocalTime centralTime, long priceTicks, long scidRecordIndex) {

@@ -1,7 +1,7 @@
 package forge.event;
 
 public enum EventSide {
-    LONG,
-    SHORT,
+    HIGH,
+    LOW,
     NONE
 }

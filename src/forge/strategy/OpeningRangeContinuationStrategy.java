@@ -79,7 +79,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
             return StrategyDecision.noAction();
         }
 
-        OrderSide side = breachEvent.getSide() == EventSide.LONG ? OrderSide.BUY : OrderSide.SELL;
+        OrderSide side = breachEvent.getSide() == EventSide.HIGH ? OrderSide.BUY : OrderSide.SELL;
         long stopPriceTicks = side == OrderSide.BUY
                 ? feature.getFirstHourLowTicks()
                 : feature.getFirstHourHighTicks();
@@ -142,7 +142,7 @@ public class OpeningRangeContinuationStrategy implements TradingStrategy {
             if (FirstHourBreachEvent.EVENT_NAME.equals(event.getEventName())
                     && event.getEventTime().equals(context.getCurrentTick().getTradeDateTime())
                     && event.getContractSymbol().equals(context.getCurrentTick().getContractSymbol())
-                    && (event.getSide() == EventSide.LONG || event.getSide() == EventSide.SHORT)) {
+                    && (event.getSide() == EventSide.HIGH || event.getSide() == EventSide.LOW)) {
                 return event;
             }
         }

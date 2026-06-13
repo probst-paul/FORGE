@@ -254,9 +254,9 @@ public class FirstHourBreachEventDetector implements EventDetector {
             long firstHourHighTicks
     ) {
         /*
-         * Intent: Convert a single tick into a long/short first-hour breach occurrence when thresholds are crossed.
+         * Intent: Convert a single tick into a high-side or low-side first-hour breach occurrence when thresholds are crossed.
          * Precondition: Tick and session date must be non-null; low/high thresholds must be valid tick prices.
-         * Returns: LONG occurrence, SHORT occurrence, or null when no breach occurred.
+         * Returns: HIGH occurrence, LOW occurrence, or null when no breach occurred.
          * Postcondition: No detector state is changed by this pure threshold check.
          */
         if (tick.getPriceTicks() >= firstHourHighTicks) {
@@ -265,7 +265,7 @@ public class FirstHourBreachEventDetector implements EventDetector {
                     sessionDate,
                     FirstHourBreachEvent.EVENT_NAME,
                     FirstHourBreachEvent.EVENT_VERSION,
-                    EventSide.LONG,
+                    EventSide.HIGH,
                     tick.getTradeDateTime(),
                     tick.getPriceTicks()
             );
@@ -276,7 +276,7 @@ public class FirstHourBreachEventDetector implements EventDetector {
                     sessionDate,
                     FirstHourBreachEvent.EVENT_NAME,
                     FirstHourBreachEvent.EVENT_VERSION,
-                    EventSide.SHORT,
+                    EventSide.LOW,
                     tick.getTradeDateTime(),
                     tick.getPriceTicks()
             );

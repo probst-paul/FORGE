@@ -392,8 +392,8 @@ public class CliApplicationController {
         for (EventStatisticsResult result : results) {
             output.printLine(result.getScopeName());
             output.printLine("Sessions Analyzed: " + result.getSessionsAnalyzed());
-            output.printLine("Long Breaches: " + result.getLongEventCount());
-            output.printLine("Short Breaches: " + result.getShortEventCount());
+            output.printLine("High Breaches: " + result.getHighEventCount());
+            output.printLine("Low Breaches: " + result.getLowEventCount());
             output.printLine("No Breach: " + result.getNoEventCount());
             output.printLine(String.format("Breach Rate: %.2f%%", result.getEventRate() * 100.0));
             output.printBlankLine();

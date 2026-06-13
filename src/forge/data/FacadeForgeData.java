@@ -189,6 +189,20 @@ public class FacadeForgeData {
             return scidDataImportService.getTradeRepository().loadMarketEventOccurrences(windows, eventName);
         }
 
+        public List<forge.engine.eventstatistics.EventStatisticsDetail> loadEventStatisticsDetails(
+                List<ContractTradeWindow> windows,
+                String eventName
+        ) {
+            return scidDataImportService.getTradeRepository().loadEventStatisticsDetails(windows, eventName);
+        }
+
+        public List<forge.engine.eventstatistics.EventStatisticsResult> loadEventStatisticsContractResults(
+                List<ContractTradeWindow> windows,
+                String eventName
+        ) {
+            return scidDataImportService.getTradeRepository().loadEventStatisticsContractResults(windows, eventName);
+        }
+
         public void saveMarketEventOccurrences(Collection<MarketEventOccurrence> marketEvents) {
             scidDataImportService.getTradeRepository().saveMarketEventOccurrences(marketEvents);
         }

@@ -74,8 +74,8 @@ class QueryScaffoldTest {
 
             assertEquals("ES", result.getScopeName());
             assertEquals(10, result.getSessionsAnalyzed());
-            assertEquals(3, result.getLongEventCount());
-            assertEquals(2, result.getShortEventCount());
+            assertEquals(3, result.getHighEventCount());
+            assertEquals(2, result.getLowEventCount());
             assertEquals(5, result.getTotalEventCount());
             assertEquals(5, result.getNoEventCount());
             assertEquals(0.5, result.getEventRate());
@@ -103,8 +103,8 @@ class QueryScaffoldTest {
                             feature("NQZ25", LocalDate.of(2025, 12, 1))
                     ),
                     List.of(
-                            event("ESU25", LocalDate.of(2025, 8, 1), EventSide.LONG),
-                            event("NQZ25", LocalDate.of(2025, 12, 1), EventSide.SHORT)
+                            event("ESU25", LocalDate.of(2025, 8, 1), EventSide.HIGH),
+                            event("NQZ25", LocalDate.of(2025, 12, 1), EventSide.LOW)
                     )
             );
 
@@ -113,13 +113,13 @@ class QueryScaffoldTest {
             EventStatisticsResult nq = report.getInstrumentResults().get(1);
             assertEquals("ES", es.getScopeName());
             assertEquals(2, es.getSessionsAnalyzed());
-            assertEquals(1, es.getLongEventCount());
-            assertEquals(0, es.getShortEventCount());
+            assertEquals(1, es.getHighEventCount());
+            assertEquals(0, es.getLowEventCount());
             assertEquals(1, es.getNoEventCount());
             assertEquals("NQ", nq.getScopeName());
             assertEquals(1, nq.getSessionsAnalyzed());
-            assertEquals(0, nq.getLongEventCount());
-            assertEquals(1, nq.getShortEventCount());
+            assertEquals(0, nq.getHighEventCount());
+            assertEquals(1, nq.getLowEventCount());
 
             assertEquals(3, report.getContractResults().size());
         }
@@ -171,8 +171,8 @@ class QueryScaffoldTest {
             EventStatisticsResult result = report.getInstrumentResults().get(0);
             assertEquals("ES", result.getScopeName());
             assertEquals(1, result.getSessionsAnalyzed());
-            assertEquals(1, result.getLongEventCount());
-            assertEquals(0, result.getShortEventCount());
+            assertEquals(1, result.getHighEventCount());
+            assertEquals(0, result.getLowEventCount());
         }
 
         @Test
@@ -204,7 +204,7 @@ class QueryScaffoldTest {
             ));
 
             assertEquals(1, report.getInstrumentResults().size());
-            assertEquals(1, report.getInstrumentResults().get(0).getShortEventCount());
+            assertEquals(1, report.getInstrumentResults().get(0).getLowEventCount());
         }
 
         @Test

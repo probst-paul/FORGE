@@ -5,6 +5,7 @@ import forge.event.EventSide;
 import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
 import forge.engine.eventstatistics.EventStatisticsQuery;
+import forge.engine.eventstatistics.EventStatisticsDetail;
 import forge.reporting.eventstatistics.EventStatisticsReport;
 import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.study.MarketStudy;
@@ -15,6 +16,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class StatisticsService {
     private final ContractNameResolver contractNameResolver;
@@ -74,6 +76,8 @@ public class StatisticsService {
 
         Map<String, EventCounts> instrumentCounts = new HashMap<>();
         Map<String, EventCounts> contractCounts = new HashMap<>();
+        Map<SessionKey, SessionRangeFeature> featuresBySession = new HashMap<>();
+        List<EventStatisticsDetail> details = new ArrayList<>();
 
         for (SessionRangeFeature feature : sessionRangeFeatures) {
             if (feature == null) {
@@ -81,8 +85,9 @@ public class StatisticsService {
             }
             String contractSymbol = feature.getContractSymbol();
             String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(contractSymbol);
-            contractCounts.computeIfAbsent(contractSymbol, unused -> new EventCounts()).sessionsAnalyzed++;
-            instrumentCounts.computeIfAbsent(instrumentSymbol, unused -> new EventCounts()).sessionsAnalyzed++;
+            contractCounts.computeIfAbsent(contractSymbol, unused -> new EventCounts()).includeSession(feature);
+            instrumentCounts.computeIfAbsent(instrumentSymbol, unused -> new EventCounts()).includeSession(feature);
+            featuresBySession.put(new SessionKey(contractSymbol, feature.getSessionDate()), feature);
         }
 
         for (MarketEventOccurrence event : events) {
@@ -93,12 +98,45 @@ public class StatisticsService {
             String instrumentSymbol = contractNameResolver.resolveInstrumentSymbol(contractSymbol);
             contractCounts.computeIfAbsent(contractSymbol, unused -> new EventCounts()).include(event.getSide());
             instrumentCounts.computeIfAbsent(instrumentSymbol, unused -> new EventCounts()).include(event.getSide());
+            SessionRangeFeature feature = featuresBySession.get(new SessionKey(contractSymbol, event.getSessionDate()));
+            if (feature != null) {
+                details.add(toDetail(event, feature));
+            }
         }
+
+        details.sort(Comparator
+                .comparing(EventStatisticsDetail::getContractSymbol)
+                .thenComparing(EventStatisticsDetail::getSessionDate)
+                .thenComparing(EventStatisticsDetail::getEventTime));
 
         return new EventStatisticsReport(
                 query.getEventName(),
                 toResults(query.getEventName(), instrumentCounts),
-                toResults(query.getEventName(), contractCounts)
+                toResults(query.getEventName(), contractCounts),
+                details
+        );
+    }
+
+    private EventStatisticsDetail toDetail(MarketEventOccurrence event, SessionRangeFeature feature) {
+        return new EventStatisticsDetail(
+                event.getContractSymbol(),
+                event.getSessionDate(),
+                event.getEventName(),
+                event.getSide(),
+                event.getEventTime(),
+                event.getEventPriceTicks(),
+                feature.getOvernightLowTicks(),
+                feature.getOvernightHighTicks(),
+                feature.getFirstHourLowTicks(),
+                feature.getFirstHourHighTicks(),
+                feature.getRthLowTicks(),
+                feature.getRthHighTicks(),
+                feature.getOvernightVolume(),
+                feature.getFirstHourVolume(),
+                feature.getRthVolume(),
+                feature.getOvernightTradeCount(),
+                feature.getFirstHourTradeCount(),
+                feature.getRthTradeCount()
         );
     }
 
@@ -116,8 +154,14 @@ public class StatisticsService {
                     entry.getKey(),
                     eventName,
                     counts.sessionsAnalyzed,
-                    counts.longEventCount,
-                    counts.shortEventCount
+                    counts.highEventCount,
+                    counts.lowEventCount,
+                    counts.average(counts.overnightRangeTicksTotal),
+                    counts.average(counts.firstHourRangeTicksTotal),
+                    counts.average(counts.rthRangeTicksTotal),
+                    counts.average(counts.overnightVolumeTotal),
+                    counts.average(counts.firstHourVolumeTotal),
+                    counts.average(counts.rthVolumeTotal)
             ));
         }
         results.sort(Comparator.comparing(EventStatisticsResult::getScopeName));
@@ -126,21 +170,72 @@ public class StatisticsService {
 
     private static class EventCounts {
         private long sessionsAnalyzed;
-        private long longEventCount;
-        private long shortEventCount;
+        private long highEventCount;
+        private long lowEventCount;
+        private long overnightRangeTicksTotal;
+        private long firstHourRangeTicksTotal;
+        private long rthRangeTicksTotal;
+        private long overnightVolumeTotal;
+        private long firstHourVolumeTotal;
+        private long rthVolumeTotal;
+
+        private void includeSession(SessionRangeFeature feature) {
+            sessionsAnalyzed++;
+            overnightRangeTicksTotal += feature.getOvernightRangeTicks();
+            firstHourRangeTicksTotal += feature.getFirstHourRangeTicks();
+            rthRangeTicksTotal += feature.getRthRangeTicks();
+            overnightVolumeTotal += feature.getOvernightVolume();
+            firstHourVolumeTotal += feature.getFirstHourVolume();
+            rthVolumeTotal += feature.getRthVolume();
+        }
 
         private void include(EventSide side) {
             /*
              * Intent: Count a directional event occurrence.
              * Precondition: side may be null or a non-directional value.
              * Returns: Nothing.
-             * Postcondition: LONG and SHORT counters are incremented when applicable.
+             * Postcondition: HIGH and LOW counters are incremented when applicable.
              */
-            if (side == EventSide.LONG) {
-                longEventCount++;
-            } else if (side == EventSide.SHORT) {
-                shortEventCount++;
+            if (side == EventSide.HIGH) {
+                highEventCount++;
+            } else if (side == EventSide.LOW) {
+                lowEventCount++;
             }
+        }
+
+        private double average(long total) {
+            if (sessionsAnalyzed == 0) {
+                return 0;
+            }
+            return (double) total / sessionsAnalyzed;
+        }
+    }
+
+    private static class SessionKey {
+        private final String contractSymbol;
+        private final java.time.LocalDate sessionDate;
+
+        private SessionKey(String contractSymbol, java.time.LocalDate sessionDate) {
+            this.contractSymbol = contractSymbol;
+            this.sessionDate = sessionDate;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof SessionKey)) {
+                return false;
+            }
+            SessionKey that = (SessionKey) other;
+            return Objects.equals(contractSymbol, that.contractSymbol)
+                    && Objects.equals(sessionDate, that.sessionDate);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(contractSymbol, sessionDate);
         }
     }
 }

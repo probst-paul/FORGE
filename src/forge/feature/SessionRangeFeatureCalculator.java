@@ -85,13 +85,13 @@ public class SessionRangeFeatureCalculator {
             RangeAccumulator accumulator = accumulators.computeIfAbsent(key, unused -> new RangeAccumulator());
 
             if (context.isOvernight()) {
-                accumulator.overnight.include(tick.getPriceTicks());
+                accumulator.overnight.include(tick);
             }
             if (context.isFirstHour()) {
-                accumulator.firstHour.include(tick.getPriceTicks());
+                accumulator.firstHour.include(tick);
             }
             if (context.isRth()) {
-                accumulator.rth.include(tick.getPriceTicks());
+                accumulator.rth.include(tick);
             }
         }
 
@@ -118,7 +118,13 @@ public class SessionRangeFeatureCalculator {
                         accumulator.firstHour.lowTicks,
                         accumulator.firstHour.highTicks,
                         accumulator.rth.lowTicks,
-                        accumulator.rth.highTicks
+                        accumulator.rth.highTicks,
+                        accumulator.overnight.volume,
+                        accumulator.firstHour.volume,
+                        accumulator.rth.volume,
+                        accumulator.overnight.tradeCount,
+                        accumulator.firstHour.tradeCount,
+                        accumulator.rth.tradeCount
                 ));
             }
 
@@ -230,16 +236,21 @@ public class SessionRangeFeatureCalculator {
     private static class TickRange {
         private long lowTicks = Long.MAX_VALUE;
         private long highTicks = Long.MIN_VALUE;
+        private long volume;
+        private long tradeCount;
 
-        private void include(long priceTicks) {
+        private void include(TradeTick tick) {
             /*
-             * Intent: Expand the low/high range to include one tick price.
-             * Precondition: Price ticks should be a positive normalized tick price.
+             * Intent: Expand the low/high range and session activity totals to include one tick.
+             * Precondition: Tick should be a valid strategy-usable market record.
              * Returns: Nothing.
-             * Postcondition: Low and high bounds include the supplied price.
+             * Postcondition: Low/high, volume, and trade count include the supplied tick.
              */
+            long priceTicks = tick.getPriceTicks();
             lowTicks = Math.min(lowTicks, priceTicks);
             highTicks = Math.max(highTicks, priceTicks);
+            volume += tick.getQuantity();
+            tradeCount++;
         }
 
         private boolean hasValues() {

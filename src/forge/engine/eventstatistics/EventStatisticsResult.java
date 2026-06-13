@@ -10,14 +10,20 @@ public class EventStatisticsResult implements Serializable {
     private final String scopeName;
     private final String eventName;
     private final long sessionsAnalyzed;
-    private final long longEventCount;
-    private final long shortEventCount;
+    private final long highEventCount;
+    private final long lowEventCount;
+    private final double averageOvernightRangeTicks;
+    private final double averageFirstHourRangeTicks;
+    private final double averageRthRangeTicks;
+    private final double averageOvernightVolume;
+    private final double averageFirstHourVolume;
+    private final double averageRthVolume;
 
     public EventStatisticsResult(
             String eventName,
             long sessionsAnalyzed,
-            long longEventCount,
-            long shortEventCount
+            long highEventCount,
+            long lowEventCount
     ) {
         /*
          * Intent: Create aggregate event statistics for an all-data scope.
@@ -25,15 +31,43 @@ public class EventStatisticsResult implements Serializable {
          * Returns: A constructed EventStatisticsResult instance.
          * Postcondition: Scope defaults to All.
          */
-        this("All", eventName, sessionsAnalyzed, longEventCount, shortEventCount);
+        this("All", eventName, sessionsAnalyzed, highEventCount, lowEventCount);
     }
 
     public EventStatisticsResult(
             String scopeName,
             String eventName,
             long sessionsAnalyzed,
-            long longEventCount,
-            long shortEventCount
+            long highEventCount,
+            long lowEventCount
+    ) {
+        this(
+                scopeName,
+                eventName,
+                sessionsAnalyzed,
+                highEventCount,
+                lowEventCount,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+        );
+    }
+
+    public EventStatisticsResult(
+            String scopeName,
+            String eventName,
+            long sessionsAnalyzed,
+            long highEventCount,
+            long lowEventCount,
+            double averageOvernightRangeTicks,
+            double averageFirstHourRangeTicks,
+            double averageRthRangeTicks,
+            double averageOvernightVolume,
+            double averageFirstHourVolume,
+            double averageRthVolume
     ) {
         /*
          * Intent: Store occurrence counts for one instrument or contract statistics scope.
@@ -47,17 +81,30 @@ public class EventStatisticsResult implements Serializable {
         if (eventName == null || eventName.trim().isEmpty()) {
             throw new IllegalArgumentException("eventName is required");
         }
-        if (sessionsAnalyzed < 0 || longEventCount < 0 || shortEventCount < 0) {
+        if (sessionsAnalyzed < 0 || highEventCount < 0 || lowEventCount < 0) {
             throw new IllegalArgumentException("counts cannot be negative");
         }
-        if (longEventCount + shortEventCount > sessionsAnalyzed) {
+        if (highEventCount + lowEventCount > sessionsAnalyzed) {
             throw new IllegalArgumentException("event counts cannot exceed sessions analyzed");
         }
         this.scopeName = scopeName.trim().toUpperCase();
         this.eventName = eventName.trim();
         this.sessionsAnalyzed = sessionsAnalyzed;
-        this.longEventCount = longEventCount;
-        this.shortEventCount = shortEventCount;
+        this.highEventCount = highEventCount;
+        this.lowEventCount = lowEventCount;
+        this.averageOvernightRangeTicks = validateAverage(averageOvernightRangeTicks, "averageOvernightRangeTicks");
+        this.averageFirstHourRangeTicks = validateAverage(averageFirstHourRangeTicks, "averageFirstHourRangeTicks");
+        this.averageRthRangeTicks = validateAverage(averageRthRangeTicks, "averageRthRangeTicks");
+        this.averageOvernightVolume = validateAverage(averageOvernightVolume, "averageOvernightVolume");
+        this.averageFirstHourVolume = validateAverage(averageFirstHourVolume, "averageFirstHourVolume");
+        this.averageRthVolume = validateAverage(averageRthVolume, "averageRthVolume");
+    }
+
+    private double validateAverage(double value, String name) {
+        if (Double.isNaN(value) || Double.isInfinite(value) || value < 0) {
+            throw new IllegalArgumentException(name + " must be a finite non-negative value");
+        }
+        return value;
     }
 
     public String getScopeName() {
@@ -72,16 +119,16 @@ public class EventStatisticsResult implements Serializable {
         return sessionsAnalyzed;
     }
 
-    public long getLongEventCount() {
-        return longEventCount;
+    public long getHighEventCount() {
+        return highEventCount;
     }
 
-    public long getShortEventCount() {
-        return shortEventCount;
+    public long getLowEventCount() {
+        return lowEventCount;
     }
 
     public long getTotalEventCount() {
-        return longEventCount + shortEventCount;
+        return highEventCount + lowEventCount;
     }
 
     public long getNoEventCount() {
@@ -99,5 +146,38 @@ public class EventStatisticsResult implements Serializable {
             return 0;
         }
         return (double) getTotalEventCount() / sessionsAnalyzed;
+    }
+
+    public double getAverageOvernightRangeTicks() {
+        return averageOvernightRangeTicks;
+    }
+
+    public double getAverageFirstHourRangeTicks() {
+        return averageFirstHourRangeTicks;
+    }
+
+    public double getAverageRthRangeTicks() {
+        return averageRthRangeTicks;
+    }
+
+    public double getAverageOvernightVolume() {
+        return averageOvernightVolume;
+    }
+
+    public double getAverageFirstHourVolume() {
+        return averageFirstHourVolume;
+    }
+
+    public double getAverageRthVolume() {
+        return averageRthVolume;
+    }
+
+    public boolean hasSupportingAverages() {
+        return averageOvernightRangeTicks > 0
+                || averageFirstHourRangeTicks > 0
+                || averageRthRangeTicks > 0
+                || averageOvernightVolume > 0
+                || averageFirstHourVolume > 0
+                || averageRthVolume > 0;
     }
 }

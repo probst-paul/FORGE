@@ -4,7 +4,7 @@ import java.time.LocalDate;
 
 public class SessionRangeFeature extends FeatureResult {
     public static final String FEATURE_NAME = "SESSION_RANGE";
-    public static final int FEATURE_VERSION = 1;
+    public static final int FEATURE_VERSION = 2;
 
     private final String contractSymbol;
     private final LocalDate sessionDate;
@@ -14,6 +14,12 @@ public class SessionRangeFeature extends FeatureResult {
     private final long firstHourHighTicks;
     private final long rthLowTicks;
     private final long rthHighTicks;
+    private final long overnightVolume;
+    private final long firstHourVolume;
+    private final long rthVolume;
+    private final long overnightTradeCount;
+    private final long firstHourTradeCount;
+    private final long rthTradeCount;
 
     public SessionRangeFeature(
             String contractSymbol,
@@ -24,6 +30,40 @@ public class SessionRangeFeature extends FeatureResult {
             long firstHourHighTicks,
             long rthLowTicks,
             long rthHighTicks
+    ) {
+        this(
+                contractSymbol,
+                sessionDate,
+                overnightLowTicks,
+                overnightHighTicks,
+                firstHourLowTicks,
+                firstHourHighTicks,
+                rthLowTicks,
+                rthHighTicks,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+        );
+    }
+
+    public SessionRangeFeature(
+            String contractSymbol,
+            LocalDate sessionDate,
+            long overnightLowTicks,
+            long overnightHighTicks,
+            long firstHourLowTicks,
+            long firstHourHighTicks,
+            long rthLowTicks,
+            long rthHighTicks,
+            long overnightVolume,
+            long firstHourVolume,
+            long rthVolume,
+            long overnightTradeCount,
+            long firstHourTradeCount,
+            long rthTradeCount
     ) {
         /*
          * Intent: Store complete overnight, first-hour, and RTH ranges for one contract trading day.
@@ -41,6 +81,12 @@ public class SessionRangeFeature extends FeatureResult {
         validateRange(overnightLowTicks, overnightHighTicks, "overnight");
         validateRange(firstHourLowTicks, firstHourHighTicks, "firstHour");
         validateRange(rthLowTicks, rthHighTicks, "rth");
+        validateNonNegative(overnightVolume, "overnightVolume");
+        validateNonNegative(firstHourVolume, "firstHourVolume");
+        validateNonNegative(rthVolume, "rthVolume");
+        validateNonNegative(overnightTradeCount, "overnightTradeCount");
+        validateNonNegative(firstHourTradeCount, "firstHourTradeCount");
+        validateNonNegative(rthTradeCount, "rthTradeCount");
         this.contractSymbol = contractSymbol.trim().toUpperCase();
         this.sessionDate = sessionDate;
         this.overnightLowTicks = overnightLowTicks;
@@ -49,6 +95,12 @@ public class SessionRangeFeature extends FeatureResult {
         this.firstHourHighTicks = firstHourHighTicks;
         this.rthLowTicks = rthLowTicks;
         this.rthHighTicks = rthHighTicks;
+        this.overnightVolume = overnightVolume;
+        this.firstHourVolume = firstHourVolume;
+        this.rthVolume = rthVolume;
+        this.overnightTradeCount = overnightTradeCount;
+        this.firstHourTradeCount = firstHourTradeCount;
+        this.rthTradeCount = rthTradeCount;
     }
 
     private void validateRange(long lowTicks, long highTicks, String name) {
@@ -63,6 +115,18 @@ public class SessionRangeFeature extends FeatureResult {
         }
         if (highTicks < lowTicks) {
             throw new IllegalArgumentException(name + " high ticks must be greater than or equal to low ticks");
+        }
+    }
+
+    private void validateNonNegative(long value, String name) {
+        /*
+         * Intent: Validate derived session measurements that can legitimately be zero for older cached rows.
+         * Precondition: Value has been calculated or loaded from PostgreSQL.
+         * Returns: Nothing.
+         * Postcondition: Negative measurements are rejected.
+         */
+        if (value < 0) {
+            throw new IllegalArgumentException(name + " cannot be negative");
         }
     }
 
@@ -96,5 +160,41 @@ public class SessionRangeFeature extends FeatureResult {
 
     public long getRthHighTicks() {
         return rthHighTicks;
+    }
+
+    public long getOvernightVolume() {
+        return overnightVolume;
+    }
+
+    public long getFirstHourVolume() {
+        return firstHourVolume;
+    }
+
+    public long getRthVolume() {
+        return rthVolume;
+    }
+
+    public long getOvernightTradeCount() {
+        return overnightTradeCount;
+    }
+
+    public long getFirstHourTradeCount() {
+        return firstHourTradeCount;
+    }
+
+    public long getRthTradeCount() {
+        return rthTradeCount;
+    }
+
+    public long getOvernightRangeTicks() {
+        return overnightHighTicks - overnightLowTicks;
+    }
+
+    public long getFirstHourRangeTicks() {
+        return firstHourHighTicks - firstHourLowTicks;
+    }
+
+    public long getRthRangeTicks() {
+        return rthHighTicks - rthLowTicks;
     }
 }

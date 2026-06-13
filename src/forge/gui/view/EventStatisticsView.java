@@ -4,6 +4,7 @@ import forge.app.EventStatisticsProgress;
 import forge.app.EventStatisticsProgressListener;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
+import forge.engine.eventstatistics.EventStatisticsDetail;
 import forge.reporting.eventstatistics.EventStatisticsReport;
 import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.gui.FacadeForgeGui;
@@ -13,12 +14,15 @@ import forge.gui.report.SavedReport;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.gui.viewmodel.GuiWorkflowType;
 import forge.gui.viewmodel.GuiWorkflowTask;
+import forge.model.FuturesInstrumentSpec;
+import forge.model.StaticFuturesInstrumentSpecProvider;
 import forge.study.MarketStudy;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
@@ -30,6 +34,8 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -40,14 +46,19 @@ import javafx.stage.Window;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class EventStatisticsView {
     private static final String REPORT_TYPE = "event-statistics";
+    private static final DateTimeFormatter DETAIL_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("hh:mm:ss a").withZone(ZoneId.systemDefault());
 
     private final EventStatisticsController controller;
     private final GuiReportStore reportStore = new GuiReportStore();
+    private final StaticFuturesInstrumentSpecProvider instrumentSpecProvider = new StaticFuturesInstrumentSpecProvider();
 
     public EventStatisticsView(EventStatisticsController controller) {
         if (controller == null) {
@@ -266,6 +277,7 @@ public class EventStatisticsView {
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabPane.getTabs().add(createSummaryTab(null));
+        tabPane.getTabs().add(createDetailsTab(null));
         return tabPane;
     }
 
@@ -288,6 +300,101 @@ public class EventStatisticsView {
         Tab tab = new Tab("Summary");
         tab.setContent(scrollPane);
         return tab;
+    }
+
+    private Tab createDetailsTab(EventStatisticsReport report) {
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(10));
+        if (report == null || report.getEventDetails().isEmpty()) {
+            content.getChildren().add(new Label("Run event statistics to populate event details."));
+        } else {
+            TableView<EventStatisticsDetail> table = new TableView<>();
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+            table.getColumns().add(textColumn("Contract", detail -> detail.getContractSymbol()));
+            table.getColumns().add(textColumn("Date", detail -> detail.getSessionDate().toString()));
+            table.getColumns().add(textColumn("Event Time", this::formatEventTime));
+            table.getColumns().add(textColumn("Direction", this::formatEventSide));
+            table.getColumns().add(textColumn("ON Range", this::formatOvernightRange));
+            table.getColumns().add(textColumn("ON Volume", detail -> Long.toString(detail.getOvernightVolume())));
+            table.getColumns().add(textColumn("1H Range", this::formatFirstHourRange));
+            table.getColumns().add(textColumn("1H Volume", detail -> Long.toString(detail.getFirstHourVolume())));
+            table.getColumns().add(textColumn("RTH Range", this::formatRthRange));
+            table.getColumns().add(textColumn("RTH Volume", detail -> Long.toString(detail.getRthVolume())));
+            table.getItems().addAll(report.getEventDetails());
+            VBox.setVgrow(table, Priority.ALWAYS);
+            content.getChildren().add(table);
+        }
+
+        Tab tab = new Tab("Details");
+        tab.setContent(content);
+        return tab;
+    }
+
+    private String formatEventTime(EventStatisticsDetail detail) {
+        return DETAIL_TIME_FORMATTER.format(detail.getEventTime());
+    }
+
+    private String formatEventSide(EventStatisticsDetail detail) {
+        String side = detail.getSide().name().toLowerCase();
+        return Character.toUpperCase(side.charAt(0)) + side.substring(1);
+    }
+
+    private String formatOvernightRange(EventStatisticsDetail detail) {
+        return formatPriceRange(detail, detail.getOvernightLowTicks(), detail.getOvernightHighTicks());
+    }
+
+    private String formatFirstHourRange(EventStatisticsDetail detail) {
+        return formatPriceRange(detail, detail.getFirstHourLowTicks(), detail.getFirstHourHighTicks());
+    }
+
+    private String formatRthRange(EventStatisticsDetail detail) {
+        return formatPriceRange(detail, detail.getRthLowTicks(), detail.getRthHighTicks());
+    }
+
+    private String formatPriceRange(EventStatisticsDetail detail, long lowPriceTicks, long highPriceTicks) {
+        FuturesInstrumentSpec spec = instrumentSpecProvider.getBySymbol(instrumentFromContract(detail.getContractSymbol()));
+        double range = spec.displayPrice(highPriceTicks) - spec.displayPrice(lowPriceTicks);
+        return String.format("%." + priceDecimalPlaces(spec) + "f", range);
+    }
+
+    private int priceDecimalPlaces(FuturesInstrumentSpec spec) {
+        double tickSize = spec.getTickSize();
+        if (tickSize >= 1.0) {
+            return 0;
+        }
+        String text = Double.toString(tickSize);
+        int decimalIndex = text.indexOf('.');
+        if (decimalIndex < 0) {
+            return 0;
+        }
+        return text.length() - decimalIndex - 1;
+    }
+
+    private String instrumentFromContract(String contractSymbol) {
+        if (contractSymbol == null || contractSymbol.trim().isEmpty()) {
+            return "UNKNOWN";
+        }
+        String normalized = contractSymbol.trim().toUpperCase();
+        int firstDigitIndex = -1;
+        for (int i = 0; i < normalized.length(); i++) {
+            if (Character.isDigit(normalized.charAt(i))) {
+                firstDigitIndex = i;
+                break;
+            }
+        }
+        if (firstDigitIndex > 0) {
+            return normalized.substring(0, firstDigitIndex - 1);
+        }
+        return normalized;
+    }
+
+    private TableColumn<EventStatisticsDetail, String> textColumn(
+            String title,
+            java.util.function.Function<EventStatisticsDetail, String> valueProvider
+    ) {
+        TableColumn<EventStatisticsDetail, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(data -> new ReadOnlyStringWrapper(valueProvider.apply(data.getValue())));
+        return column;
     }
 
     private VBox createCardsSection(String title, List<EventStatisticsResult> results) {
@@ -324,10 +431,18 @@ public class EventStatisticsView {
                 title,
                 new Label("Sessions: " + result.getSessionsAnalyzed()),
                 new Label("Total Events: " + result.getTotalEventCount()),
-                new Label("Long / Short: " + result.getLongEventCount() + " / " + result.getShortEventCount()),
+                new Label("High / Low: " + result.getHighEventCount() + " / " + result.getLowEventCount()),
                 new Label("No Event: " + result.getNoEventCount()),
                 new Label(String.format("Event Rate: %.2f%%", result.getEventRate() * 100.0))
         );
+        if (result.hasSupportingAverages()) {
+            card.getChildren().addAll(
+                    new Label(String.format("Avg ON Range: %.2f ticks", result.getAverageOvernightRangeTicks())),
+                    new Label(String.format("Avg ON Volume: %.0f", result.getAverageOvernightVolume())),
+                    new Label(String.format("Avg 1H Range: %.2f ticks", result.getAverageFirstHourRangeTicks())),
+                    new Label(String.format("Avg 1H Volume: %.0f", result.getAverageFirstHourVolume()))
+            );
+        }
         return card;
     }
 
@@ -339,6 +454,7 @@ public class EventStatisticsView {
          * Postcondition: The summary tab displays the latest statistics report.
          */
         resultsTabs.getTabs().set(0, createSummaryTab(report));
+        resultsTabs.getTabs().set(1, createDetailsTab(report));
         resultsTabs.getSelectionModel().select(0);
     }
 
@@ -523,10 +639,10 @@ public class EventStatisticsView {
                     .append(result.getSessionsAnalyzed())
                     .append(", total=")
                     .append(result.getTotalEventCount())
-                    .append(", long=")
-                    .append(result.getLongEventCount())
-                    .append(", short=")
-                    .append(result.getShortEventCount())
+                    .append(", high=")
+                    .append(result.getHighEventCount())
+                    .append(", low=")
+                    .append(result.getLowEventCount())
                     .append(", no event=")
                     .append(result.getNoEventCount())
                     .append(", rate=")

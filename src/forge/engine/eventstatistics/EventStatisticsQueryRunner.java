@@ -168,10 +168,38 @@ public class EventStatisticsQueryRunner {
             derivedDataStore.saveMarketEventOccurrences(events);
             derivedDataStore.markMarketEventOccurrencesBuilt(request.getContractWindows(), request.getEventName());
         }
-        return queryService.summarizeEventStatistics(
+        return enrichedReport(request, sessionRangeFeatures, events);
+    }
+
+    private EventStatisticsReport enrichedReport(
+            EventStatisticsQueryRequest request,
+            List<SessionRangeFeature> sessionRangeFeatures,
+            List<MarketEventOccurrence> events
+    ) {
+        EventStatisticsReport report = queryService.summarizeEventStatistics(
                 new EventStatisticsQuery(request.getEventName()),
                 sessionRangeFeatures,
                 events
+        );
+        List<EventStatisticsDetail> details = derivedDataStore.loadEventStatisticsDetails(
+                request.getContractWindows(),
+                request.getEventName()
+        );
+        if (details.isEmpty()) {
+            details = report.getEventDetails();
+        }
+        List<EventStatisticsResult> contractResults = derivedDataStore.loadEventStatisticsContractResults(
+                request.getContractWindows(),
+                request.getEventName()
+        );
+        if (contractResults.isEmpty()) {
+            contractResults = report.getContractResults();
+        }
+        return new EventStatisticsReport(
+                request.getEventName(),
+                report.getInstrumentResults(),
+                contractResults,
+                details
         );
     }
 
@@ -206,7 +234,9 @@ public class EventStatisticsQueryRunner {
          */
         Map<String, EventStatisticsBucket> instrumentBuckets = new LinkedHashMap<>();
         Map<String, EventStatisticsBucket> contractBuckets = new LinkedHashMap<>();
+        List<EventStatisticsDetail> details = new ArrayList<>();
         for (EventStatisticsReport report : ImmutableLists.copyOfRequired(reports, "reports")) {
+            details.addAll(report.getEventDetails());
             for (EventStatisticsResult result : report.getInstrumentResults()) {
                 instrumentBuckets
                         .computeIfAbsent(result.getScopeName(), EventStatisticsBucket::new)
@@ -221,7 +251,8 @@ public class EventStatisticsQueryRunner {
         return new EventStatisticsReport(
                 eventName,
                 toMergedResults(eventName, instrumentBuckets),
-                toMergedResults(eventName, contractBuckets)
+                toMergedResults(eventName, contractBuckets),
+                details
         );
     }
 
@@ -270,8 +301,14 @@ public class EventStatisticsQueryRunner {
     private static class EventStatisticsBucket {
         private final String scopeName;
         private long sessionsAnalyzed;
-        private long longEventCount;
-        private long shortEventCount;
+        private long highEventCount;
+        private long lowEventCount;
+        private double overnightRangeTotal;
+        private double firstHourRangeTotal;
+        private double rthRangeTotal;
+        private double overnightVolumeTotal;
+        private double firstHourVolumeTotal;
+        private double rthVolumeTotal;
 
         private EventStatisticsBucket(String scopeName) {
             this.scopeName = scopeName;
@@ -285,8 +322,14 @@ public class EventStatisticsQueryRunner {
              * Postcondition: Counts include the supplied result.
              */
             sessionsAnalyzed += result.getSessionsAnalyzed();
-            longEventCount += result.getLongEventCount();
-            shortEventCount += result.getShortEventCount();
+            highEventCount += result.getHighEventCount();
+            lowEventCount += result.getLowEventCount();
+            overnightRangeTotal += result.getAverageOvernightRangeTicks() * result.getSessionsAnalyzed();
+            firstHourRangeTotal += result.getAverageFirstHourRangeTicks() * result.getSessionsAnalyzed();
+            rthRangeTotal += result.getAverageRthRangeTicks() * result.getSessionsAnalyzed();
+            overnightVolumeTotal += result.getAverageOvernightVolume() * result.getSessionsAnalyzed();
+            firstHourVolumeTotal += result.getAverageFirstHourVolume() * result.getSessionsAnalyzed();
+            rthVolumeTotal += result.getAverageRthVolume() * result.getSessionsAnalyzed();
         }
 
         private EventStatisticsResult toResult(String eventName) {
@@ -294,9 +337,22 @@ public class EventStatisticsQueryRunner {
                     scopeName,
                     eventName,
                     sessionsAnalyzed,
-                    longEventCount,
-                    shortEventCount
+                    highEventCount,
+                    lowEventCount,
+                    average(overnightRangeTotal),
+                    average(firstHourRangeTotal),
+                    average(rthRangeTotal),
+                    average(overnightVolumeTotal),
+                    average(firstHourVolumeTotal),
+                    average(rthVolumeTotal)
             );
+        }
+
+        private double average(double total) {
+            if (sessionsAnalyzed == 0) {
+                return 0;
+            }
+            return total / sessionsAnalyzed;
         }
     }
 }

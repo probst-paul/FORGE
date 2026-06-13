@@ -69,7 +69,7 @@ class OpeningRangeContinuationStrategyTest {
         void entersLongWhenFirstHourHighIsCrossedAfterInsideFirstHourRange() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy(2);
 
-            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG));
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.HIGH));
 
             assertTrue(decision.hasOrderRequest());
             OrderRequest orderRequest = decision.getOrderRequest().orElseThrow();
@@ -86,7 +86,7 @@ class OpeningRangeContinuationStrategyTest {
         void entersShortWhenFirstHourLowIsCrossedAfterInsideFirstHourRange() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false, EventSide.SHORT));
+            StrategyDecision decision = strategy.evaluate(context(LocalTime.of(9, 30), 92, false, EventSide.LOW));
 
             assertTrue(decision.hasOrderRequest());
             assertEquals(OrderSide.SELL, decision.getOrderRequest().orElseThrow().getSide());
@@ -105,7 +105,7 @@ class OpeningRangeContinuationStrategyTest {
                     LocalTime.of(9, 30),
                     101,
                     false,
-                    EventSide.LONG,
+                    EventSide.HIGH,
                     feature(90, 100, 92, 101)
             ));
 
@@ -116,22 +116,22 @@ class OpeningRangeContinuationStrategyTest {
         void onlyAllowsOneTradePerSessionDate() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG)).hasOrderRequest());
-            assertFalse(strategy.evaluate(context(LocalTime.of(9, 31), 92, false, EventSide.SHORT)).hasOrderRequest());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.HIGH)).hasOrderRequest());
+            assertFalse(strategy.evaluate(context(LocalTime.of(9, 31), 92, false, EventSide.LOW)).hasOrderRequest());
         }
 
         @Test
         void onlyTradesDuringAllowedWindow() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertFalse(strategy.evaluate(context(LocalTime.of(10, 30), 98, false, EventSide.LONG)).hasOrderRequest());
+            assertFalse(strategy.evaluate(context(LocalTime.of(10, 30), 98, false, EventSide.HIGH)).hasOrderRequest());
         }
 
         @Test
         void doesNotTradeWhenPositionIsAlreadyOpen() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertFalse(strategy.evaluate(context(LocalTime.of(9, 30), 98, true, EventSide.LONG)).hasOrderRequest());
+            assertFalse(strategy.evaluate(context(LocalTime.of(9, 30), 98, true, EventSide.HIGH)).hasOrderRequest());
         }
 
         @Test
@@ -145,11 +145,11 @@ class OpeningRangeContinuationStrategyTest {
         void clearsStateOnBacktestStart() {
             OpeningRangeContinuationStrategy strategy = new OpeningRangeContinuationStrategy();
 
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.LONG)).hasOrderRequest());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 30), 98, false, EventSide.HIGH)).hasOrderRequest());
 
             strategy.onBacktestStart();
 
-            assertTrue(strategy.evaluate(context(LocalTime.of(9, 31), 98, false, EventSide.LONG)).hasOrderRequest());
+            assertTrue(strategy.evaluate(context(LocalTime.of(9, 31), 98, false, EventSide.HIGH)).hasOrderRequest());
         }
     }
 

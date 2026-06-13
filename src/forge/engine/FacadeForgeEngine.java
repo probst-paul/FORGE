@@ -284,6 +284,26 @@ public class FacadeForgeEngine {
             }
 
             @Override
+            public java.util.List<forge.engine.eventstatistics.EventStatisticsDetail> loadEventStatisticsDetails(
+                    java.util.List<forge.data.market.ContractTradeWindow> windows,
+                    String eventName
+            ) {
+                return FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .loadEventStatisticsDetails(windows, eventName);
+            }
+
+            @Override
+            public java.util.List<forge.engine.eventstatistics.EventStatisticsResult> loadEventStatisticsContractResults(
+                    java.util.List<forge.data.market.ContractTradeWindow> windows,
+                    String eventName
+            ) {
+                return FacadeForgeData.getTheInstance()
+                        .forgeDataAccess()
+                        .loadEventStatisticsContractResults(windows, eventName);
+            }
+
+            @Override
             public void saveMarketEventOccurrences(
                     java.util.Collection<forge.event.MarketEventOccurrence> marketConditionOccurrences
             ) {

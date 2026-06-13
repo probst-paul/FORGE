@@ -5,6 +5,8 @@ import forge.data.importing.DataImportPlan;
 import forge.data.importing.ImportCheckpoint;
 import forge.data.importing.TradeRow;
 import forge.data.market.ContractTradeWindow;
+import forge.engine.eventstatistics.EventStatisticsDetail;
+import forge.engine.eventstatistics.EventStatisticsResult;
 import forge.event.EventSide;
 import forge.event.MarketEventOccurrence;
 import forge.feature.SessionRangeFeature;
@@ -246,12 +248,19 @@ public class PostgresTradeRepository {
                             quoteIdentifier("firstHourHighTicks") + " BIGINT NOT NULL, " +
                             quoteIdentifier("rthLowTicks") + " BIGINT NOT NULL, " +
                             quoteIdentifier("rthHighTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("overnightVolume") + " BIGINT NOT NULL DEFAULT 0, " +
+                            quoteIdentifier("firstHourVolume") + " BIGINT NOT NULL DEFAULT 0, " +
+                            quoteIdentifier("rthVolume") + " BIGINT NOT NULL DEFAULT 0, " +
+                            quoteIdentifier("overnightTradeCount") + " BIGINT NOT NULL DEFAULT 0, " +
+                            quoteIdentifier("firstHourTradeCount") + " BIGINT NOT NULL DEFAULT 0, " +
+                            quoteIdentifier("rthTradeCount") + " BIGINT NOT NULL DEFAULT 0, " +
                             quoteIdentifier("createdAt") + " TIMESTAMPTZ NOT NULL, " +
                             "PRIMARY KEY (" + quoteIdentifier("contractSymbol") + ", " +
                             quoteIdentifier("sessionDate") + ", " +
                             quoteIdentifier("featureVersion") + ")" +
                             ")"
             );
+            addSessionRangeMeasurementColumns(statement);
             statement.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS " + quoteIdentifier(MARKET_EVENT_TABLE) + " (" +
                             quoteIdentifier("contractSymbol") + " TEXT NOT NULL, " +
@@ -363,6 +372,28 @@ public class PostgresTradeRepository {
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not load available instruments from PostgreSQL metadata", exception);
         }
+    }
+
+    private void addSessionRangeMeasurementColumns(Statement statement) throws SQLException {
+        /*
+         * Intent: Migrate older session-range tables with range-only columns to include activity measurements.
+         * Precondition: Session range table exists or was just created.
+         * Returns: Nothing.
+         * Postcondition: Volume/trade-count columns are available for joins and aggregate event statistics.
+         */
+        addBigIntColumn(statement, SESSION_RANGE_TABLE, "overnightVolume");
+        addBigIntColumn(statement, SESSION_RANGE_TABLE, "firstHourVolume");
+        addBigIntColumn(statement, SESSION_RANGE_TABLE, "rthVolume");
+        addBigIntColumn(statement, SESSION_RANGE_TABLE, "overnightTradeCount");
+        addBigIntColumn(statement, SESSION_RANGE_TABLE, "firstHourTradeCount");
+        addBigIntColumn(statement, SESSION_RANGE_TABLE, "rthTradeCount");
+    }
+
+    private void addBigIntColumn(Statement statement, String tableName, String columnName) throws SQLException {
+        statement.executeUpdate(
+                "ALTER TABLE " + quoteIdentifier(tableName) +
+                        " ADD COLUMN IF NOT EXISTS " + quoteIdentifier(columnName) + " BIGINT NOT NULL DEFAULT 0"
+        );
     }
 
     public int wipeDatabase() {
@@ -559,7 +590,7 @@ public class PostgresTradeRepository {
          * Returns: True when all requested windows have build markers.
          * Postcondition: Database data is unchanged.
          */
-        return areDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, windows);
+        return areDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, sessionRangeBuildName(), windows);
     }
 
     public List<SessionRangeFeature> loadSessionRanges(List<ContractTradeWindow> windows) {
@@ -588,7 +619,13 @@ public class PostgresTradeRepository {
                                 quoteIdentifier("firstHourLowTicks") + ", " +
                                 quoteIdentifier("firstHourHighTicks") + ", " +
                                 quoteIdentifier("rthLowTicks") + ", " +
-                                quoteIdentifier("rthHighTicks") +
+                                quoteIdentifier("rthHighTicks") + ", " +
+                                quoteIdentifier("overnightVolume") + ", " +
+                                quoteIdentifier("firstHourVolume") + ", " +
+                                quoteIdentifier("rthVolume") + ", " +
+                                quoteIdentifier("overnightTradeCount") + ", " +
+                                quoteIdentifier("firstHourTradeCount") + ", " +
+                                quoteIdentifier("rthTradeCount") +
                                 " FROM " + quoteIdentifier(SESSION_RANGE_TABLE) +
                                 " WHERE " + quoteIdentifier("contractSymbol") + " = ?" +
                                 " AND " + quoteIdentifier("featureVersion") + " = ?" +
@@ -610,7 +647,13 @@ public class PostgresTradeRepository {
                                     resultSet.getLong(5),
                                     resultSet.getLong(6),
                                     resultSet.getLong(7),
-                                    resultSet.getLong(8)
+                                    resultSet.getLong(8),
+                                    resultSet.getLong(9),
+                                    resultSet.getLong(10),
+                                    resultSet.getLong(11),
+                                    resultSet.getLong(12),
+                                    resultSet.getLong(13),
+                                    resultSet.getLong(14)
                             ));
                         }
                     }
@@ -649,8 +692,14 @@ public class PostgresTradeRepository {
                              quoteIdentifier("firstHourHighTicks") + ", " +
                              quoteIdentifier("rthLowTicks") + ", " +
                              quoteIdentifier("rthHighTicks") + ", " +
+                             quoteIdentifier("overnightVolume") + ", " +
+                             quoteIdentifier("firstHourVolume") + ", " +
+                             quoteIdentifier("rthVolume") + ", " +
+                             quoteIdentifier("overnightTradeCount") + ", " +
+                             quoteIdentifier("firstHourTradeCount") + ", " +
+                             quoteIdentifier("rthTradeCount") + ", " +
                              quoteIdentifier("createdAt") +
-                             ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" +
+                             ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" +
                              " ON CONFLICT (" + quoteIdentifier("contractSymbol") + ", " +
                              quoteIdentifier("sessionDate") + ", " +
                              quoteIdentifier("featureVersion") + ") DO UPDATE SET " +
@@ -659,7 +708,13 @@ public class PostgresTradeRepository {
                              quoteIdentifier("firstHourLowTicks") + " = EXCLUDED." + quoteIdentifier("firstHourLowTicks") + ", " +
                              quoteIdentifier("firstHourHighTicks") + " = EXCLUDED." + quoteIdentifier("firstHourHighTicks") + ", " +
                              quoteIdentifier("rthLowTicks") + " = EXCLUDED." + quoteIdentifier("rthLowTicks") + ", " +
-                             quoteIdentifier("rthHighTicks") + " = EXCLUDED." + quoteIdentifier("rthHighTicks")
+                             quoteIdentifier("rthHighTicks") + " = EXCLUDED." + quoteIdentifier("rthHighTicks") + ", " +
+                             quoteIdentifier("overnightVolume") + " = EXCLUDED." + quoteIdentifier("overnightVolume") + ", " +
+                             quoteIdentifier("firstHourVolume") + " = EXCLUDED." + quoteIdentifier("firstHourVolume") + ", " +
+                             quoteIdentifier("rthVolume") + " = EXCLUDED." + quoteIdentifier("rthVolume") + ", " +
+                             quoteIdentifier("overnightTradeCount") + " = EXCLUDED." + quoteIdentifier("overnightTradeCount") + ", " +
+                             quoteIdentifier("firstHourTradeCount") + " = EXCLUDED." + quoteIdentifier("firstHourTradeCount") + ", " +
+                             quoteIdentifier("rthTradeCount") + " = EXCLUDED." + quoteIdentifier("rthTradeCount")
              )) {
             for (SessionRangeFeature feature : sessionRangeFeatures) {
                 statement.setString(1, feature.getContractSymbol());
@@ -671,7 +726,13 @@ public class PostgresTradeRepository {
                 statement.setLong(7, feature.getFirstHourHighTicks());
                 statement.setLong(8, feature.getRthLowTicks());
                 statement.setLong(9, feature.getRthHighTicks());
-                statement.setTimestamp(10, Timestamp.from(Instant.now()));
+                statement.setLong(10, feature.getOvernightVolume());
+                statement.setLong(11, feature.getFirstHourVolume());
+                statement.setLong(12, feature.getRthVolume());
+                statement.setLong(13, feature.getOvernightTradeCount());
+                statement.setLong(14, feature.getFirstHourTradeCount());
+                statement.setLong(15, feature.getRthTradeCount());
+                statement.setTimestamp(16, Timestamp.from(Instant.now()));
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -687,7 +748,7 @@ public class PostgresTradeRepository {
          * Returns: Nothing.
          * Postcondition: Future build plans can skip session ranges unless rebuild is requested.
          */
-        markDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, windows);
+        markDerivedRowsBuilt(BUILD_TYPE_SESSION_RANGE, sessionRangeBuildName(), windows);
     }
 
     public void clearSessionRanges(List<ContractTradeWindow> windows) {
@@ -708,7 +769,7 @@ public class PostgresTradeRepository {
         )) {
             for (ContractTradeWindow window : windows) {
                 deleteSessionRanges(connection, window);
-                deleteDerivedBuild(connection, BUILD_TYPE_SESSION_RANGE, SessionRangeFeature.FEATURE_NAME, window);
+                deleteDerivedBuild(connection, BUILD_TYPE_SESSION_RANGE, sessionRangeBuildName(), window);
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not clear PostgreSQL session range features", exception);
@@ -769,7 +830,7 @@ public class PostgresTradeRepository {
                                     resultSet.getDate(2).toLocalDate(),
                                     resultSet.getString(3),
                                     resultSet.getInt(4),
-                                    EventSide.valueOf(resultSet.getString(5)),
+                                    parseEventSide(resultSet.getString(5)),
                                     resultSet.getTimestamp(6).toInstant(),
                                     resultSet.getLong(7)
                             ));
@@ -870,8 +931,192 @@ public class PostgresTradeRepository {
         }
     }
 
+    public List<EventStatisticsDetail> loadEventStatisticsDetails(
+            List<ContractTradeWindow> windows,
+            String eventName
+    ) {
+        /*
+         * Intent: Load event occurrence details joined to derived session range/activity context.
+         * Precondition: Windows and event name must identify built derived event data.
+         * Returns: Detail rows ordered by contract, session date, and event time.
+         * Postcondition: Database data is unchanged.
+         */
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<EventStatisticsDetail> details = new ArrayList<>();
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            for (ContractTradeWindow window : windows) {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT e." + quoteIdentifier("contractSymbol") + ", " +
+                                "e." + quoteIdentifier("sessionDate") + ", " +
+                                "e." + quoteIdentifier("eventName") + ", " +
+                                "e.side, " +
+                                "e." + quoteIdentifier("eventTime") + ", " +
+                                "e." + quoteIdentifier("eventPriceTicks") + ", " +
+                                "r." + quoteIdentifier("overnightLowTicks") + ", " +
+                                "r." + quoteIdentifier("overnightHighTicks") + ", " +
+                                "r." + quoteIdentifier("firstHourLowTicks") + ", " +
+                                "r." + quoteIdentifier("firstHourHighTicks") + ", " +
+                                "r." + quoteIdentifier("rthLowTicks") + ", " +
+                                "r." + quoteIdentifier("rthHighTicks") + ", " +
+                                "r." + quoteIdentifier("overnightVolume") + ", " +
+                                "r." + quoteIdentifier("firstHourVolume") + ", " +
+                                "r." + quoteIdentifier("rthVolume") + ", " +
+                                "r." + quoteIdentifier("overnightTradeCount") + ", " +
+                                "r." + quoteIdentifier("firstHourTradeCount") + ", " +
+                                "r." + quoteIdentifier("rthTradeCount") +
+                                " FROM " + quoteIdentifier(MARKET_EVENT_TABLE) + " e" +
+                                " JOIN " + quoteIdentifier(SESSION_RANGE_TABLE) + " r" +
+                                " ON e." + quoteIdentifier("contractSymbol") + " = r." + quoteIdentifier("contractSymbol") +
+                                " AND e." + quoteIdentifier("sessionDate") + " = r." + quoteIdentifier("sessionDate") +
+                                " WHERE e." + quoteIdentifier("contractSymbol") + " = ?" +
+                                " AND e." + quoteIdentifier("eventName") + " = ?" +
+                                " AND r." + quoteIdentifier("featureVersion") + " = ?" +
+                                " AND e." + quoteIdentifier("sessionDate") + " >= ?" +
+                                " AND e." + quoteIdentifier("sessionDate") + " <= ?" +
+                                " ORDER BY e." + quoteIdentifier("contractSymbol") + ", " +
+                                "e." + quoteIdentifier("sessionDate") + ", " +
+                                "e." + quoteIdentifier("eventTime")
+                )) {
+                    statement.setString(1, window.getContractSymbol());
+                    statement.setString(2, eventName);
+                    statement.setInt(3, SessionRangeFeature.FEATURE_VERSION);
+                    statement.setDate(4, Date.valueOf(window.getStartDate()));
+                    statement.setDate(5, Date.valueOf(window.getEndDate()));
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        while (resultSet.next()) {
+                            details.add(new EventStatisticsDetail(
+                                    resultSet.getString(1),
+                                    resultSet.getDate(2).toLocalDate(),
+                                    resultSet.getString(3),
+                                    parseEventSide(resultSet.getString(4)),
+                                    resultSet.getTimestamp(5).toInstant(),
+                                    resultSet.getLong(6),
+                                    resultSet.getLong(7),
+                                    resultSet.getLong(8),
+                                    resultSet.getLong(9),
+                                    resultSet.getLong(10),
+                                    resultSet.getLong(11),
+                                    resultSet.getLong(12),
+                                    resultSet.getLong(13),
+                                    resultSet.getLong(14),
+                                    resultSet.getLong(15),
+                                    resultSet.getLong(16),
+                                    resultSet.getLong(17),
+                                    resultSet.getLong(18)
+                            ));
+                        }
+                    }
+                }
+            }
+            return Collections.unmodifiableList(details);
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not load event statistics details from PostgreSQL", exception);
+        }
+    }
+
+    public List<EventStatisticsResult> loadEventStatisticsContractResults(
+            List<ContractTradeWindow> windows,
+            String eventName
+    ) {
+        /*
+         * Intent: Aggregate event counts and supporting session measurements in PostgreSQL.
+         * Precondition: Session ranges and event occurrences should be built for selected windows.
+         * Returns: Contract-scoped EventStatisticsResult rows.
+         * Postcondition: Database data is unchanged.
+         */
+        ensureDerivedDataTablesExist();
+        if (windows == null || windows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<EventStatisticsResult> results = new ArrayList<>();
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            for (ContractTradeWindow window : windows) {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT r." + quoteIdentifier("contractSymbol") + ", " +
+                                "COUNT(*) AS sessionsAnalyzed, " +
+                                "SUM(CASE WHEN e.side IN ('HIGH', 'LONG') THEN 1 ELSE 0 END) AS highEvents, " +
+                                "SUM(CASE WHEN e.side IN ('LOW', 'SHORT') THEN 1 ELSE 0 END) AS lowEvents, " +
+                                "AVG(r." + quoteIdentifier("overnightHighTicks") + " - r." + quoteIdentifier("overnightLowTicks") + ") AS avgOvernightRangeTicks, " +
+                                "AVG(r." + quoteIdentifier("firstHourHighTicks") + " - r." + quoteIdentifier("firstHourLowTicks") + ") AS avgFirstHourRangeTicks, " +
+                                "AVG(r." + quoteIdentifier("rthHighTicks") + " - r." + quoteIdentifier("rthLowTicks") + ") AS avgRthRangeTicks, " +
+                                "AVG(r." + quoteIdentifier("overnightVolume") + ") AS avgOvernightVolume, " +
+                                "AVG(r." + quoteIdentifier("firstHourVolume") + ") AS avgFirstHourVolume, " +
+                                "AVG(r." + quoteIdentifier("rthVolume") + ") AS avgRthVolume" +
+                                " FROM " + quoteIdentifier(SESSION_RANGE_TABLE) + " r" +
+                                " LEFT JOIN " + quoteIdentifier(MARKET_EVENT_TABLE) + " e" +
+                                " ON e." + quoteIdentifier("contractSymbol") + " = r." + quoteIdentifier("contractSymbol") +
+                                " AND e." + quoteIdentifier("sessionDate") + " = r." + quoteIdentifier("sessionDate") +
+                                " AND e." + quoteIdentifier("eventName") + " = ?" +
+                                " WHERE r." + quoteIdentifier("contractSymbol") + " = ?" +
+                                " AND r." + quoteIdentifier("featureVersion") + " = ?" +
+                                " AND r." + quoteIdentifier("sessionDate") + " >= ?" +
+                                " AND r." + quoteIdentifier("sessionDate") + " <= ?" +
+                                " GROUP BY r." + quoteIdentifier("contractSymbol") +
+                                " ORDER BY r." + quoteIdentifier("contractSymbol")
+                )) {
+                    statement.setString(1, eventName);
+                    statement.setString(2, window.getContractSymbol());
+                    statement.setInt(3, SessionRangeFeature.FEATURE_VERSION);
+                    statement.setDate(4, Date.valueOf(window.getStartDate()));
+                    statement.setDate(5, Date.valueOf(window.getEndDate()));
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        while (resultSet.next()) {
+                            results.add(new EventStatisticsResult(
+                                    resultSet.getString(1),
+                                    eventName,
+                                    resultSet.getLong(2),
+                                    resultSet.getLong(3),
+                                    resultSet.getLong(4),
+                                    resultSet.getDouble(5),
+                                    resultSet.getDouble(6),
+                                    resultSet.getDouble(7),
+                                    resultSet.getDouble(8),
+                                    resultSet.getDouble(9),
+                                    resultSet.getDouble(10)
+                            ));
+                        }
+                    }
+                }
+            }
+            return Collections.unmodifiableList(results);
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not aggregate event statistics from PostgreSQL", exception);
+        }
+    }
+
     public String getDatabaseName() {
         return settings.getDatabaseName();
+    }
+
+    private String sessionRangeBuildName() {
+        return SessionRangeFeature.FEATURE_NAME + "_v" + SessionRangeFeature.FEATURE_VERSION;
+    }
+
+    private EventSide parseEventSide(String side) {
+        /*
+         * Intent: Convert stored event-side text into the current high/low event terminology.
+         * Precondition: side should be a persisted market-event side value.
+         * Returns: EventSide using HIGH/LOW, with legacy LONG/SHORT rows mapped for compatibility.
+         * Postcondition: Database data is unchanged.
+         */
+        if ("LONG".equals(side)) {
+            return EventSide.HIGH;
+        }
+        if ("SHORT".equals(side)) {
+            return EventSide.LOW;
+        }
+        return EventSide.valueOf(side);
     }
 
     private ImportCheckpoint findImportCheckpoint(Connection connection, String tableName) throws SQLException {

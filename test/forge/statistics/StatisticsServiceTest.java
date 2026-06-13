@@ -29,8 +29,8 @@ class StatisticsServiceTest {
                         feature("NQZ25", LocalDate.of(2025, 12, 1))
                 ),
                 List.of(
-                        event("ESU25", LocalDate.of(2025, 8, 1), EventSide.LONG),
-                        event("NQZ25", LocalDate.of(2025, 12, 1), EventSide.SHORT)
+                        event("ESU25", LocalDate.of(2025, 8, 1), EventSide.HIGH),
+                        event("NQZ25", LocalDate.of(2025, 12, 1), EventSide.LOW)
                 )
         );
 
@@ -40,12 +40,12 @@ class StatisticsServiceTest {
         EventStatisticsResult nq = report.getInstrumentResults().get(1);
         assertEquals("ES", es.getScopeName());
         assertEquals(2, es.getSessionsAnalyzed());
-        assertEquals(1, es.getLongEventCount());
-        assertEquals(0, es.getShortEventCount());
+        assertEquals(1, es.getHighEventCount());
+        assertEquals(0, es.getLowEventCount());
         assertEquals("NQ", nq.getScopeName());
         assertEquals(1, nq.getSessionsAnalyzed());
-        assertEquals(0, nq.getLongEventCount());
-        assertEquals(1, nq.getShortEventCount());
+        assertEquals(0, nq.getHighEventCount());
+        assertEquals(1, nq.getLowEventCount());
         assertEquals(3, report.getContractResults().size());
     }
 
