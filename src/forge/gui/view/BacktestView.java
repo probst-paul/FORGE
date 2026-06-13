@@ -5,7 +5,6 @@ import forge.app.BacktestProgressListener;
 import forge.event.MarketEvent;
 import forge.config.BacktestRequest;
 import forge.config.RiskSettings;
-import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.gui.FacadeForgeGui;
 import forge.gui.controller.BacktestController;
@@ -98,20 +97,17 @@ public class BacktestView {
         strategyDescription.setWrapText(true);
 
         Label contractLabel = new Label("Contract windows");
-        VBox contractList = new VBox(6);
-        contractList.setPadding(new Insets(8));
-        contractList.setStyle("-fx-background-color: #ffffff; -fx-border-color: #d7dde3;");
+        InstrumentContractSelectionPane contractSelectionPane = new InstrumentContractSelectionPane();
 
-        ScrollPane contractScrollPane = new ScrollPane(contractList);
+        ScrollPane contractScrollPane = new ScrollPane(contractSelectionPane);
         contractScrollPane.setFitToWidth(true);
         contractScrollPane.setPrefViewportHeight(190);
         contractScrollPane.setMinHeight(140);
 
-        List<ContractSelection> contractSelections = new ArrayList<>();
         ObjectProperty<BacktestResult> currentReport = new SimpleObjectProperty<>();
         Button refreshButton = new Button("Refresh Contracts");
         refreshButton.disableProperty().bind(viewModel.runningProperty());
-        refreshButton.setOnAction(event -> loadAvailableContracts(contractList, contractSelections));
+        refreshButton.setOnAction(event -> loadAvailableContracts(contractSelectionPane));
 
         CheckBox perTradeRiskEnabledCheckBox = new CheckBox("Enable per-trade risk");
         perTradeRiskEnabledCheckBox.setSelected(true);
@@ -188,7 +184,7 @@ public class BacktestView {
         setupPane.setExpanded(true);
 
         runButton.setOnAction(event -> runBacktest(
-                contractSelections,
+                contractSelectionPane,
                 strategyComboBox.getValue(),
                 conditionComboBox.getValue(),
                 perTradeRiskEnabledCheckBox,
@@ -216,7 +212,7 @@ public class BacktestView {
         VBox.setVgrow(resultsTabs, Priority.ALWAYS);
 
         loadStrategies(strategyComboBox, strategyDescription, conditionComboBox, conditionMessage);
-        loadAvailableContracts(contractList, contractSelections);
+        loadAvailableContracts(contractSelectionPane);
         return root;
     }
 
@@ -379,35 +375,22 @@ public class BacktestView {
         }
     }
 
-    private void loadAvailableContracts(VBox contractList, List<ContractSelection> contractSelections) {
+    private void loadAvailableContracts(InstrumentContractSelectionPane contractSelectionPane) {
         /*
          * Intent: Refresh selectable contract windows for the backtest run.
-         * Precondition: contractList and contractSelections must be the active UI state containers.
+         * Precondition: contractSelectionPane must be the active UI state container.
          * Returns: Nothing.
-         * Postcondition: The checkbox list mirrors currently available imported contract windows.
+         * Postcondition: Contracts are grouped by instrument with selectable contract rows.
          */
-        contractList.getChildren().clear();
-        contractSelections.clear();
-
         try {
-            List<AvailableContractData> contracts = controller.getAvailableContracts();
+            var contracts = controller.getAvailableContracts();
             if (contracts.isEmpty()) {
-                contractList.getChildren().add(new Label("No imported contract windows are available."));
+                contractSelectionPane.loadContracts(contracts);
                 controller.getViewModel().setStatusMessage("No imported contract windows are available.");
                 return;
             }
 
-            for (AvailableContractData contract : contracts) {
-                ContractTradeWindow window = new ContractTradeWindow(
-                        contract.getContractSymbol(),
-                        contract.getStartDate(),
-                        contract.getEndDate()
-                );
-                CheckBox checkBox = new CheckBox(contract.toString());
-                checkBox.setSelected(true);
-                contractSelections.add(new ContractSelection(checkBox, window));
-                contractList.getChildren().add(checkBox);
-            }
+            contractSelectionPane.loadContracts(contracts);
             controller.getViewModel().setStatusMessage("Loaded " + contracts.size() + " contract window(s).");
         } catch (RuntimeException exception) {
             controller.getViewModel().markFailed("Could not load available contracts.", exception);
@@ -754,7 +737,7 @@ public class BacktestView {
     }
 
     private void runBacktest(
-            List<ContractSelection> contractSelections,
+            InstrumentContractSelectionPane contractSelectionPane,
             StrategySelection strategySelection,
             ConditionSelection conditionSelection,
             CheckBox perTradeRiskEnabledCheckBox,
@@ -773,7 +756,7 @@ public class BacktestView {
          * Postcondition: A daemon backtest thread is started, or the view model reports validation/failure.
          */
         BacktestViewModel viewModel = controller.getViewModel();
-        List<ContractTradeWindow> selectedWindows = selectedWindows(contractSelections);
+        List<ContractTradeWindow> selectedWindows = contractSelectionPane.selectedWindows();
 
         if (selectedWindows.isEmpty()) {
             viewModel.markFailed("Could not run backtest.", new RuntimeException("Select at least one contract window."));
@@ -865,16 +848,6 @@ public class BacktestView {
         }
     }
 
-    private List<ContractTradeWindow> selectedWindows(List<ContractSelection> contractSelections) {
-        List<ContractTradeWindow> selectedWindows = new ArrayList<>();
-        for (ContractSelection selection : contractSelections) {
-            if (selection.checkBox().isSelected()) {
-                selectedWindows.add(selection.window());
-            }
-        }
-        return selectedWindows;
-    }
-
     private List<ContractBacktestResult> allContractResults(BacktestResult result) {
         List<ContractBacktestResult> contractResults = new ArrayList<>();
         for (InstrumentBacktestResult instrumentResult : result.getInstrumentResults()) {
@@ -895,9 +868,6 @@ public class BacktestView {
             trades.addAll(contractResult.getTrades());
         }
         return trades;
-    }
-
-    private record ContractSelection(CheckBox checkBox, ContractTradeWindow window) {
     }
 
     private record StrategySelection(

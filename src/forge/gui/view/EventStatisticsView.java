@@ -2,7 +2,6 @@ package forge.gui.view;
 
 import forge.app.EventStatisticsProgress;
 import forge.app.EventStatisticsProgressListener;
-import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.market.ContractTradeWindow;
 import forge.engine.eventstatistics.EventStatisticsDetail;
 import forge.reporting.eventstatistics.EventStatisticsReport;
@@ -27,7 +26,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
@@ -91,20 +89,17 @@ public class EventStatisticsView {
         });
 
         Label contractLabel = new Label("Contract windows");
-        VBox contractList = new VBox(6);
-        contractList.setPadding(new Insets(8));
-        contractList.setStyle("-fx-background-color: #ffffff; -fx-border-color: #d7dde3;");
+        InstrumentContractSelectionPane contractSelectionPane = new InstrumentContractSelectionPane();
 
-        ScrollPane contractScrollPane = new ScrollPane(contractList);
+        ScrollPane contractScrollPane = new ScrollPane(contractSelectionPane);
         contractScrollPane.setFitToWidth(true);
         contractScrollPane.setPrefViewportHeight(220);
         contractScrollPane.setMinHeight(140);
 
-        List<ContractSelection> contractSelections = new ArrayList<>();
         ObjectProperty<EventStatisticsReport> currentReport = new SimpleObjectProperty<>();
         Button refreshButton = new Button("Refresh Contracts");
         refreshButton.disableProperty().bind(viewModel.runningProperty());
-        refreshButton.setOnAction(event -> loadAvailableContracts(contractList, contractSelections));
+        refreshButton.setOnAction(event -> loadAvailableContracts(contractSelectionPane));
 
         Button runButton = new Button("Run Statistics");
         runButton.disableProperty().bind(viewModel.runningProperty());
@@ -148,7 +143,7 @@ public class EventStatisticsView {
         setupPane.setExpanded(true);
 
         runButton.setOnAction(event -> runStatistics(
-                contractSelections,
+                contractSelectionPane,
                 studyComboBox.getValue(),
                 resultsTabs,
                 setupPane,
@@ -170,7 +165,7 @@ public class EventStatisticsView {
         VBox.setVgrow(resultsTabs, Priority.ALWAYS);
 
         loadStudies(studyComboBox, studyDescription);
-        loadAvailableContracts(contractList, contractSelections);
+        loadAvailableContracts(contractSelectionPane);
         return root;
     }
 
@@ -238,35 +233,22 @@ public class EventStatisticsView {
         }
     }
 
-    private void loadAvailableContracts(VBox contractList, List<ContractSelection> contractSelections) {
+    private void loadAvailableContracts(InstrumentContractSelectionPane contractSelectionPane) {
         /*
          * Intent: Refresh selectable contract windows for the statistics run.
-         * Precondition: contractList and contractSelections must be the active UI state containers.
+         * Precondition: contractSelectionPane must be the active UI state container.
          * Returns: Nothing.
-         * Postcondition: The checkbox list mirrors currently available imported contract windows.
+         * Postcondition: Contracts are grouped by instrument with selectable contract rows.
          */
-        contractList.getChildren().clear();
-        contractSelections.clear();
-
         try {
-            List<AvailableContractData> contracts = controller.getAvailableContracts();
+            var contracts = controller.getAvailableContracts();
             if (contracts.isEmpty()) {
-                contractList.getChildren().add(new Label("No imported contract windows are available."));
+                contractSelectionPane.loadContracts(contracts);
                 controller.getViewModel().setStatusMessage("No imported contract windows are available.");
                 return;
             }
 
-            for (AvailableContractData contract : contracts) {
-                ContractTradeWindow window = new ContractTradeWindow(
-                        contract.getContractSymbol(),
-                        contract.getStartDate(),
-                        contract.getEndDate()
-                );
-                CheckBox checkBox = new CheckBox(contract.toString());
-                checkBox.setSelected(true);
-                contractSelections.add(new ContractSelection(checkBox, window));
-                contractList.getChildren().add(checkBox);
-            }
+            contractSelectionPane.loadContracts(contracts);
             controller.getViewModel().setStatusMessage("Loaded " + contracts.size() + " contract window(s).");
         } catch (RuntimeException exception) {
             controller.getViewModel().markFailed("Could not load available contracts.", exception);
@@ -523,7 +505,7 @@ public class EventStatisticsView {
     }
 
     private void runStatistics(
-            List<ContractSelection> contractSelections,
+            InstrumentContractSelectionPane contractSelectionPane,
             StudySelection studySelection,
             TabPane resultsTabs,
             TitledPane setupPane,
@@ -537,7 +519,7 @@ public class EventStatisticsView {
          * Postcondition: A daemon statistics thread is started, or the view model reports validation/failure.
          */
         EventStatisticsViewModel viewModel = controller.getViewModel();
-        List<ContractTradeWindow> selectedWindows = selectedWindows(contractSelections);
+        List<ContractTradeWindow> selectedWindows = contractSelectionPane.selectedWindows();
 
         if (selectedWindows.isEmpty()) {
             viewModel.markFailed("Could not run event statistics.", new RuntimeException("Select at least one contract window."));
@@ -601,16 +583,6 @@ public class EventStatisticsView {
         };
     }
 
-    private List<ContractTradeWindow> selectedWindows(List<ContractSelection> contractSelections) {
-        List<ContractTradeWindow> selectedWindows = new ArrayList<>();
-        for (ContractSelection selection : contractSelections) {
-            if (selection.checkBox().isSelected()) {
-                selectedWindows.add(selection.window());
-            }
-        }
-        return selectedWindows;
-    }
-
     private String formatReport(EventStatisticsReport report) {
         /*
          * Intent: Create a text export for the latest event statistics report.
@@ -649,9 +621,6 @@ public class EventStatisticsView {
                     .append(String.format("%.2f%%", result.getEventRate() * 100.0))
                     .append(System.lineSeparator());
         }
-    }
-
-    private record ContractSelection(CheckBox checkBox, ContractTradeWindow window) {
     }
 
     private record StudySelection(MarketStudy study) {
