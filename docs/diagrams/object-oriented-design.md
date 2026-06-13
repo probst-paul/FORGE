@@ -29,7 +29,7 @@ classDiagram
 
     class MarketEvent {
         <<interface>>
-        +ConditionResult evaluate(MarketContext context)
+        +EventResult evaluate(MarketContext context)
     }
 
     class PriceCrossoverEvent
@@ -39,14 +39,14 @@ classDiagram
 
     class ExecutionEngine {
         <<interface>>
-        +Fill execute(OrderRequest request, MarketContext context)
+        +Fill execute(OrderRequest request, TradeTick currentTick)
     }
 
-    class CurrentTickExecutionEngine
-    ExecutionEngine <|.. CurrentTickExecutionEngine
+    class SimpleExecutionEngine
+    ExecutionEngine <|.. SimpleExecutionEngine
 
     class ImmutableLists~T~ {
-        +List~T~ copyOf(Collection~T~ values)
+        +List~T~ copyOfRequired(List~T~ values, String name)
     }
 
     class ClasspathCatalog~T~ {
@@ -59,10 +59,23 @@ classDiagram
         -String importScidFilePath
     }
 
+    class SavedReport~T~ {
+        <<Serializable>>
+        -String reportType
+        -T report
+        -LocalDateTime savedAt
+    }
+
     class GuiPreferencesStore {
         +void save(GuiUserPreferences preferences)
         +GuiUserPreferences load()
     }
 
+    class GuiReportStore {
+        +void save(Path path, SavedReport~T~ report)
+        +SavedReport~T~ load(Path path, Class~T~ reportClass, String expectedType)
+    }
+
     GuiPreferencesStore --> GuiUserPreferences
+    GuiReportStore --> SavedReport
 ```

@@ -6,53 +6,63 @@ config:
   layout: elk
 ---
 classDiagram
-    direction LR
+    direction TB
 
-    class Main
-    class ForgeGuiApplication
-    class FacadeForgeCli
-    class FacadeForgeGui
-    class FacadeForgeApplication
+    class GUI {
+        JavaFX workflows
+        Import Data
+        Event Statistics
+        Backtest
+        Settings
+    }
+
+    class AdminCLI {
+        Database config
+        Import
+        Derived data
+        Benchmark
+        Wipe
+    }
+
+    class FacadeForgeApplication {
+        +importData(...)
+        +runEventStatistics(...)
+        +runBacktest(...)
+        +wipeDatabase()
+    }
+
     class FacadeForgeData
     class FacadeForgeEngine
     class FacadeForgeReporting
     class FacadeForgeRisk
     class FacadeForgeTrade
 
-    class CliApplicationController
-    class MainWindowController
-    class ImportDataController
-    class EventStatisticsController
-    class BacktestController
+    class PostgresTradeRepository {
+        +ensureContractTradesTableExists(...)
+        +ensureDerivedDataTablesExist()
+        +insertTradesAndAdvanceCheckpoint(...)
+        +loadEventStatisticsDetails(...)
+        +loadEventStatisticsContractResults(...)
+    }
+
+    class PostgresTickDataProvider {
+        +openReader(...)
+        +countTicks(...)
+    }
 
     class BacktestEngine {
-        +run(BacktestRequest request)
-        +run(BacktestRequest request, BacktestProgressListener listener)
+        +run(...)
     }
 
     class EventStatisticsEngine {
-        +run(EventStatisticsQueryRequest request)
+        +run(...)
     }
 
     class EngineJobRunner {
-        +runAll(List~EngineJob~ jobs)
+        +runAll(...)
     }
 
-    class EngineJob~T~ {
-        <<interface>>
-        +run()
-    }
-
-    class BacktestRequest
-    class EventStatisticsQueryRequest
-    class BacktestResult
-    class EventStatisticsResult
     class ReportingModels
-    class DataAccess
-
-    class TradingStrategy {
-        <<interface>>
-    }
 
     class RiskManager {
         +evaluate(...)
@@ -64,86 +74,57 @@ classDiagram
         +closePosition(...)
     }
 
-    class ExecutionEngine {
-        <<interface>>
-        +fill(OrderRequest request, TradeTick tick)
+    class TableCreationSQL:::redNote {
+        Table creation SQL
+        CREATE TABLE IF NOT EXISTS
     }
 
-    class GuiBackgroundTasks:::redNote {
-        Concurrency
-        JavaFX Task
-        background import, statistics, backtest
+    class DataInsertionSQL:::redNote {
+        Data insertion SQL
+        COPY and INSERT
     }
 
-    class EngineConcurrentJobs:::redNote {
-        Concurrency
-        ExecutorService
-        Future
-        ThreadFactory
+    class OrderedSelectionSQL:::redNote {
+        Ordered record selection
+        SELECT with ORDER BY
     }
 
-    class ContractWindowConcurrency:::redNote {
-        Concurrency
-        independent contract windows
-        aggregate and per-contract progress
+    class JoinSelectionSQL:::redNote {
+        Two table selection
+        JOIN market events to session ranges
     }
 
-    Main --> FacadeForgeCli
-    ForgeGuiApplication --> FacadeForgeGui
+    class AggregationSQL:::redNote {
+        Selection with aggregation
+        COUNT SUM AVG GROUP BY
+    }
 
-    FacadeForgeCli --> CliApplicationController
-    FacadeForgeGui --> MainWindowController
-    MainWindowController --> ImportDataController
-    MainWindowController --> EventStatisticsController
-    MainWindowController --> BacktestController
-
-    CliApplicationController --> FacadeForgeApplication
-    ImportDataController --> FacadeForgeApplication
-    EventStatisticsController --> FacadeForgeApplication
-    BacktestController --> FacadeForgeApplication
+    GUI --> FacadeForgeApplication
+    AdminCLI --> FacadeForgeApplication
 
     FacadeForgeApplication --> FacadeForgeData
     FacadeForgeApplication --> FacadeForgeEngine
     FacadeForgeApplication --> FacadeForgeReporting
 
+    FacadeForgeData --> PostgresTradeRepository
+    FacadeForgeData --> PostgresTickDataProvider
+
     FacadeForgeEngine --> BacktestEngine
     FacadeForgeEngine --> EventStatisticsEngine
-
     BacktestEngine --> EngineJobRunner
     EventStatisticsEngine --> EngineJobRunner
-    EngineJobRunner --> EngineJob
-
-    BacktestEngine --> BacktestRequest
-    BacktestEngine --> TradingStrategy
     BacktestEngine --> FacadeForgeRisk
     BacktestEngine --> FacadeForgeTrade
-    BacktestEngine --> BacktestResult
 
-    EventStatisticsEngine --> EventStatisticsQueryRequest
-    EventStatisticsEngine --> EventStatisticsResult
-
-    FacadeForgeData --> DataAccess
     FacadeForgeRisk --> RiskManager
     FacadeForgeTrade --> TradeLifecycleEngine
-    TradeLifecycleEngine --> ExecutionEngine
-
     FacadeForgeReporting --> ReportingModels
-    BacktestResult --> ReportingModels
-    EventStatisticsResult --> ReportingModels
 
-    GuiBackgroundTasks ..> ImportDataController : background task
-    GuiBackgroundTasks ..> EventStatisticsController : background task
-    GuiBackgroundTasks ..> BacktestController : background task
-
-    EngineConcurrentJobs ..> EngineJobRunner : worker pool
-    EngineConcurrentJobs ..> EngineJob : submitted job
-    EngineConcurrentJobs ..> BacktestEngine : concurrent backtest groups
-    EngineConcurrentJobs ..> EventStatisticsEngine : concurrent statistics jobs
-
-    ContractWindowConcurrency ..> BacktestEngine : split non-overlapping windows
-    ContractWindowConcurrency ..> EventStatisticsEngine : split selected windows
-    ContractWindowConcurrency ..> BacktestController : per-contract progress
-    ContractWindowConcurrency ..> EventStatisticsController : per-contract progress
+    TableCreationSQL ..> PostgresTradeRepository
+    DataInsertionSQL ..> PostgresTradeRepository
+    OrderedSelectionSQL ..> PostgresTickDataProvider
+    JoinSelectionSQL ..> PostgresTradeRepository
+    AggregationSQL ..> PostgresTradeRepository
 
     classDef redNote fill:#ffe5e5,stroke:#cc0000,color:#990000,stroke-width:2px;
 ```

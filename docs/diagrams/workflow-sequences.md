@@ -7,9 +7,10 @@ flowchart TB
     subgraph GUI["JavaFX GUI"]
         G1["Import Data<br/>choose SCID file"]
         G2["Optional post-import<br/>derived data builds"]
-        G3["Event Statistics<br/>select study + contract windows"]
-        G4["Backtest<br/>select strategy, risk, contract windows"]
-        G5["Result Views<br/>cards, tables, simulated trades"]
+        G3["Event Statistics<br/>select study, instruments, contracts"]
+        G4["Backtest<br/>select instruments, contracts, strategy, risk"]
+        G5["Result Views<br/>summary, details, simulated trades"]
+        G6["Settings<br/>confirmed database wipe"]
     end
 
     subgraph CLI["Admin CLI"]
@@ -33,6 +34,7 @@ flowchart TB
     G2 --> DATA
     G3 --> ENGINE
     G4 --> ENGINE
+    G6 --> DATA
     DATA --> ENGINE
     ENGINE --> G5
 ```
@@ -58,15 +60,19 @@ sequenceDiagram
 
     Trader->>GUI: Select Import Data
     Trader->>GUI: Choose SCID file with system file browser
+    Trader->>GUI: Choose Fill Missing or Overwrite Overlap import mode
     Trader->>GUI: Select derived data to build after import
     GUI->>App: planDataImport(DataImportRequest)
     App->>Data: planScidImport(path)
-    Data->>Importer: Inspect contract name, metadata, and existing rows
+    Data->>Importer: Inspect contract name, metadata, file range, and overlap
     Importer-->>Data: DataImportPlan
     Data-->>App: DataImportPlan
     App-->>GUI: DataImportPlan
     GUI->>App: importData(DataImportRequest)
-    App->>Data: importScidFile(path, rebuildExistingContract, progressListener)
+    App->>Data: importScidFile(path, importMode, progressListener)
+    opt Overwrite Overlap mode
+        Data->>Importer: Delete only stored rows overlapping selected file range
+    end
     Data->>Importer: Import rollover-filtered SCID rows
     Importer->>Repo: Persist tick rows and import metadata
     Importer-->>GUI: ImportProgress
@@ -82,7 +88,7 @@ sequenceDiagram
     end
 
     Trader->>GUI: Select Event Statistics
-    Trader->>GUI: Select study and rollover-clipped contract windows
+    Trader->>GUI: Select study, instruments, and rollover-clipped contract windows
     GUI->>App: runEventStatistics(EventStatisticsQueryRequest, progressListener)
     App->>StatsEngine: run(request, progressListener)
     StatsEngine->>Data: Build missing required derived data
@@ -95,11 +101,11 @@ sequenceDiagram
     StatsEngine-->>GUI: Aggregate and per-contract progress
     StatsEngine->>Report: Build event-statistics report
     Report-->>StatsEngine: EventStatisticsReport
-    StatsEngine-->>App: EventStatisticsResult
-    App-->>GUI: EventStatisticsResult
-    GUI-->>Trader: Display event-statistics cards/tabs
+    StatsEngine-->>App: EventStatisticsReport
+    App-->>GUI: EventStatisticsReport
+    GUI-->>Trader: Display summary cards and details table
 
-    Trader->>GUI: Select futures market, date range, and contract windows
+    Trader->>GUI: Select futures market, instruments, and contract windows
     Trader->>GUI: Select strategy and risk settings
     GUI->>GUI: Validate required selections and numeric risk values
     GUI->>GUI: Create JavaFX background backtest task
@@ -160,6 +166,15 @@ sequenceDiagram
         GUI->>GUI: Deserialize saved BacktestResult .dat file
         GUI-->>Trader: Display loaded summary cards and simulated trades table
     end
+
+    opt Settings database wipe
+        Trader->>GUI: Select Settings
+        GUI->>GUI: Require explicit confirmation
+        GUI->>App: wipeDatabase()
+        App->>Data: wipeDatabase()
+        Data->>Repo: Drop FORGE-owned contract and forge_* tables
+        Repo-->>GUI: Dropped table count
+    end
 ```
 
 ## CLI Admin Workflow
@@ -188,7 +203,7 @@ sequenceDiagram
         App-->>CLI: Accepted database settings
         CLI-->>Admin: Show configuration result
     else Import Data
-        Admin->>CLI: Enter SCID file path and rebuild choice
+        Admin->>CLI: Enter SCID file path
         CLI->>App: planDataImport(DataImportRequest)
         App->>Data: planScidImport(path)
         Data->>Importer: Inspect SCID file and contract metadata
@@ -197,8 +212,9 @@ sequenceDiagram
         Importer-->>Data: DataImportPlan
         Data-->>App: DataImportPlan
         App-->>CLI: DataImportPlan
+        CLI->>CLI: Confirm overlap overwrite or keep existing rows
         CLI->>App: importData(DataImportRequest)
-        App->>Data: importScidFile(path, rebuild, progressListener)
+        App->>Data: importScidFile(path, importMode, progressListener)
         Data->>Importer: Import rollover-filtered rows
         Importer->>Repo: COPY batches and advance checkpoint
         Importer-->>CLI: ImportProgress
@@ -218,7 +234,7 @@ sequenceDiagram
         Data-->>CLI: DatabaseBuildResult
         CLI-->>Admin: Show derived-data result
     else Run Benchmark Workflow
-        Admin->>CLI: Enter SCID file path and rebuild choices
+        Admin->>CLI: Enter SCID file path and import/build choices
         CLI->>Benchmark: runBenchmark(BenchmarkRunRequest)
         Benchmark->>App: importData(...)
         Benchmark->>Data: runDatabaseBuild(...)
