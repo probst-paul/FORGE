@@ -102,7 +102,7 @@ mvn test
 
 ## Runtime Files
 
-FORGE writes GUI preferences and saved report snapshots to project-local runtime folders. Saved event-statistics and backtest reports are stored as `.dat` files under:
+FORGE writes GUI preferences and saved report snapshots to project-local runtime folders. GUI import-path preferences are stored under `runtime/preferences`, and saved event-statistics/backtest report snapshots are stored as `.dat` files under:
 
 ```text
 runtime/reports
@@ -112,10 +112,12 @@ These files are local runtime artifacts and are not intended to be committed.
 
 ## Sample SCID File
 
-The repository includes a small sample SCID file for local testing:
+The repository includes one small importable SCID sample and two intentionally invalid/error-oriented SCID files for testing error handling:
 
 ```text
 sample/YMM6_CME_Sample.scid
+sample/ESU24_FUT_CME_InvalidHeader.scid
+sample/ESU23_FUT_CME_RuntimeTickError.scid
 ```
 
 For a local import, provide either the sample path or a Sierra Chart SCID path such as:

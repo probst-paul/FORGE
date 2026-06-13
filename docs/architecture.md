@@ -12,7 +12,7 @@ feature/
   reusable derived measurements such as overnight range, first-hour range, and RTH range
 
 event/
-  reusable market events such as first-hour breach and price crossover
+  reusable market events such as first-hour breach and price crossover, with high/low event side terminology
 
 study/
   market setup definitions built from features and events
@@ -24,13 +24,13 @@ strategy/
   trade interpretation for a setup, including entry decisions, exits, filters, and risk settings
 
 engine/
-  execution of event statistics and backtest simulation workflows, including independent concurrent engine jobs
+  execution of event statistics and backtest simulation workflows, including independent concurrent engine jobs and contract-level progress aggregation
 
 trade/
   order, fill, position lifecycle, trade plan, and trade result models
 
 reporting/
-  report models and performance metrics for UI display and export-oriented workflows
+  report models and performance metrics for UI display, saved report snapshots, and export-oriented workflows
 ```
 
 This structure lets FORGE ask both:
@@ -70,11 +70,21 @@ The strategy declares that it requires session ranges and first-hour breach even
 
 ## Engine Concurrency
 
-The GUI submits import, event-statistics, and backtest work as background JavaFX tasks so long-running database reads and simulations do not block the UI thread. The engine layer also uses `EngineJobRunner` to run independent event-statistics and backtest jobs concurrently.
+The GUI submits import, settings, event-statistics, and backtest work as background JavaFX tasks so long-running database reads, destructive maintenance, and simulations do not block the UI thread. The engine layer also uses `EngineJobRunner` to run independent event-statistics and backtest jobs concurrently.
 
 For backtests, FORGE splits selected contract windows into independent jobs when the windows do not overlap. Overlapping windows for the same instrument stay grouped so strategy state and daily risk checks are evaluated consistently. Completed contract-level results are merged back into instrument-level reports before display.
 
 Event-statistics runs use the same concurrent job pattern for independent contract windows. Both event statistics and backtests report aggregate progress, and the GUI can also display per-contract progress rows while multi-contract work is running.
+
+## Data Import and Selection
+
+SCID import normalizes supported contract naming conventions to standardized contract tables, validates supported roots/month codes, filters to active front-month windows, and stores tick prices as integer `BIGINT` values. Existing contract tables can be extended with missing trades or refreshed only across the selected file's overlapping timestamp range.
+
+Research screens select instruments first and then imported rollover-clipped contract windows. This keeps the GUI aligned with the database-derived instrument catalog while still allowing contract-specific statistics and backtests.
+
+## Event Statistics Details
+
+Event-statistics reports include summary counts and detail rows. The detail query joins market event occurrences to session range features by contract and session date, so each event row can show supporting session context such as overnight, first-hour, and RTH range/volume measurements.
 
 ## Execution
 

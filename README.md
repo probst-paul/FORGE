@@ -2,7 +2,7 @@
 
 **Futures Order Replay and Generalized Execution Engine**
 
-FORGE is an early-stage Java futures research and backtesting project. It provides a JavaFX GUI for user-facing import, event statistics, and backtest workflows; a CLI for administration tasks such as import, derived-data builds, database configuration, benchmark runs, and database wipes; and a SCID-to-PostgreSQL import flow with contract validation, checkpointing, progress reporting, and front-month rollover filtering.
+FORGE is an early-stage Java futures research and backtesting project. It provides a JavaFX GUI for user-facing import, event statistics, backtest, and settings workflows; a CLI for administration tasks such as import, derived-data builds, database configuration, benchmark runs, and database wipes; and a SCID-to-PostgreSQL import flow with contract validation, overlap-aware import modes, checkpointing, progress reporting, and front-month rollover filtering.
 
 The project is organized around reusable market research layers: raw imported ticks, derived features, market events, studies, statistics, strategies, simulation engines, trade lifecycle handling, risk checks, and reporting models. The goal is to support futures market structure research first, then layer simulated trade execution on top of those reusable study/event results.
 
@@ -10,13 +10,13 @@ FORGE is an early-stage system rather than a complete historical market replay o
 
 ## Highlights
 
-- JavaFX GUI for user-facing import, event statistics, and backtest workflows
+- JavaFX GUI for user-facing import, event statistics, backtest, and settings workflows
 - Admin CLI for database configuration, import, derived-data refresh, benchmarks, and database wipes
-- PostgreSQL-backed SCID ingestion with contract validation, checkpointing, rollover filtering, and progress reporting
+- PostgreSQL-backed SCID ingestion with contract validation, fill-missing/overwrite-overlap import modes, checkpointing, rollover filtering, and progress reporting
 - Database-derived instrument catalog based on imported, rollover-clipped contract windows
 - Tick-native price storage and strategy math using `BIGINT` tick counts instead of floating-point price fields
 - Derived session features for overnight, first-hour RTH, and full RTH ranges
-- Event/statistics workflow for studying market setup frequency before simulating trades
+- Event/statistics workflow with summary and detail views for studying market setup frequency before simulating trades
 - Concurrent event-statistics and backtest execution for independent contract windows, with aggregate and per-contract progress reporting
 - Basic backtest simulation with trade plans, risk checks, target/stop/time-stop exits, P/L, MFE, and MAE
 - Java serialization support for GUI import-path preferences and saved report `.dat` files
@@ -28,21 +28,25 @@ FORGE is an early-stage system rather than a complete historical market replay o
 FORGE JavaFX GUI
 ├─ Import Data
 │  ├─ Select a SCID file with the system file chooser
+│  ├─ Choose Fill Missing Trades or Overwrite Overlapping Stored Data
 │  ├─ Optionally build session ranges after import
 │  ├─ Optionally build first-hour breach events after import
 │  └─ Import with progress and summary output
 ├─ Event Statistics
 │  ├─ Select an event-statistics study
-│  ├─ Select imported rollover-clipped contract windows
+│  ├─ Select instruments, then imported rollover-clipped contract windows
 │  ├─ Build missing derived data when needed and persist it to PostgreSQL
-│  ├─ Display instrument and contract result cards/tabs
+│  ├─ Display summary cards and event detail rows with supporting session data
 │  └─ Save/load the latest statistics report as a project-local .dat file
-└─ Backtest
-   ├─ Select imported rollover-clipped contract windows
-   ├─ Select strategy and risk settings
-   ├─ Build missing derived data when needed and persist it to PostgreSQL
-   ├─ Display summary, instrument/contract tables, and simulated trades
-   └─ Save/load the latest backtest report as a project-local .dat file
+├─ Backtest
+│  ├─ Select instruments, then imported rollover-clipped contract windows
+│  ├─ Select strategy and risk settings
+│  ├─ Build missing derived data when needed and persist it to PostgreSQL
+│  ├─ Display summary, instrument/contract tables, and simulated trades
+│  └─ Save/load the latest backtest report as a project-local .dat file
+└─ Settings
+   ├─ Run administrative maintenance from the GUI
+   └─ Drop FORGE-owned database tables after explicit confirmation
 ```
 
 The GUI is the primary user-facing surface for research workflows. Backtest and event-statistics runs execute as background tasks so the JavaFX window remains responsive. Multi-contract runs display aggregate progress plus per-contract progress while work is active. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
@@ -124,17 +128,21 @@ mvn test
 
 ## Sample Data
 
-The repository includes a small sample SCID file for local testing:
+The repository includes one importable sample SCID file plus two intentionally invalid/error-oriented files for local testing:
 
 ```text
 sample/YMM6_CME_Sample.scid
+sample/ESU24_FUT_CME_InvalidHeader.scid
+sample/ESU23_FUT_CME_RuntimeTickError.scid
 ```
+
+The `YMM6` file is a small importable sample. The `InvalidHeader` and `RuntimeTickError` files are intentionally bad/error-oriented samples for testing error handling.
 
 ## More Documentation
 
 - [Setup](docs/setup.md): PostgreSQL setup, environment variables, build commands, and sample import path
 - [Workflows](docs/workflows.md): GUI and CLI workflow details
-- [Data Import](docs/data-import.md): SCID mapping, PostgreSQL schema, contract validation, rollover filtering, and progress behavior
+- [Data Import](docs/data-import.md): SCID mapping, PostgreSQL schema, contract validation, overlap-aware imports, rollover filtering, and progress behavior
 - [Architecture](docs/architecture.md): Package responsibilities, study/statistics/backtest layering, and object-oriented design notes
 - [Diagrams](docs/diagrams/index.md): Architecture, workflow, data import, research/backtest, OO design, and full class model diagrams
 - [Roadmap](docs/roadmap.md): Known gaps and planned design areas
