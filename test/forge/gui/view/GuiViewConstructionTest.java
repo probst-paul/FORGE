@@ -3,6 +3,7 @@ package forge.gui.view;
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.BacktestController;
 import forge.gui.controller.EventStatisticsController;
+import forge.gui.controller.SettingsController;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,19 @@ class GuiViewConstructionTest {
         @Test
         void canConstructWithController() {
             assertNotNull(new EventStatisticsView(new EventStatisticsController()));
+        }
+    }
+
+    @Nested
+    class Settings {
+        @Test
+        void requiresController() {
+            assertThrows(IllegalArgumentException.class, () -> new SettingsView(null));
+        }
+
+        @Test
+        void canConstructWithController() {
+            assertNotNull(new SettingsView(new SettingsController()));
         }
     }
 

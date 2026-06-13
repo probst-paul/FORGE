@@ -4,6 +4,7 @@ import forge.gui.controller.BacktestController;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.MainWindowController;
+import forge.gui.controller.SettingsController;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -42,10 +43,12 @@ class FacadeForgeGuiTest {
             ImportDataController importDataController = access.createImportDataController();
             EventStatisticsController eventStatisticsController = access.createEventStatisticsController();
             BacktestController backtestController = access.createBacktestController();
+            SettingsController settingsController = access.createSettingsController();
 
             assertNotNull(importDataController);
             assertNotNull(eventStatisticsController);
             assertNotNull(backtestController);
+            assertNotNull(settingsController);
         }
     }
 }

@@ -39,6 +39,8 @@ public class PostgresTradeRepository {
     private static final String DERIVED_BUILD_TABLE = "forge_derived_builds";
     private static final String BUILD_TYPE_SESSION_RANGE = "SESSION_RANGE";
     private static final String BUILD_TYPE_MARKET_EVENT = "MARKET_EVENT";
+    private static final String WIPE_LOCK_TIMEOUT = "5s";
+    private static final String WIPE_STATEMENT_TIMEOUT = "120s";
 
     private final PostgresDatabaseSettings settings;
 
@@ -411,6 +413,8 @@ public class PostgresTradeRepository {
                 settings.getPassword()
         );
              Statement statement = connection.createStatement()) {
+            configureWipeSession(statement);
+            terminateOtherCurrentDatabaseSessions(statement);
             List<String> tableNames = listForgeOwnedTables(connection);
             for (String tableName : tableNames) {
                 statement.executeUpdate("DROP TABLE IF EXISTS " + quoteIdentifier(tableName) + " CASCADE");
@@ -418,6 +422,36 @@ public class PostgresTradeRepository {
             return tableNames.size();
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not wipe PostgreSQL database '" + settings.getDatabaseName() + "'", exception);
+        }
+    }
+
+    private void configureWipeSession(Statement statement) throws SQLException {
+        /*
+         * Intent: Prevent database wipe from waiting forever on PostgreSQL locks or long-running statements.
+         * Precondition: statement must belong to the database connection used for the wipe.
+         * Returns: Nothing.
+         * Postcondition: DROP statements fail with a useful exception instead of hanging indefinitely.
+         */
+        statement.execute("SET lock_timeout = '" + WIPE_LOCK_TIMEOUT + "'");
+        statement.execute("SET statement_timeout = '" + WIPE_STATEMENT_TIMEOUT + "'");
+    }
+
+    private void terminateOtherCurrentDatabaseSessions(Statement statement) throws SQLException {
+        /*
+         * Intent: Release locks held by other sessions connected to the same database before dropping tables.
+         * Precondition: statement must be connected to the primary FORGE database.
+         * Returns: Nothing.
+         * Postcondition: Other sessions are terminated where PostgreSQL permissions allow it.
+         */
+        try {
+            statement.execute(
+                    "SELECT pg_terminate_backend(pid) " +
+                            "FROM pg_stat_activity " +
+                            "WHERE datname = current_database() " +
+                            "AND pid <> pg_backend_pid()"
+            );
+        } catch (SQLException exception) {
+            // Some PostgreSQL users cannot terminate other sessions. The lock timeout still prevents an indefinite wait.
         }
     }
 

@@ -96,6 +96,8 @@ public class MainWindowView {
                 owner, viewModel, root, workflowContentCache);
         addNavigationButton(navigation, navigationButtons, "Backtest", GuiWorkflowType.BACKTEST,
                 owner, viewModel, root, workflowContentCache);
+        addNavigationButton(navigation, navigationButtons, "Settings", GuiWorkflowType.SETTINGS,
+                owner, viewModel, root, workflowContentCache);
         updateNavigationButtonStyles(navigationButtons, viewModel.getActiveWorkflow());
         VBox.setVgrow(navigation.getChildren().get(navigation.getChildren().size() - 1), Priority.NEVER);
         return navigation;
@@ -187,6 +189,9 @@ public class MainWindowView {
             case BACKTEST -> new BacktestView(FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .createBacktestController()).createView(owner);
+            case SETTINGS -> new SettingsView(FacadeForgeGui.getTheInstance()
+                    .forgeGuiAccess()
+                    .createSettingsController()).createView(owner);
         });
         return content;
     }

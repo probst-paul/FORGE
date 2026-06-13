@@ -6,12 +6,14 @@ import forge.gui.controller.BacktestController;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.MainWindowController;
+import forge.gui.controller.SettingsController;
 import forge.gui.concurrency.GuiWorkflowJob;
 import forge.gui.concurrency.GuiWorkflowRunner;
 import forge.gui.viewmodel.BacktestViewModel;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.gui.viewmodel.GuiWorkflowType;
 import forge.gui.viewmodel.ImportDataViewModel;
+import forge.gui.viewmodel.SettingsViewModel;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyDoubleProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
@@ -103,6 +105,10 @@ public class FacadeForgeGui {
 
         public BacktestController createBacktestController() {
             return new BacktestController(forgeApplication, new BacktestViewModel());
+        }
+
+        public SettingsController createSettingsController() {
+            return new SettingsController(forgeApplication, new SettingsViewModel());
         }
 
         public <T> GuiWorkflowJob<T> submitWorkflowTask(GuiWorkflowType workflowType, Task<T> task) {

@@ -6,6 +6,7 @@ import forge.gui.viewmodel.BacktestViewModel;
 import forge.gui.viewmodel.EventStatisticsViewModel;
 import forge.gui.viewmodel.ImportDataViewModel;
 import forge.gui.viewmodel.MainWindowViewModel;
+import forge.gui.viewmodel.SettingsViewModel;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,7 @@ class GuiControllerConstructionTest {
             assertNotNull(new ImportDataController().getViewModel());
             assertNotNull(new EventStatisticsController().getViewModel());
             assertNotNull(new BacktestController().getViewModel());
+            assertNotNull(new SettingsController().getViewModel());
         }
     }
 
@@ -31,6 +33,7 @@ class GuiControllerConstructionTest {
             ImportDataViewModel importDataViewModel = new ImportDataViewModel();
             EventStatisticsViewModel eventStatisticsViewModel = new EventStatisticsViewModel();
             BacktestViewModel backtestViewModel = new BacktestViewModel();
+            SettingsViewModel settingsViewModel = new SettingsViewModel();
 
             assertSame(importDataViewModel, new ImportDataController(
                     FacadeForgeApplication.getTheInstance(),
@@ -44,6 +47,10 @@ class GuiControllerConstructionTest {
                     FacadeForgeApplication.getTheInstance(),
                     backtestViewModel
             ).getViewModel());
+            assertSame(settingsViewModel, new SettingsController(
+                    FacadeForgeApplication.getTheInstance(),
+                    settingsViewModel
+            ).getViewModel());
         }
 
         @Test
@@ -55,6 +62,11 @@ class GuiControllerConstructionTest {
             ));
             assertThrows(IllegalArgumentException.class, () -> new MainWindowController(null, new MainWindowView()));
             assertThrows(IllegalArgumentException.class, () -> new MainWindowController(new MainWindowViewModel(), null));
+            assertThrows(IllegalArgumentException.class, () -> new SettingsController(null, new SettingsViewModel()));
+            assertThrows(IllegalArgumentException.class, () -> new SettingsController(
+                    FacadeForgeApplication.getTheInstance(),
+                    null
+            ));
         }
     }
 }
