@@ -40,6 +40,12 @@ public class GuiWorkflowRunner {
     private final BooleanProperty taskIndicatorVisible = new SimpleBooleanProperty(false);
 
     public GuiWorkflowRunner() {
+        /*
+         * Intent: Create the shared single-lane executor used by GUI workflows.
+         * Precondition: Must be constructed from the JavaFX application setup path.
+         * Returns: New runner instance.
+         * Postcondition: Background workflow tasks run on a daemon thread instead of the UI thread.
+         */
         this.executor = new ThreadPoolExecutor(
                 1,
                 1,
@@ -144,10 +150,22 @@ public class GuiWorkflowRunner {
     }
 
     private void finishTask(GuiWorkflowJob<?> job, boolean completedSuccessfully) {
+        /*
+         * Intent: Finish a task using its current tracked workflow status.
+         * Precondition: job must have completed, failed, or been cancelled.
+         * Returns: Nothing.
+         * Postcondition: Queue/running counts are reconciled with task completion.
+         */
         finishTask(job.getStatus(), completedSuccessfully);
     }
 
     private void finishTask(GuiWorkflowStatus previousStatus, boolean completedSuccessfully) {
+        /*
+         * Intent: Update aggregate GUI task state after one workflow leaves the queue or runner.
+         * Precondition: previousStatus must describe whether the job was queued or running.
+         * Returns: Nothing.
+         * Postcondition: Task indicator either advances, briefly shows final success, or hides.
+         */
         if (previousStatus == GuiWorkflowStatus.QUEUED) {
             queuedTaskCount.set(Math.max(0, queuedTaskCount.get() - 1));
         } else {
@@ -165,6 +183,12 @@ public class GuiWorkflowRunner {
     }
 
     private void updateTaskIndicator() {
+        /*
+         * Intent: Recompute the footer task indicator from queued/running workflow counts.
+         * Precondition: Count properties must reflect current executor state.
+         * Returns: Nothing.
+         * Postcondition: Footer visibility, queue text, percent text, and progress value are consistent.
+         */
         int activeTaskCount = runningTaskCount.get() + queuedTaskCount.get();
         boolean visible = activeTaskCount > 0;
         taskIndicatorVisible.set(visible);
@@ -177,6 +201,12 @@ public class GuiWorkflowRunner {
     }
 
     private void setTaskDisplay(String queueText, String percentText) {
+        /*
+         * Intent: Publish task display text through JavaFX observable properties.
+         * Precondition: Values may be null when the indicator should be cleared.
+         * Returns: Nothing.
+         * Postcondition: Bound footer labels receive normalized non-null text.
+         */
         String safeQueueText = queueText == null ? "" : queueText;
         String safePercentText = percentText == null ? "" : percentText;
         taskQueueText.set(safeQueueText);
@@ -185,10 +215,22 @@ public class GuiWorkflowRunner {
     }
 
     private int progressPercent() {
+        /*
+         * Intent: Convert normalized task progress into a whole-number percentage.
+         * Precondition: currentTaskProgress may contain any JavaFX task progress value.
+         * Returns: Clamped percentage from 0 through 100.
+         * Postcondition: Progress state is unchanged.
+         */
         return (int) Math.round(normalizeProgress(currentTaskProgress.get()) * 100.0);
     }
 
     private double normalizeProgress(double progress) {
+        /*
+         * Intent: Clamp JavaFX progress values into a footer-safe display range.
+         * Precondition: progress may be indeterminate, negative, or greater than complete.
+         * Returns: 0.0 through 1.0.
+         * Postcondition: No observable state is changed.
+         */
         if (Double.isNaN(progress) || progress < 0.0) {
             return 0.0;
         }
@@ -196,6 +238,12 @@ public class GuiWorkflowRunner {
     }
 
     private ThreadFactory daemonThreadFactory() {
+        /*
+         * Intent: Create named daemon threads for GUI background workflow execution.
+         * Precondition: Runnable will be supplied by the executor.
+         * Returns: ThreadFactory that creates daemon workflow threads.
+         * Postcondition: GUI shutdown is not blocked by the workflow executor thread.
+         */
         return runnable -> {
             Thread thread = new Thread(runnable, "forge-gui-workflow-runner");
             thread.setDaemon(true);

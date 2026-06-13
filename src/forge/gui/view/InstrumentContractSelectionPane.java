@@ -60,6 +60,12 @@ class InstrumentContractSelectionPane extends VBox {
     }
 
     private TitledPane createInstrumentSection(String instrumentSymbol, List<AvailableContractData> contracts) {
+        /*
+         * Intent: Build one expandable UI section for a single instrument's contract windows.
+         * Precondition: instrumentSymbol identifies the grouped contracts and contracts must be non-null.
+         * Returns: TitledPane containing selected-by-default contract checkboxes.
+         * Postcondition: Contract selections are registered for later request building.
+         */
         VBox contractRows = new VBox(6);
         contractRows.setPadding(new Insets(6, 0, 0, 0));
         for (AvailableContractData contract : contracts) {
@@ -81,6 +87,12 @@ class InstrumentContractSelectionPane extends VBox {
     }
 
     private Map<String, List<AvailableContractData>> groupByInstrument(List<AvailableContractData> contracts) {
+        /*
+         * Intent: Preserve visible instrument order while grouping contract windows.
+         * Precondition: contracts must be non-null and ordered as the catalog should display them.
+         * Returns: Instrument symbol to ordered contract list map.
+         * Postcondition: Source contract list is unchanged.
+         */
         Map<String, List<AvailableContractData>> contractsByInstrument = new LinkedHashMap<>();
         for (AvailableContractData contract : contracts) {
             contractsByInstrument
@@ -91,10 +103,22 @@ class InstrumentContractSelectionPane extends VBox {
     }
 
     private String contractLabel(AvailableContractData contract) {
+        /*
+         * Intent: Render a compact contract row label without repeating the instrument name.
+         * Precondition: contract must contain a symbol and imported date window.
+         * Returns: User-facing label for the checkbox row.
+         * Postcondition: Contract data is unchanged.
+         */
         return contractCode(contract) + ": " + contract.getStartDate() + " to " + contract.getEndDate();
     }
 
     private String contractCode(AvailableContractData contract) {
+        /*
+         * Intent: Strip the redundant instrument prefix from a contract symbol for GUI display.
+         * Precondition: contract must expose instrument and contract symbols.
+         * Returns: Contract code such as U25 when possible, otherwise the original symbol.
+         * Postcondition: Contract data is unchanged.
+         */
         String instrumentSymbol = contract.getInstrumentSymbol();
         String contractSymbol = contract.getContractSymbol();
         if (contractSymbol.startsWith(instrumentSymbol)) {

@@ -266,12 +266,24 @@ public class ScidDataImportService {
     }
 
     private boolean isWithinActiveWindow(TradeRow trade, ContractRolloverWindow activeWindow) {
+        /*
+         * Intent: Determine whether one trade belongs inside the contract's active rollover window.
+         * Precondition: trade and activeWindow must be non-null.
+         * Returns: True when the trade date is within the inclusive active window.
+         * Postcondition: Trade and rollover state are unchanged.
+         */
         LocalDate tradeDate = trade.getTradeDateTime().atZone(ZoneOffset.UTC).toLocalDate();
         return !tradeDate.isBefore(activeWindow.getActiveStartDate())
                 && !tradeDate.isAfter(activeWindow.getActiveEndDate());
     }
 
     private long countNullSideRows(List<TradeRow> trades) {
+        /*
+         * Intent: Count imported rows that do not have an inferred aggressor side.
+         * Precondition: trades must be non-null.
+         * Returns: Number of rows with null side values.
+         * Postcondition: Trade list contents are unchanged.
+         */
         return trades.stream()
                 .filter(trade -> trade.getSide() == null)
                 .count();
@@ -292,6 +304,12 @@ public class ScidDataImportService {
     }
 
     private long fileSize(Path path) {
+        /*
+         * Intent: Read SCID file size for import planning and checkpoint validation.
+         * Precondition: path must point to an accessible file.
+         * Returns: File size in bytes.
+         * Postcondition: File contents are unchanged.
+         */
         try {
             return Files.size(path);
         } catch (IOException exception) {
@@ -300,6 +318,12 @@ public class ScidDataImportService {
     }
 
     private long lastModifiedMillis(Path path) {
+        /*
+         * Intent: Capture source-file modification time for import checkpoint matching.
+         * Precondition: path must point to an accessible file.
+         * Returns: Last modified time in epoch milliseconds.
+         * Postcondition: File contents are unchanged.
+         */
         try {
             return Files.getLastModifiedTime(path).toMillis();
         } catch (IOException exception) {
@@ -349,6 +373,12 @@ public class ScidDataImportService {
         private java.time.Instant lastTradeDateTime;
 
         private void include(TradeRow trade) {
+            /*
+             * Intent: Fold one importable trade into the selected file's timestamp bounds.
+             * Precondition: trade must be non-null and have a trade timestamp.
+             * Returns: Nothing.
+             * Postcondition: First/last timestamps include the supplied trade.
+             */
             java.time.Instant tradeDateTime = trade.getTradeDateTime();
             if (firstTradeDateTime == null || tradeDateTime.isBefore(firstTradeDateTime)) {
                 firstTradeDateTime = tradeDateTime;

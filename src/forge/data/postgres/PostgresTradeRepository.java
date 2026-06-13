@@ -1194,6 +1194,12 @@ public class PostgresTradeRepository {
     }
 
     private String sessionRangeBuildName() {
+        /*
+         * Intent: Create the build-marker name for the active session range feature schema.
+         * Precondition: SessionRangeFeature constants must describe the current derived-data version.
+         * Returns: Stable build name containing feature name and version.
+         * Postcondition: Repository state is unchanged.
+         */
         return SessionRangeFeature.FEATURE_NAME + "_v" + SessionRangeFeature.FEATURE_VERSION;
     }
 
@@ -1214,6 +1220,12 @@ public class PostgresTradeRepository {
     }
 
     private ImportCheckpoint findImportCheckpoint(Connection connection, String tableName) throws SQLException {
+        /*
+         * Intent: Load current import resume metadata for a contract table.
+         * Precondition: Connection must be open and checkpoint table must exist.
+         * Returns: ImportCheckpoint when metadata exists, otherwise null.
+         * Postcondition: Database state is unchanged.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT " + quoteIdentifier("sourceFileName") + ", " + quoteIdentifier("nextRecordIndex") +
                         " FROM " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
@@ -1230,6 +1242,12 @@ public class PostgresTradeRepository {
     }
 
     private boolean areDerivedRowsBuilt(String buildType, String name, List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Check build markers for every requested derived-data window.
+         * Precondition: buildType/name must identify a derived-data product.
+         * Returns: True when each selected window has a matching build marker.
+         * Postcondition: Database state is unchanged.
+         */
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return true;
@@ -1256,6 +1274,12 @@ public class PostgresTradeRepository {
             String name,
             ContractTradeWindow window
     ) throws SQLException {
+        /*
+         * Intent: Check whether one contract window has a specific derived-data build marker.
+         * Precondition: Connection must be open and window must be non-null.
+         * Returns: True when the marker row exists.
+         * Postcondition: Database state is unchanged.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM " + quoteIdentifier(DERIVED_BUILD_TABLE) +
                         " WHERE " + quoteIdentifier("buildType") + " = ?" +
@@ -1276,6 +1300,12 @@ public class PostgresTradeRepository {
     }
 
     private void deleteSessionRanges(Connection connection, ContractTradeWindow window) throws SQLException {
+        /*
+         * Intent: Remove cached session range rows for one contract/date window.
+         * Precondition: Connection must be open and window must identify an imported contract range.
+         * Returns: Nothing.
+         * Postcondition: Matching session range feature rows are removed.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "DELETE FROM " + quoteIdentifier(SESSION_RANGE_TABLE) +
                         " WHERE " + quoteIdentifier("contractSymbol") + " = ?" +
@@ -1296,6 +1326,12 @@ public class PostgresTradeRepository {
             String eventName,
             ContractTradeWindow window
     ) throws SQLException {
+        /*
+         * Intent: Remove cached market event rows for one event and contract/date window.
+         * Precondition: Connection must be open and eventName/window must identify cached event data.
+         * Returns: Nothing.
+         * Postcondition: Matching market event occurrence rows are removed.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "DELETE FROM " + quoteIdentifier(MARKET_EVENT_TABLE) +
                         " WHERE " + quoteIdentifier("contractSymbol") + " = ?" +
@@ -1317,6 +1353,12 @@ public class PostgresTradeRepository {
             String name,
             ContractTradeWindow window
     ) throws SQLException {
+        /*
+         * Intent: Remove a derived-data build marker for one contract/date window.
+         * Precondition: Connection must be open and marker identifiers must match the derived product.
+         * Returns: Nothing.
+         * Postcondition: Matching build marker row is removed.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "DELETE FROM " + quoteIdentifier(DERIVED_BUILD_TABLE) +
                         " WHERE " + quoteIdentifier("buildType") + " = ?" +
@@ -1335,6 +1377,12 @@ public class PostgresTradeRepository {
     }
 
     private void markDerivedRowsBuilt(String buildType, String name, List<ContractTradeWindow> windows) {
+        /*
+         * Intent: Upsert build markers after derived data has been persisted.
+         * Precondition: windows must describe the contract/date ranges successfully built.
+         * Returns: Nothing.
+         * Postcondition: Each window has a current builtAt marker for the derived product.
+         */
         ensureDerivedDataTablesExist();
         if (windows == null || windows.isEmpty()) {
             return;
@@ -1375,6 +1423,12 @@ public class PostgresTradeRepository {
     }
 
     private CheckpointMetadata findCheckpointMetadata(Connection connection, String tableName) throws SQLException {
+        /*
+         * Intent: Load source-file metadata used to decide whether an import can resume.
+         * Precondition: Connection must be open and checkpoint table must exist.
+         * Returns: CheckpointMetadata when present, otherwise null.
+         * Postcondition: Database state is unchanged.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT " + quoteIdentifier("sourceFileName") + ", " +
                         quoteIdentifier("fileSizeBytes") + ", " +
@@ -1405,6 +1459,12 @@ public class PostgresTradeRepository {
             long fileSizeBytes,
             long lastModifiedMillis
     ) throws SQLException {
+        /*
+         * Intent: Check whether stored checkpoint metadata still matches the selected source file.
+         * Precondition: Connection must be open and metadata values must come from the current file.
+         * Returns: True when the checkpoint belongs to the selected file version.
+         * Postcondition: Database state is unchanged.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
                         " WHERE " + quoteIdentifier("tableName") + " = ?" +
@@ -1429,6 +1489,12 @@ public class PostgresTradeRepository {
             long fileSizeBytes,
             long lastModifiedMillis
     ) throws SQLException {
+        /*
+         * Intent: Create initial import checkpoint metadata for a contract table.
+         * Precondition: Connection must be open and no checkpoint row should exist for the table.
+         * Returns: Nothing.
+         * Postcondition: Import can start at the first SCID record with IN_PROGRESS status.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) + " (" +
                         quoteIdentifier("tableName") + ", " +
@@ -1457,6 +1523,12 @@ public class PostgresTradeRepository {
     }
 
     private void markImportInProgress(Connection connection, String tableName) throws SQLException {
+        /*
+         * Intent: Mark an existing checkpoint as actively importing.
+         * Precondition: Connection must be open and checkpoint row must exist.
+         * Returns: Nothing.
+         * Postcondition: Checkpoint status and updated timestamp reflect an active import.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "UPDATE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
                         " SET status = ?, " + quoteIdentifier("updatedAt") + " = ?" +
@@ -1476,6 +1548,12 @@ public class PostgresTradeRepository {
             long fileSizeBytes,
             long lastModifiedMillis
     ) throws SQLException {
+        /*
+         * Intent: Reset checkpoint metadata when importing a different source file for the same contract.
+         * Precondition: Connection must be open and table must already have checkpoint metadata.
+         * Returns: Nothing.
+         * Postcondition: Import resumes from record one with cleared date bounds and row count.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "UPDATE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
                         " SET " + quoteIdentifier("sourceFileName") + " = ?, " +
@@ -1507,6 +1585,12 @@ public class PostgresTradeRepository {
     }
 
     private boolean contractTableExists(Connection connection, String tableName) throws SQLException {
+        /*
+         * Intent: Check whether a contract-specific trade table exists in the current schema.
+         * Precondition: Connection must be open and tableName must be normalized.
+         * Returns: True when the table exists.
+         * Postcondition: Database state is unchanged.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?"
         )) {
@@ -1518,6 +1602,12 @@ public class PostgresTradeRepository {
     }
 
     private long countRows(Connection connection, String tableName) throws SQLException {
+        /*
+         * Intent: Count all rows currently stored in a contract table.
+         * Precondition: Connection must be open and tableName must refer to a validated table.
+         * Returns: Total row count.
+         * Postcondition: Database state is unchanged.
+         */
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery("SELECT COUNT(*) FROM " + quoteIdentifier(tableName))) {
             resultSet.next();
@@ -1531,6 +1621,12 @@ public class PostgresTradeRepository {
             Instant firstTradeDateTime,
             Instant lastTradeDateTime
     ) throws SQLException {
+        /*
+         * Intent: Count stored rows that overlap the selected import file timestamp range.
+         * Precondition: Connection must be open and bounds may be null for empty importable files.
+         * Returns: Number of rows between the inclusive timestamp bounds.
+         * Postcondition: Database state is unchanged.
+         */
         if (firstTradeDateTime == null || lastTradeDateTime == null) {
             return 0;
         }
@@ -1549,6 +1645,12 @@ public class PostgresTradeRepository {
     }
 
     private TradeDateTimeBounds findTableDateTimeBounds(Connection connection, String tableName) throws SQLException {
+        /*
+         * Intent: Determine stored timestamp coverage for a contract table.
+         * Precondition: Connection must be open and tableName must refer to an existing contract table.
+         * Returns: First and last stored trade timestamps, or empty bounds for no rows.
+         * Postcondition: Database state is unchanged.
+         */
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(
                      "SELECT MIN(" + quoteIdentifier("tradeDateTime") + "), " +
@@ -1565,6 +1667,12 @@ public class PostgresTradeRepository {
     }
 
     private boolean isContractTableName(String tableName) {
+        /*
+         * Intent: Identify normalized futures contract tables owned by FORGE.
+         * Precondition: tableName may be null or arbitrary database metadata.
+         * Returns: True for expected contract symbols such as ESU25 or CLF26.
+         * Postcondition: Input value is unchanged.
+         */
         return tableName != null && tableName.toUpperCase().matches("[A-Z]{1,3}[FGHJKMNQUVXZ][0-9]{1,2}");
     }
 
@@ -1593,10 +1701,22 @@ public class PostgresTradeRepository {
     }
 
     private boolean isForgeOwnedTable(String tableName) {
+        /*
+         * Intent: Distinguish tables FORGE may manage from unrelated schema tables.
+         * Precondition: tableName may be null or any table in the current schema.
+         * Returns: True for forge_* tables and normalized contract tables.
+         * Postcondition: Input value is unchanged.
+         */
         return tableName != null && (tableName.startsWith("forge_") || isContractTableName(tableName));
     }
 
     private void createTemporaryImportTable(Connection connection, String temporaryTableName) throws SQLException {
+        /*
+         * Intent: Create a transaction-scoped staging table for PostgreSQL COPY import batches.
+         * Precondition: Connection must be open inside an import transaction.
+         * Returns: Nothing.
+         * Postcondition: Temporary table exists until the transaction commits or rolls back.
+         */
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(
                     "CREATE TEMP TABLE " + quoteIdentifier(temporaryTableName) + " (" +
@@ -1619,6 +1739,12 @@ public class PostgresTradeRepository {
             String tableName,
             String temporaryTableName
     ) throws SQLException {
+        /*
+         * Intent: Move staged import rows into the contract table while skipping duplicates.
+         * Precondition: Temporary table must contain rows shaped like the target contract table.
+         * Returns: Number of rows inserted into the target table.
+         * Postcondition: Existing duplicate rows remain unchanged.
+         */
         try (Statement statement = connection.createStatement()) {
             return statement.executeUpdate(
                     "INSERT INTO " + quoteIdentifier(tableName) + " (" +
@@ -1655,6 +1781,12 @@ public class PostgresTradeRepository {
             int importedRows,
             List<TradeRow> importedTrades
     ) throws SQLException {
+        /*
+         * Intent: Advance checkpoint row counts and timestamp coverage after a committed batch.
+         * Precondition: Connection must be open and checkpoint row must exist for tableName.
+         * Returns: Nothing.
+         * Postcondition: Resume index, inserted row count, coverage bounds, and updatedAt are current.
+         */
         TradeDateTimeBounds bounds = findTradeDateTimeBounds(importedTrades);
         try (PreparedStatement statement = connection.prepareStatement(
                 "UPDATE " + quoteIdentifier(IMPORT_CHECKPOINT_TABLE) +
@@ -1686,6 +1818,12 @@ public class PostgresTradeRepository {
     }
 
     private TradeDateTimeBounds findTradeDateTimeBounds(List<TradeRow> trades) {
+        /*
+         * Intent: Calculate timestamp coverage for one imported batch.
+         * Precondition: trades may be null or empty after rollover filtering.
+         * Returns: First/last trade timestamps for the batch, or empty bounds.
+         * Postcondition: Trade list contents are unchanged.
+         */
         if (trades == null || trades.isEmpty()) {
             return TradeDateTimeBounds.empty();
         }
@@ -1704,6 +1842,12 @@ public class PostgresTradeRepository {
     }
 
     private void setNullableTimestamp(PreparedStatement statement, int index, Instant value) throws SQLException {
+        /*
+         * Intent: Bind nullable Instant values to PostgreSQL timestamp parameters.
+         * Precondition: statement must be open and index must refer to a timestamp placeholder.
+         * Returns: Nothing.
+         * Postcondition: Parameter is set to timestamp or SQL NULL.
+         */
         if (value == null) {
             statement.setNull(index, Types.TIMESTAMP_WITH_TIMEZONE);
             return;
@@ -1762,6 +1906,12 @@ public class PostgresTradeRepository {
     }
 
     private boolean databaseExists(Connection connection, String databaseName) throws SQLException {
+        /*
+         * Intent: Check whether the configured FORGE database already exists.
+         * Precondition: Connection must target a maintenance database with pg_database access.
+         * Returns: True when a database with the requested name exists.
+         * Postcondition: PostgreSQL catalog state is unchanged.
+         */
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM pg_database WHERE datname = ?"
         )) {
@@ -1773,6 +1923,12 @@ public class PostgresTradeRepository {
     }
 
     private String quoteIdentifier(String identifier) {
+        /*
+         * Intent: Safely quote validated PostgreSQL identifiers used in dynamic SQL.
+         * Precondition: identifier must be a simple table/column/index name.
+         * Returns: Double-quoted identifier for SQL statements.
+         * Postcondition: Invalid identifiers fail before SQL execution.
+         */
         if (identifier == null || !identifier.matches("[A-Za-z_][A-Za-z0-9_]*")) {
             throw new IllegalArgumentException("Invalid PostgreSQL identifier: " + identifier);
         }
@@ -1780,6 +1936,12 @@ public class PostgresTradeRepository {
     }
 
     private String toCopyText(String sourceFileName, List<TradeRow> trades) {
+        /*
+         * Intent: Serialize one trade batch into PostgreSQL COPY text format.
+         * Precondition: sourceFileName and trades must describe one import batch.
+         * Returns: Tab-delimited COPY payload with escaped text and nullable fields.
+         * Postcondition: Trade rows are unchanged.
+         */
         StringBuilder builder = new StringBuilder(trades.size() * 128);
         for (TradeRow trade : trades) {
             appendCopyText(builder, trade.getTradeDateTime().toString());
@@ -1805,6 +1967,12 @@ public class PostgresTradeRepository {
     }
 
     private void appendNullableLong(StringBuilder builder, Long value) {
+        /*
+         * Intent: Append a nullable long value in PostgreSQL COPY text format.
+         * Precondition: builder must be non-null.
+         * Returns: Nothing.
+         * Postcondition: Builder contains either the number or COPY null marker.
+         */
         if (value == null) {
             builder.append("\\N");
             return;
@@ -1813,6 +1981,12 @@ public class PostgresTradeRepository {
     }
 
     private void appendNullableInteger(StringBuilder builder, Integer value) {
+        /*
+         * Intent: Append a nullable integer value in PostgreSQL COPY text format.
+         * Precondition: builder must be non-null.
+         * Returns: Nothing.
+         * Postcondition: Builder contains either the number or COPY null marker.
+         */
         if (value == null) {
             builder.append("\\N");
             return;
@@ -1821,6 +1995,12 @@ public class PostgresTradeRepository {
     }
 
     private void appendCopyText(StringBuilder builder, String value) {
+        /*
+         * Intent: Append escaped text in PostgreSQL COPY text format.
+         * Precondition: builder must be non-null and value may be null.
+         * Returns: Nothing.
+         * Postcondition: Builder contains escaped text or COPY null marker.
+         */
         if (value == null) {
             builder.append("\\N");
             return;
