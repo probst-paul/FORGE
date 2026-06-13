@@ -26,6 +26,7 @@ import forge.data.build.DatabaseBuildResult;
 import forge.data.build.DerivedDataBuildOption;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
+import forge.data.importing.DataImportMode;
 import forge.data.postgres.PostgresDatabaseSettings;
 import forge.app.EventStatisticsRequest;
 import forge.app.EventStatisticsProgress;
@@ -402,7 +403,7 @@ public class CliApplicationController {
 
     /*
      * Intent: Run the SCID import workflow from CLI input.
-     * Precondition: User must provide a valid .scid path and confirm rebuild when existing contract data is found.
+     * Precondition: User must provide a valid .scid path and confirm overlap overwrite when existing contract data is found.
      * Returns: Nothing.
      * Postcondition: Raw trade data may be imported/rebuilt and import summary is printed.
      */
@@ -424,20 +425,21 @@ public class CliApplicationController {
                 output.printLine(exception.getMessage() + ". Please enter a valid SCID file path, or enter 'quit' to exit program.");
             }
         }
-        boolean rebuildExistingContract = false;
+        DataImportMode importMode = DataImportMode.FILL_MISSING;
 
-        if (plan.hasExistingContractTable()) {
+        if (plan.hasExistingRows()) {
             output.printBlankLine();
-            output.printLine("Existing data found for " + plan.getContractSymbol() + ":");
+            output.printLine("Existing data found for " + plan.getInstrumentSymbol() + " " + plan.getContractCode() + ":");
             output.printLine("Rows: " + plan.getExistingRows());
+            output.printLine("Overlapping rows in selected file range: " + plan.getOverlappingRows());
             if (plan.getCurrentSourceFileName() != null) {
                 output.printLine("Current source: " + plan.getCurrentSourceFileName());
             }
-            if (!confirmWipeAndRebuild(input, output, plan)) {
+            if (!confirmOverwriteOverlap(input, output, plan)) {
                 output.printLine(importCanceledReason(scidFilePath, plan));
                 return;
             }
-            rebuildExistingContract = true;
+            importMode = DataImportMode.OVERWRITE_OVERLAP;
         }
 
         StatusTimer timer = StatusTimer.start();
@@ -445,7 +447,7 @@ public class CliApplicationController {
         DataImportResult result = forgeApplication.forgeApplicationAccess().importData(
                 new DataImportRequest(
                         scidFilePath,
-                        rebuildExistingContract,
+                        importMode,
                         progress -> printImportProgress(output, progress, timer, importProgressFinished)
                 )
         );
@@ -510,7 +512,7 @@ public class CliApplicationController {
 
     /*
      * Intent: Run the benchmark workflow from a SCID file path and print timing summaries.
-     * Precondition: User must provide a valid .scid path and confirm rebuild when existing contract data is found.
+     * Precondition: User must provide a valid .scid path and confirm overlap overwrite when existing contract data is found.
      * Returns: Nothing.
      * Postcondition: Import, derived-data build, event statistics, and backtest may run; benchmark summary is printed.
      */
@@ -533,11 +535,12 @@ public class CliApplicationController {
 
         DataImportPlan plan = forgeApplication.forgeApplicationAccess().planDataImport(new DataImportRequest(scidFilePath));
         boolean rebuildExistingContract = false;
-        if (plan.hasExistingContractTable()) {
+        if (plan.hasExistingRows()) {
             output.printBlankLine();
-            output.printLine("Benchmark import will rebuild existing data for " + plan.getContractSymbol() + ".");
+            output.printLine("Benchmark import will overwrite overlapping rows for " + plan.getContractSymbol() + ".");
             output.printLine("Rows: " + plan.getExistingRows());
-            if (!confirmWipeAndRebuild(input, output, plan)) {
+            output.printLine("Overlapping rows in selected file range: " + plan.getOverlappingRows());
+            if (!confirmOverwriteOverlap(input, output, plan)) {
                 output.printLine("Benchmark canceled. Existing " + plan.getContractSymbol() + " data was kept.");
                 return;
             }
@@ -662,14 +665,14 @@ public class CliApplicationController {
     }
 
     /*
-     * Intent: Confirm destructive replacement of existing imported contract data.
+     * Intent: Confirm replacement of existing imported rows that overlap the selected file range.
      * Precondition: DataImportPlan must describe the existing target contract.
-     * Returns: True when the user confirms wipe/rebuild.
+     * Returns: True when the user confirms overlap overwrite.
      * Postcondition: Invalid answers are rejected and reprompted; no data is changed by this method.
      */
-    private boolean confirmWipeAndRebuild(UserInput input, UserOutput output, DataImportPlan plan) {
+    private boolean confirmOverwriteOverlap(UserInput input, UserOutput output, DataImportPlan plan) {
         while (true) {
-            String confirmation = input.readString("Wipe and rebuild " + plan.getContractSymbol() + " from this file? (y/n)");
+            String confirmation = input.readString("Overwrite overlapping " + plan.getContractSymbol() + " rows from this file? (y/n)");
             String normalizedConfirmation = confirmation.trim().toLowerCase();
             if ("y".equals(normalizedConfirmation)) {
                 return true;
@@ -677,7 +680,7 @@ public class CliApplicationController {
             if ("n".equals(normalizedConfirmation)) {
                 return false;
             }
-            output.printLine("Please type y to wipe/rebuild, n to keep the existing data, or enter 'quit' to exit program.");
+            output.printLine("Please type y to overwrite overlapping rows, n to keep existing data, or enter 'quit' to exit program.");
         }
     }
 
@@ -691,10 +694,10 @@ public class CliApplicationController {
         String requestedSourceFileName = Path.of(scidFilePath.trim().replace('\\', '/')).getFileName().toString();
         if (requestedSourceFileName.equalsIgnoreCase(plan.getCurrentSourceFileName())) {
             return "Import canceled: " + plan.getContractSymbol() +
-                    " already contains data from this SCID file. Answer y to wipe and rebuild it.";
+                    " already contains data from this SCID file. Answer y to overwrite overlapping rows.";
         }
         return "Import canceled: existing " + plan.getContractSymbol() +
-                " data was kept. Answer y to wipe it and import the selected SCID file.";
+                " data was kept. Answer y to overwrite overlapping rows and import the selected SCID file.";
     }
 
     /*

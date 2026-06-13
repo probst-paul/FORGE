@@ -37,7 +37,7 @@ public class ContractNameResolver {
             throw new IllegalArgumentException("Could not derive a futures contract from SCID file name: " + fileName);
         }
 
-        return contract;
+        return resolveContractCode(contract).toContractSymbol();
     }
 
     public String resolveInstrumentSymbol(String contractSymbol) {

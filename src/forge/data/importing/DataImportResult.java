@@ -6,7 +6,10 @@ public class DataImportResult {
     private final String databaseName;
     private final String tableName;
     private final String contractSymbol;
+    private final DataImportMode importMode;
     private final int importedRows;
+    private final long duplicateRowsSkipped;
+    private final long overlappingRowsRemoved;
     private final long nullSideRowsImported;
     private final long skippedOutsideFrontMonthRows;
     private final Duration elapsedTime;
@@ -43,11 +46,44 @@ public class DataImportResult {
             long skippedOutsideFrontMonthRows,
             Duration elapsedTime
     ) {
+        this(
+                databaseName,
+                tableName,
+                contractSymbol,
+                DataImportMode.FILL_MISSING,
+                importedRows,
+                0,
+                0,
+                nullSideRowsImported,
+                skippedOutsideFrontMonthRows,
+                elapsedTime
+        );
+    }
+
+    public DataImportResult(
+            String databaseName,
+            String tableName,
+            String contractSymbol,
+            DataImportMode importMode,
+            int importedRows,
+            long duplicateRowsSkipped,
+            long overlappingRowsRemoved,
+            long nullSideRowsImported,
+            long skippedOutsideFrontMonthRows,
+            Duration elapsedTime
+    ) {
         this.databaseName = requireText(databaseName, "databaseName is required");
         this.tableName = requireText(tableName, "tableName is required");
         this.contractSymbol = requireText(contractSymbol, "contractSymbol is required");
+        this.importMode = importMode == null ? DataImportMode.FILL_MISSING : importMode;
         if (importedRows < 0) {
             throw new IllegalArgumentException("importedRows cannot be negative");
+        }
+        if (duplicateRowsSkipped < 0) {
+            throw new IllegalArgumentException("duplicateRowsSkipped cannot be negative");
+        }
+        if (overlappingRowsRemoved < 0) {
+            throw new IllegalArgumentException("overlappingRowsRemoved cannot be negative");
         }
         if (nullSideRowsImported < 0) {
             throw new IllegalArgumentException("nullSideRowsImported cannot be negative");
@@ -62,6 +98,8 @@ public class DataImportResult {
             throw new IllegalArgumentException("elapsedTime cannot be negative");
         }
         this.importedRows = importedRows;
+        this.duplicateRowsSkipped = duplicateRowsSkipped;
+        this.overlappingRowsRemoved = overlappingRowsRemoved;
         this.nullSideRowsImported = nullSideRowsImported;
         this.skippedOutsideFrontMonthRows = skippedOutsideFrontMonthRows;
         this.elapsedTime = elapsedTime;
@@ -81,6 +119,18 @@ public class DataImportResult {
 
     public int getImportedRows() {
         return importedRows;
+    }
+
+    public DataImportMode getImportMode() {
+        return importMode;
+    }
+
+    public long getDuplicateRowsSkipped() {
+        return duplicateRowsSkipped;
+    }
+
+    public long getOverlappingRowsRemoved() {
+        return overlappingRowsRemoved;
     }
 
     public long getNullSideRowsImported() {

@@ -91,10 +91,20 @@ public class ScidDataImportService {
          * Postcondition: Database and checkpoint table may be created, but no trade rows are imported.
          */
         String contractSymbol = contractNameResolver.resolveFromScidPath(scidFilePath);
-        validateSupportedContract(contractSymbol);
+        FuturesContractCode contractCode = contractNameResolver.resolveContractCode(contractSymbol);
+        FuturesInstrumentSpec instrumentSpec = validateSupportedContract(contractSymbol);
         String tableName = contractSymbol;
+        Path path = Path.of(scidFilePath);
+        Optional<ContractRolloverWindow> activeWindow = contractRolloverCalendar.findActiveWindow(contractSymbol);
+        ImportFileBounds fileBounds = scanImportFileBounds(path, instrumentSpec.getTickSize(), activeWindow);
         tradeRepository.ensureDatabaseExists();
-        return tradeRepository.planImport(contractSymbol, tableName);
+        return tradeRepository.planImport(
+                contractSymbol,
+                contractCode,
+                tableName,
+                fileBounds.getFirstTradeDateTime(),
+                fileBounds.getLastTradeDateTime()
+        );
     }
 
     public PostgresTradeRepository getTradeRepository() {
@@ -106,9 +116,21 @@ public class ScidDataImportService {
             boolean rebuildExistingContract,
             ImportProgressListener progressListener
     ) {
+        return importScidFile(
+                scidFilePath,
+                rebuildExistingContract ? DataImportMode.OVERWRITE_OVERLAP : DataImportMode.FILL_MISSING,
+                progressListener
+        );
+    }
+
+    public DataImportResult importScidFile(
+            String scidFilePath,
+            DataImportMode importMode,
+            ImportProgressListener progressListener
+    ) {
         /*
          * Intent: Import a SCID file into the authoritative contract table with checkpointed batch commits.
-         * Precondition: SCID file must be readable, supported, and confirmed for rebuild when data already exists.
+         * Precondition: SCID file must be readable, supported, and confirmed for overwrite when requested.
          * Returns: DataImportResult containing row counts and elapsed import time.
          * Postcondition: Front-month rows are stored, checkpoint metadata is updated, and progress is reported.
          */
@@ -120,21 +142,31 @@ public class ScidDataImportService {
         ImportProgressListener listener = progressListener == null ? ImportProgressListener.NO_OP : progressListener;
         long totalRecords = totalRecordCount(path);
         Optional<ContractRolloverWindow> activeWindow = contractRolloverCalendar.findActiveWindow(contractSymbol);
+        ImportFileBounds fileBounds = scanImportFileBounds(path, instrumentSpec.getTickSize(), activeWindow);
+        DataImportMode normalizedImportMode = importMode == null ? DataImportMode.FILL_MISSING : importMode;
         long importStartNanos = System.nanoTime();
 
         tradeRepository.ensureDatabaseExists();
         tradeRepository.ensureContractTradesTableExists(tableName);
         tradeRepository.ensureImportCheckpointTableExists();
+        tradeRepository.ensureContractRecordUniqueIndex(tableName);
+        long overlappingRowsRemoved = normalizedImportMode == DataImportMode.OVERWRITE_OVERLAP
+                ? tradeRepository.deleteRowsBetween(
+                tableName,
+                fileBounds.getFirstTradeDateTime(),
+                fileBounds.getLastTradeDateTime()
+        )
+                : 0;
         ImportCheckpoint checkpoint = tradeRepository.prepareImportCheckpoint(
                 tableName,
                 sourceFileName,
                 fileSize(path),
                 lastModifiedMillis(path),
-                rebuildExistingContract
+                normalizedImportMode == DataImportMode.OVERWRITE_OVERLAP
         );
         validateCheckpointWithinFile(checkpoint, totalRecords);
-        tradeRepository.ensureContractRecordUniqueIndex(tableName);
         AtomicInteger importedRows = new AtomicInteger();
+        AtomicLong duplicateRowsSkipped = new AtomicLong();
         AtomicLong nullSideRowsImported = new AtomicLong();
         AtomicLong skippedOutsideFrontMonthRows = new AtomicLong();
         listener.onProgress(new ImportProgress(
@@ -155,12 +187,14 @@ public class ScidDataImportService {
                     if (frontMonthTrades.isEmpty()) {
                         tradeRepository.advanceImportCheckpoint(tableName, sourceFileName, nextRecordIndex);
                     } else {
-                        importedRows.addAndGet(tradeRepository.insertTradesAndAdvanceCheckpoint(
+                        int insertedRows = tradeRepository.insertTradesAndAdvanceCheckpoint(
                                 tableName,
                                 sourceFileName,
                                 frontMonthTrades,
                                 nextRecordIndex
-                        ));
+                        );
+                        importedRows.addAndGet(insertedRows);
+                        duplicateRowsSkipped.addAndGet(frontMonthTrades.size() - insertedRows);
                     }
                     listener.onProgress(new ImportProgress(
                             contractSymbol,
@@ -175,11 +209,41 @@ public class ScidDataImportService {
                 tradeRepository.getDatabaseName(),
                 tableName,
                 contractSymbol,
+                normalizedImportMode,
                 importedRows.get(),
+                duplicateRowsSkipped.get(),
+                overlappingRowsRemoved,
                 nullSideRowsImported.get(),
                 skippedOutsideFrontMonthRows.get(),
                 Duration.ofNanos(System.nanoTime() - importStartNanos)
         );
+    }
+
+    private ImportFileBounds scanImportFileBounds(
+            Path path,
+            double tickSize,
+            Optional<ContractRolloverWindow> activeWindow
+    ) {
+        /*
+         * Intent: Determine the selected file's importable timestamp range before applying import mode behavior.
+         * Precondition: Path must identify a valid SCID file and tick size must be valid.
+         * Returns: First/last timestamp from rows that pass rollover filtering.
+         * Postcondition: Database state is unchanged.
+         */
+        ImportFileBounds bounds = new ImportFileBounds();
+        scidTradeReader.readTrades(
+                path,
+                1,
+                IMPORT_BATCH_SIZE,
+                tickSize,
+                trades -> {
+                    List<TradeRow> frontMonthTrades = filterFrontMonthTrades(trades, activeWindow);
+                    for (TradeRow trade : frontMonthTrades) {
+                        bounds.include(trade);
+                    }
+                }
+        );
+        return bounds;
     }
 
     private List<TradeRow> filterFrontMonthTrades(
@@ -278,5 +342,28 @@ public class ScidDataImportService {
             );
         }
         return instrumentSpec;
+    }
+
+    private static class ImportFileBounds {
+        private java.time.Instant firstTradeDateTime;
+        private java.time.Instant lastTradeDateTime;
+
+        private void include(TradeRow trade) {
+            java.time.Instant tradeDateTime = trade.getTradeDateTime();
+            if (firstTradeDateTime == null || tradeDateTime.isBefore(firstTradeDateTime)) {
+                firstTradeDateTime = tradeDateTime;
+            }
+            if (lastTradeDateTime == null || tradeDateTime.isAfter(lastTradeDateTime)) {
+                lastTradeDateTime = tradeDateTime;
+            }
+        }
+
+        private java.time.Instant getFirstTradeDateTime() {
+            return firstTradeDateTime;
+        }
+
+        private java.time.Instant getLastTradeDateTime() {
+            return lastTradeDateTime;
+        }
     }
 }

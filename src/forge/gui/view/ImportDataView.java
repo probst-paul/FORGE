@@ -1,6 +1,7 @@
 package forge.gui.view;
 
 import forge.data.build.DerivedDataBuildOption;
+import forge.data.importing.DataImportMode;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
 import forge.gui.FacadeForgeGui;
@@ -19,8 +20,10 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -81,6 +84,15 @@ public class ImportDataView {
         buildSessionRanges.disableProperty().bind(viewModel.runningProperty());
         buildFirstHourBreachEvents.disableProperty().bind(viewModel.runningProperty());
 
+        ToggleGroup importModeGroup = new ToggleGroup();
+        RadioButton fillMissingMode = new RadioButton("Fill missing trades");
+        fillMissingMode.setToggleGroup(importModeGroup);
+        fillMissingMode.setSelected(true);
+        RadioButton overwriteOverlapMode = new RadioButton("Overwrite overlapping stored data");
+        overwriteOverlapMode.setToggleGroup(importModeGroup);
+        fillMissingMode.disableProperty().bind(viewModel.runningProperty());
+        overwriteOverlapMode.disableProperty().bind(viewModel.runningProperty());
+
         ProgressBar progressBar = new ProgressBar(0);
         progressBar.progressProperty().bind(viewModel.progressProperty());
         progressBar.setMaxWidth(Double.MAX_VALUE);
@@ -111,6 +123,7 @@ public class ImportDataView {
         importButton.setOnAction(event -> importSelectedFile(
                 owner,
                 filePathField.getText(),
+                selectedImportMode(fillMissingMode),
                 selectedDerivedDataOptions(buildSessionRanges, buildFirstHourBreachEvents)
         ));
 
@@ -125,6 +138,9 @@ public class ImportDataView {
                 heading,
                 new Label("SCID data file"),
                 fileSelection,
+                new Label("Import mode"),
+                fillMissingMode,
+                overwriteOverlapMode,
                 new Label("Build derived data after import"),
                 buildSessionRanges,
                 buildFirstHourBreachEvents,
@@ -159,6 +175,7 @@ public class ImportDataView {
     private void importSelectedFile(
             Window owner,
             String scidFilePath,
+            DataImportMode importMode,
             Set<DerivedDataBuildOption> derivedDataOptions
     ) {
         /*
@@ -170,18 +187,22 @@ public class ImportDataView {
         try {
             saveScidPath(scidFilePath, true);
             DataImportPlan plan = controller.planImport(scidFilePath);
-            if (plan.hasExistingContractTable() && !confirmRebuild(owner, plan)) {
+            if (plan.hasExistingRows() && !confirmImport(owner, plan, importMode)) {
                 controller.getViewModel().setStatusMessage("Import canceled.");
                 return;
             }
 
-            Task<DataImportResult> task = controller.importDataTask(scidFilePath, true, derivedDataOptions);
+            Task<DataImportResult> task = controller.importDataTask(scidFilePath, importMode, derivedDataOptions);
             FacadeForgeGui.getTheInstance()
                     .forgeGuiAccess()
                     .submitWorkflowTask(GuiWorkflowType.IMPORT_DATA, task);
         } catch (RuntimeException exception) {
             controller.getViewModel().markFailed("Could not start import.", exception);
         }
+    }
+
+    private DataImportMode selectedImportMode(RadioButton fillMissingMode) {
+        return fillMissingMode.isSelected() ? DataImportMode.FILL_MISSING : DataImportMode.OVERWRITE_OVERLAP;
     }
 
     private Set<DerivedDataBuildOption> selectedDerivedDataOptions(
@@ -204,26 +225,41 @@ public class ImportDataView {
         return options;
     }
 
-    private boolean confirmRebuild(Window owner, DataImportPlan plan) {
+    private boolean confirmImport(Window owner, DataImportPlan plan, DataImportMode importMode) {
         /*
-         * Intent: Ask the user before wiping/rebuilding existing contract data.
-         * Precondition: plan must describe an existing target contract table.
-         * Returns: true only when the user confirms the rebuild.
+         * Intent: Ask the user before importing into an existing contract table.
+         * Precondition: plan must describe existing target contract data.
+         * Returns: true only when the user confirms the selected import mode.
          * Postcondition: No data is modified by the dialog itself.
          */
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.initOwner(owner);
-        alert.setTitle("Confirm Rebuild");
-        alert.setHeaderText("Existing data found for " + plan.getContractSymbol());
-        alert.setContentText(
-                "Table: " + plan.getTableName()
-                        + "\nRows: " + plan.getExistingRows()
-                        + "\nCurrent source: " + displayValue(plan.getCurrentSourceFileName())
-                        + "\nStatus: " + displayValue(plan.getCurrentImportStatus())
-                        + "\n\nWipe and rebuild this contract from the selected SCID file?"
-        );
+        alert.setTitle("Confirm Import");
+        alert.setHeaderText("Existing data found for "
+                + plan.getInstrumentSymbol() + " " + plan.getContractCode());
+        alert.setContentText(importConfirmationText(plan, importMode));
         Optional<ButtonType> selection = alert.showAndWait();
         return selection.isPresent() && selection.get() == ButtonType.OK;
+    }
+
+    private String importConfirmationText(DataImportPlan plan, DataImportMode importMode) {
+        String modeDescription = importMode == DataImportMode.OVERWRITE_OVERLAP
+                ? "FORGE will delete only stored rows that overlap the selected file's importable time range, then import this file."
+                : "FORGE will keep existing rows and add only trades from this file that are not already stored.";
+        return "Instrument: " + plan.getInstrumentSymbol()
+                + "\nContract: " + plan.getContractCode()
+                + "\nStored rows: " + plan.getExistingRows()
+                + "\nStored coverage: " + dateTimeRange(plan.getExistingFirstTradeDateTime(), plan.getExistingLastTradeDateTime())
+                + "\nSelected file coverage: " + dateTimeRange(plan.getFileFirstTradeDateTime(), plan.getFileLastTradeDateTime())
+                + "\nOverlapping stored rows: " + plan.getOverlappingRows()
+                + "\n\n" + modeDescription;
+    }
+
+    private String dateTimeRange(java.time.Instant start, java.time.Instant end) {
+        if (start == null || end == null) {
+            return "None";
+        }
+        return start + " to " + end;
     }
 
     private String displayValue(String value) {

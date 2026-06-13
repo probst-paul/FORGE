@@ -2,6 +2,7 @@ package forge.data.postgres;
 
 import forge.data.catalog.ContractDataSummary;
 import forge.data.importing.DataImportPlan;
+import forge.data.contract.FuturesContractCode;
 import forge.data.importing.ImportCheckpoint;
 import forge.data.importing.TradeRow;
 import forge.data.market.ContractTradeWindow;
@@ -176,10 +177,20 @@ public class PostgresTradeRepository {
         );
              Statement statement = connection.createStatement()) {
             statement.executeUpdate(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS " + quoteIdentifier(tableName + "_record_uidx") +
+                    "DROP INDEX IF EXISTS " + quoteIdentifier(tableName + "_record_uidx")
+            );
+            statement.executeUpdate(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " + quoteIdentifier(tableName + "_trade_uidx") +
                             " ON " + quoteIdentifier(tableName) +
-                            " (" + quoteIdentifier("scidRecordIndex") + ")" +
-                            " WHERE " + quoteIdentifier("scidRecordIndex") + " IS NOT NULL"
+                            " (" +
+                            quoteIdentifier("tradeDateTime") + ", " +
+                            quoteIdentifier("priceTicks") + ", " +
+                            "COALESCE(" + quoteIdentifier("bidPriceTicks") + ", -9223372036854775808), " +
+                            "COALESCE(" + quoteIdentifier("askPriceTicks") + ", -9223372036854775808), " +
+                            "quantity, " +
+                            "COALESCE(side, -2147483648), " +
+                            quoteIdentifier("numTrades") +
+                            ")"
             );
         } catch (SQLException exception) {
             throw new IllegalStateException("Could not prepare PostgreSQL unique index for '" + tableName + "'", exception);
@@ -425,6 +436,52 @@ public class PostgresTradeRepository {
         }
     }
 
+    public DataImportPlan planImport(
+            String contractSymbol,
+            FuturesContractCode contractCode,
+            String tableName,
+            Instant fileFirstTradeDateTime,
+            Instant fileLastTradeDateTime
+    ) {
+        /*
+         * Intent: Inspect existing contract data and selected file overlap before importing.
+         * Precondition: Contract metadata must be valid and file bounds may be null for an empty import file.
+         * Returns: DataImportPlan with contract identity, stored coverage, file coverage, and overlap count.
+         * Postcondition: No trade rows are changed.
+         */
+        ensureImportCheckpointTableExists();
+
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        )) {
+            boolean tableExists = contractTableExists(connection, tableName);
+            long existingRows = tableExists ? countRows(connection, tableName) : 0;
+            TradeDateTimeBounds existingBounds = tableExists ? findTableDateTimeBounds(connection, tableName) : TradeDateTimeBounds.empty();
+            long overlappingRows = tableExists
+                    ? countRowsBetween(connection, tableName, fileFirstTradeDateTime, fileLastTradeDateTime)
+                    : 0;
+            CheckpointMetadata metadata = findCheckpointMetadata(connection, tableName);
+            return new DataImportPlan(
+                    contractSymbol,
+                    contractCode,
+                    tableName,
+                    tableExists,
+                    existingRows,
+                    existingBounds.getFirstTradeDateTime(),
+                    existingBounds.getLastTradeDateTime(),
+                    fileFirstTradeDateTime,
+                    fileLastTradeDateTime,
+                    overlappingRows,
+                    metadata == null ? null : metadata.getSourceFileName(),
+                    metadata == null ? null : metadata.getStatus()
+            );
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not inspect PostgreSQL import state for '" + tableName + "'", exception);
+        }
+    }
+
     private void configureWipeSession(Statement statement) throws SQLException {
         /*
          * Intent: Prevent database wipe from waiting forever on PostgreSQL locks or long-running statements.
@@ -463,10 +520,10 @@ public class PostgresTradeRepository {
             boolean rebuildExistingContract
     ) {
         /*
-         * Intent: Prepare or resume import metadata according to the authoritative contract-table policy.
+         * Intent: Prepare import metadata for scanning the selected file from the beginning.
          * Precondition: Contract table/checkpoint table must exist and source metadata must describe selected file.
          * Returns: ImportCheckpoint indicating the next SCID record index to read.
-         * Postcondition: Existing data may be truncated only when rebuildExistingContract is true.
+         * Postcondition: Existing trade rows are not removed by checkpoint preparation.
          */
         ensureImportCheckpointTableExists();
 
@@ -475,39 +532,11 @@ public class PostgresTradeRepository {
                 settings.getUsername(),
                 settings.getPassword()
         )) {
-            boolean tableExists = contractTableExists(connection, tableName);
-            long existingRows = tableExists ? countRows(connection, tableName) : 0;
             ImportCheckpoint existingCheckpoint = findImportCheckpoint(connection, tableName);
-            CheckpointMetadata existingMetadata = findCheckpointMetadata(connection, tableName);
-
-            if (existingRows > 0 && !rebuildExistingContract) {
-                if (existingMetadata != null
-                        && "IN_PROGRESS".equals(existingMetadata.getStatus())
-                        && existingMetadata.matchesSource(sourceFileName, fileSizeBytes, lastModifiedMillis)) {
-                    markImportInProgress(connection, tableName);
-                    return existingCheckpoint;
-                }
-                throw new IllegalStateException("Contract table '" + tableName + "' already contains data and rebuild was not confirmed");
-            }
-
-            if (rebuildExistingContract) {
-                truncateContractTable(connection, tableName);
-                if (existingCheckpoint == null) {
-                    insertImportCheckpoint(connection, tableName, sourceFileName, fileSizeBytes, lastModifiedMillis);
-                } else {
-                    resetImportCheckpoint(connection, tableName, sourceFileName, fileSizeBytes, lastModifiedMillis);
-                }
-                return new ImportCheckpoint(tableName, sourceFileName, 1);
-            }
 
             if (existingCheckpoint == null) {
                 insertImportCheckpoint(connection, tableName, sourceFileName, fileSizeBytes, lastModifiedMillis);
                 return new ImportCheckpoint(tableName, sourceFileName, 1);
-            }
-
-            if (checkpointMatchesSourceFile(connection, tableName, sourceFileName, fileSizeBytes, lastModifiedMillis)) {
-                markImportInProgress(connection, tableName);
-                return existingCheckpoint;
             }
 
             resetImportCheckpoint(connection, tableName, sourceFileName, fileSizeBytes, lastModifiedMillis);
@@ -559,7 +588,8 @@ public class PostgresTradeRepository {
             return 0;
         }
 
-        String copySql = "COPY " + quoteIdentifier(tableName) + " (" +
+        String temporaryTableName = "forge_import_batch_" + Long.toUnsignedString(System.nanoTime());
+        String copySql = "COPY " + quoteIdentifier(temporaryTableName) + " (" +
                 quoteIdentifier("tradeDateTime") + ", " +
                 quoteIdentifier("priceTicks") + ", " +
                 quoteIdentifier("bidPriceTicks") + ", " +
@@ -578,13 +608,43 @@ public class PostgresTradeRepository {
         );
              StringReader copyData = new StringReader(toCopyText(sourceFileName, trades))) {
             connection.setAutoCommit(false);
+            createTemporaryImportTable(connection, temporaryTableName);
             CopyManager copyManager = connection.unwrap(PGConnection.class).getCopyAPI();
-            int importedRows = Math.toIntExact(copyManager.copyIn(copySql, copyData));
+            copyManager.copyIn(copySql, copyData);
+            int importedRows = insertFromTemporaryImportTable(connection, tableName, temporaryTableName);
             updateImportCheckpoint(connection, tableName, sourceFileName, nextRecordIndex, importedRows, trades);
             connection.commit();
             return importedRows;
         } catch (SQLException | IOException exception) {
             throw new IllegalStateException("Could not insert trades into PostgreSQL table '" + tableName + "'", exception);
+        }
+    }
+
+    public long deleteRowsBetween(String tableName, Instant firstTradeDateTime, Instant lastTradeDateTime) {
+        /*
+         * Intent: Delete stored contract rows that overlap the selected import file range.
+         * Precondition: Table must exist; bounds may be null for an empty file range.
+         * Returns: Number of deleted rows.
+         * Postcondition: Only rows between the supplied timestamps are removed.
+         */
+        if (firstTradeDateTime == null || lastTradeDateTime == null) {
+            return 0;
+        }
+        try (Connection connection = DriverManager.getConnection(
+                settings.primaryJdbcUrl(),
+                settings.getUsername(),
+                settings.getPassword()
+        );
+             PreparedStatement statement = connection.prepareStatement(
+                     "DELETE FROM " + quoteIdentifier(tableName) +
+                             " WHERE " + quoteIdentifier("tradeDateTime") + " >= ?" +
+                             " AND " + quoteIdentifier("tradeDateTime") + " <= ?"
+             )) {
+            statement.setTimestamp(1, Timestamp.from(firstTradeDateTime));
+            statement.setTimestamp(2, Timestamp.from(lastTradeDateTime));
+            return statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not delete overlapping PostgreSQL rows from '" + tableName + "'", exception);
         }
     }
 
@@ -1446,12 +1506,6 @@ public class PostgresTradeRepository {
         }
     }
 
-    private void truncateContractTable(Connection connection, String tableName) throws SQLException {
-        try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("TRUNCATE TABLE " + quoteIdentifier(tableName));
-        }
-    }
-
     private boolean contractTableExists(Connection connection, String tableName) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?"
@@ -1468,6 +1522,45 @@ public class PostgresTradeRepository {
              ResultSet resultSet = statement.executeQuery("SELECT COUNT(*) FROM " + quoteIdentifier(tableName))) {
             resultSet.next();
             return resultSet.getLong(1);
+        }
+    }
+
+    private long countRowsBetween(
+            Connection connection,
+            String tableName,
+            Instant firstTradeDateTime,
+            Instant lastTradeDateTime
+    ) throws SQLException {
+        if (firstTradeDateTime == null || lastTradeDateTime == null) {
+            return 0;
+        }
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT COUNT(*) FROM " + quoteIdentifier(tableName) +
+                        " WHERE " + quoteIdentifier("tradeDateTime") + " >= ?" +
+                        " AND " + quoteIdentifier("tradeDateTime") + " <= ?"
+        )) {
+            statement.setTimestamp(1, Timestamp.from(firstTradeDateTime));
+            statement.setTimestamp(2, Timestamp.from(lastTradeDateTime));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getLong(1);
+            }
+        }
+    }
+
+    private TradeDateTimeBounds findTableDateTimeBounds(Connection connection, String tableName) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(
+                     "SELECT MIN(" + quoteIdentifier("tradeDateTime") + "), " +
+                             "MAX(" + quoteIdentifier("tradeDateTime") + ") FROM " + quoteIdentifier(tableName)
+             )) {
+            resultSet.next();
+            Timestamp first = resultSet.getTimestamp(1);
+            Timestamp last = resultSet.getTimestamp(2);
+            return new TradeDateTimeBounds(
+                    first == null ? null : first.toInstant(),
+                    last == null ? null : last.toInstant()
+            );
         }
     }
 
@@ -1501,6 +1594,57 @@ public class PostgresTradeRepository {
 
     private boolean isForgeOwnedTable(String tableName) {
         return tableName != null && (tableName.startsWith("forge_") || isContractTableName(tableName));
+    }
+
+    private void createTemporaryImportTable(Connection connection, String temporaryTableName) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "CREATE TEMP TABLE " + quoteIdentifier(temporaryTableName) + " (" +
+                            quoteIdentifier("tradeDateTime") + " TIMESTAMPTZ NOT NULL, " +
+                            quoteIdentifier("priceTicks") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("bidPriceTicks") + " BIGINT, " +
+                            quoteIdentifier("askPriceTicks") + " BIGINT, " +
+                            "quantity BIGINT NOT NULL, " +
+                            "side INT, " +
+                            quoteIdentifier("numTrades") + " BIGINT NOT NULL, " +
+                            quoteIdentifier("sourceFileName") + " TEXT NOT NULL, " +
+                            quoteIdentifier("scidRecordIndex") + " BIGINT NOT NULL" +
+                            ") ON COMMIT DROP"
+            );
+        }
+    }
+
+    private int insertFromTemporaryImportTable(
+            Connection connection,
+            String tableName,
+            String temporaryTableName
+    ) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            return statement.executeUpdate(
+                    "INSERT INTO " + quoteIdentifier(tableName) + " (" +
+                            quoteIdentifier("tradeDateTime") + ", " +
+                            quoteIdentifier("priceTicks") + ", " +
+                            quoteIdentifier("bidPriceTicks") + ", " +
+                            quoteIdentifier("askPriceTicks") + ", " +
+                            "quantity, " +
+                            "side, " +
+                            quoteIdentifier("numTrades") + ", " +
+                            quoteIdentifier("sourceFileName") + ", " +
+                            quoteIdentifier("scidRecordIndex") +
+                            ") SELECT " +
+                            quoteIdentifier("tradeDateTime") + ", " +
+                            quoteIdentifier("priceTicks") + ", " +
+                            quoteIdentifier("bidPriceTicks") + ", " +
+                            quoteIdentifier("askPriceTicks") + ", " +
+                            "quantity, " +
+                            "side, " +
+                            quoteIdentifier("numTrades") + ", " +
+                            quoteIdentifier("sourceFileName") + ", " +
+                            quoteIdentifier("scidRecordIndex") +
+                            " FROM " + quoteIdentifier(temporaryTableName) +
+                            " ON CONFLICT DO NOTHING"
+            );
+        }
     }
 
     private void updateImportCheckpoint(

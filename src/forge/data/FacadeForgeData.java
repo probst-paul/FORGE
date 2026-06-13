@@ -15,6 +15,7 @@ import forge.data.catalog.InstrumentDataCatalog.AvailableInstrumentData;
 import forge.data.contract.ContractNameResolver;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
+import forge.data.importing.DataImportMode;
 import forge.data.importing.ScidDataImportService;
 import forge.data.market.ContractTradeWindow;
 import forge.data.market.TradeBatchReader;
@@ -144,6 +145,14 @@ public class FacadeForgeData {
                 ImportProgressListener progressListener
         ) {
             return scidDataImportService.importScidFile(scidFilePath, rebuildExistingContract, progressListener);
+        }
+
+        public DataImportResult importScidFile(
+                String scidFilePath,
+                DataImportMode importMode,
+                ImportProgressListener progressListener
+        ) {
+            return scidDataImportService.importScidFile(scidFilePath, importMode, progressListener);
         }
 
         public TradeBatchReader openTradeBatchReader(List<ContractTradeWindow> windows, int batchSize) {

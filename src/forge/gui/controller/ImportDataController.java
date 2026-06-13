@@ -9,6 +9,7 @@ import forge.data.build.DerivedDataBuildOption;
 import forge.data.catalog.InstrumentDataCatalog.AvailableContractData;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
+import forge.data.importing.DataImportMode;
 import forge.data.market.ContractTradeWindow;
 import forge.gui.viewmodel.GuiProgressBindings;
 import forge.gui.viewmodel.ImportDataViewModel;
@@ -68,19 +69,26 @@ public class ImportDataController {
     }
 
     public DataImportResult importData(String scidFilePath, boolean rebuildExistingContract) {
+        return importData(
+                scidFilePath,
+                rebuildExistingContract ? DataImportMode.OVERWRITE_OVERLAP : DataImportMode.FILL_MISSING
+        );
+    }
+
+    public DataImportResult importData(String scidFilePath, DataImportMode importMode) {
         /*
          * Intent: Run SCID import synchronously for tests or non-task GUI callers.
-         * Precondition: scidFilePath must be valid and rebuildExistingContract must reflect user confirmation.
+         * Precondition: scidFilePath must be valid and importMode must reflect user selection.
          * Returns: Completed import result.
          * Postcondition: The view model is marked succeeded or failed with import details.
          */
         viewModel.setScidFilePath(scidFilePath);
-        viewModel.setRebuildExistingContract(rebuildExistingContract);
+        viewModel.setRebuildExistingContract(importMode == DataImportMode.OVERWRITE_OVERLAP);
         viewModel.markStarted("Importing data...");
         try {
             DataImportResult result = forgeApplication.forgeApplicationAccess().importData(new DataImportRequest(
                     scidFilePath,
-                    rebuildExistingContract,
+                    importMode,
                     GuiProgressBindings.importProgress(viewModel, "Importing")
             ));
             applyImportResult(result);
@@ -92,7 +100,11 @@ public class ImportDataController {
     }
 
     public Task<DataImportResult> importDataTask(String scidFilePath, boolean rebuildExistingContract) {
-        return importDataTask(scidFilePath, rebuildExistingContract, Collections.emptySet());
+        return importDataTask(
+                scidFilePath,
+                rebuildExistingContract ? DataImportMode.OVERWRITE_OVERLAP : DataImportMode.FILL_MISSING,
+                Collections.emptySet()
+        );
     }
 
     public Task<DataImportResult> importDataTask(
@@ -100,16 +112,29 @@ public class ImportDataController {
             boolean rebuildExistingContract,
             Set<DerivedDataBuildOption> derivedDataOptions
     ) {
+        return importDataTask(
+                scidFilePath,
+                rebuildExistingContract ? DataImportMode.OVERWRITE_OVERLAP : DataImportMode.FILL_MISSING,
+                derivedDataOptions
+        );
+    }
+
+    public Task<DataImportResult> importDataTask(
+            String scidFilePath,
+            DataImportMode importMode,
+            Set<DerivedDataBuildOption> derivedDataOptions
+    ) {
         /*
          * Intent: Create a JavaFX task for importing SCID data and optional post-import derived-data builds.
-         * Precondition: scidFilePath must be valid and rebuildExistingContract must reflect user confirmation.
+         * Precondition: scidFilePath must be valid and importMode must reflect user selection.
          * Returns: Task that yields the import result.
          * Postcondition: Task progress callbacks update the view model through JavaFX bindings.
          */
+        DataImportMode normalizedImportMode = importMode == null ? DataImportMode.FILL_MISSING : importMode;
         Set<DerivedDataBuildOption> normalizedOptions = normalizeDerivedDataOptions(derivedDataOptions);
         AtomicReference<DatabaseBuildResult> buildResult = new AtomicReference<>();
         viewModel.setScidFilePath(scidFilePath);
-        viewModel.setRebuildExistingContract(rebuildExistingContract);
+        viewModel.setRebuildExistingContract(normalizedImportMode == DataImportMode.OVERWRITE_OVERLAP);
         return GuiControllerTasks.create(
                 viewModel,
                 "Importing data...",
@@ -117,7 +142,7 @@ public class ImportDataController {
                 task -> {
                     DataImportResult importResult = forgeApplication.forgeApplicationAccess().importData(new DataImportRequest(
                             scidFilePath,
-                            rebuildExistingContract,
+                            normalizedImportMode,
                             GuiProgressBindings.importProgress(task, "Importing")
                     ));
                     if (!normalizedOptions.isEmpty()) {
@@ -162,7 +187,13 @@ public class ImportDataController {
          * Returns: Multi-line summary text for the import view.
          * Postcondition: Result objects are unchanged.
          */
-        String summary = "Imported " + importResult.getImportedRows() + " rows into " + importResult.getTableName() + ".";
+        String summary = "Imported " + importResult.getImportedRows() + " rows into " + importResult.getTableName() + "."
+                + System.lineSeparator()
+                + "Duplicate rows skipped: " + importResult.getDuplicateRowsSkipped()
+                + System.lineSeparator()
+                + "Overlapping stored rows removed: " + importResult.getOverlappingRowsRemoved()
+                + System.lineSeparator()
+                + "Rows skipped outside front-month window: " + importResult.getSkippedOutsideFrontMonthRows() + ".";
         if (buildResult == null) {
             return summary;
         }

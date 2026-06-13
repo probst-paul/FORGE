@@ -21,7 +21,7 @@ class ContractNameResolverTest {
 
         @Test
         void resolvesFourCharacterContractBeforeDot() {
-            assertEquals("ESZ5", resolver.resolveFromScidPath("/data/ESZ5.CME.scid"));
+            assertEquals("ESZ25", resolver.resolveFromScidPath("/data/ESZ5.CME.scid"));
         }
 
         @Test
