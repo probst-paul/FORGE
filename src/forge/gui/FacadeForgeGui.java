@@ -3,6 +3,7 @@ package forge.gui;
 import forge.app.FacadeForgeApplication;
 import forge.data.FacadeForgeData;
 import forge.gui.controller.BacktestController;
+import forge.gui.controller.BenchmarkController;
 import forge.gui.controller.EventStatisticsController;
 import forge.gui.controller.ImportDataController;
 import forge.gui.controller.MainWindowController;
@@ -112,6 +113,10 @@ public class FacadeForgeGui {
 
         public BacktestController createBacktestController() {
             return new BacktestController(forgeApplication, new BacktestViewModel());
+        }
+
+        public BenchmarkController createBenchmarkController() {
+            return new BenchmarkController();
         }
 
         public SettingsController createSettingsController() {

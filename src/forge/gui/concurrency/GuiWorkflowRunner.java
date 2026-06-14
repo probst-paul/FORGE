@@ -36,6 +36,7 @@ public class GuiWorkflowRunner {
     private final StringProperty taskStatusText = new SimpleStringProperty("");
     private final StringProperty taskQueueText = new SimpleStringProperty("");
     private final StringProperty taskPercentText = new SimpleStringProperty("");
+    private final StringProperty currentTaskQueueText = new SimpleStringProperty("");
     private final DoubleProperty currentTaskProgress = new SimpleDoubleProperty(0.0);
     private final BooleanProperty taskIndicatorVisible = new SimpleBooleanProperty(false);
 
@@ -85,10 +86,17 @@ public class GuiWorkflowRunner {
                 updateTaskIndicator();
             }
         });
+        task.titleProperty().addListener((observable, oldValue, newValue) -> {
+            if (job.getStatus() == GuiWorkflowStatus.RUNNING) {
+                currentTaskQueueText.set(newValue == null ? "" : newValue);
+                updateTaskIndicator();
+            }
+        });
         task.addEventHandler(WorkerStateEvent.WORKER_STATE_RUNNING, event -> {
             job.markRunning();
             queuedTaskCount.set(Math.max(0, queuedTaskCount.get() - 1));
             runningTaskCount.set(runningTaskCount.get() + 1);
+            currentTaskQueueText.set(task.getTitle() == null ? "" : task.getTitle());
             currentTaskProgress.set(normalizeProgress(task.getProgress()));
             updateTaskIndicator();
         });
@@ -173,7 +181,10 @@ public class GuiWorkflowRunner {
         }
         if (completedSuccessfully && runningTaskCount.get() + queuedTaskCount.get() == 0) {
             taskIndicatorVisible.set(true);
-            setTaskDisplay("Task 1/1", "100%");
+            String queueText = currentTaskQueueText.get() == null || currentTaskQueueText.get().isBlank()
+                    ? "Task 1/1"
+                    : currentTaskQueueText.get();
+            setTaskDisplay(queueText, "100%");
             PauseTransition pause = new PauseTransition(FINAL_TASK_DISPLAY_DURATION);
             pause.setOnFinished(event -> updateTaskIndicator());
             pause.play();
@@ -194,10 +205,14 @@ public class GuiWorkflowRunner {
         taskIndicatorVisible.set(visible);
         if (!visible) {
             setTaskDisplay("", "");
+            currentTaskQueueText.set("");
             currentTaskProgress.set(0.0);
             return;
         }
-        setTaskDisplay("Task 1/" + activeTaskCount, progressPercent() + "%");
+        String queueText = currentTaskQueueText.get() == null || currentTaskQueueText.get().isBlank()
+                ? "Task 1/" + activeTaskCount
+                : currentTaskQueueText.get();
+        setTaskDisplay(queueText, progressPercent() + "%");
     }
 
     private void setTaskDisplay(String queueText, String percentText) {

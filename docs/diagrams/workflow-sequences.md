@@ -10,7 +10,7 @@ flowchart TB
         G3["Event Statistics<br/>select study, instruments, contracts"]
         G4["Backtest<br/>select instruments, contracts, strategy, risk"]
         G5["Result Views<br/>summary, details, simulated trades"]
-        G6["Settings<br/>repair/create database or confirmed wipe"]
+        G6["Settings<br/>repair/create database, benchmark, or confirmed wipe"]
     end
 
     subgraph CLI["Admin CLI"]
@@ -180,6 +180,19 @@ sequenceDiagram
         App->>Data: ensure configured database and support tables
         Data->>Repo: Create missing database/support tables
         Repo-->>GUI: Database ready or failure shown in Settings
+    end
+
+    opt Settings benchmark workflow
+        Trader->>GUI: Select Settings
+        Trader->>GUI: Click Benchmark
+        GUI-->>Trader: Open benchmark window
+        Trader->>GUI: Select SCID file and benchmark options
+        GUI->>GUI: Create JavaFX background benchmark task
+        GUI->>App: importData(...)
+        GUI->>Data: runDatabaseBuild(...)
+        GUI->>App: runEventStatistics(...)
+        GUI->>App: runBacktest(...)
+        GUI-->>Trader: Display benchmark counts and timing summary
     end
 
     opt Settings database wipe

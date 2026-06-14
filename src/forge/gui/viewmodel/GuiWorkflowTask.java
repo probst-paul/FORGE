@@ -22,4 +22,14 @@ public abstract class GuiWorkflowTask<T> extends Task<T> {
     public void publishStatusMessage(String message) {
         updateMessage(message == null ? "" : message);
     }
+
+    /*
+     * Intent: Publish a short footer label for multi-step background workflows.
+     * Precondition: title may be null when the default task queue label should be used.
+     * Returns: Nothing.
+     * Postcondition: The shared GUI task runner can display a workflow-specific queue label.
+     */
+    public void publishFooterTitle(String title) {
+        updateTitle(title == null ? "" : title);
+    }
 }

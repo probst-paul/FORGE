@@ -26,10 +26,11 @@ FORGE JavaFX GUI
 │  └─ Save/load the latest backtest report as a project-local .dat file
 └─ Settings
    ├─ Repair/create the configured database and support tables
+   ├─ Open a benchmark window for SCID-based workflow timing
    └─ Drop FORGE-owned database tables after explicit confirmation
 ```
 
-The GUI is the primary user-facing surface for market research. On startup, the GUI automatically prepares the configured PostgreSQL database in the background. Import, event-statistics, and backtest runs execute as background tasks so the window remains responsive. Backtest and event-statistics results persist while the GUI window remains open, and report snapshots can be saved and loaded from project-local `.dat` files.
+The GUI is the primary user-facing surface for market research. On startup, the GUI automatically prepares the configured PostgreSQL database in the background. Import, event-statistics, backtest, and benchmark runs execute as background tasks so the window remains responsive. Backtest and event-statistics results persist while the GUI window remains open, and report snapshots can be saved and loaded from project-local `.dat` files.
 
 ### GUI Import Data
 
@@ -57,7 +58,7 @@ Backtest reports can be saved to and loaded from `.dat` files in `runtime/report
 
 ### GUI Settings
 
-The GUI settings screen contains maintenance actions that are useful while developing and testing locally. `Repair/Create Database` reruns the non-destructive startup preparation workflow, creating the configured database if missing and ensuring FORGE support tables are available. The database wipe action drops FORGE-owned contract tables and `forge_*` tables after explicit confirmation.
+The GUI settings screen contains maintenance actions that are useful while developing and testing locally. `Repair/Create Database` reruns the non-destructive startup preparation workflow, creating the configured database if missing and ensuring FORGE support tables are available. `Benchmark` opens a separate window where a SCID file can be selected and run through import, derived-data build, event statistics, and backtest timing. The database wipe action drops FORGE-owned contract tables and `forge_*` tables after explicit confirmation.
 
 ## Admin CLI Workflows
 

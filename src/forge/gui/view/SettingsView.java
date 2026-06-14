@@ -52,6 +52,13 @@ public class SettingsView {
         Button prepareButton = new Button("Repair/Create Database");
         prepareButton.disableProperty().bind(viewModel.runningProperty());
 
+        Label benchmarkDescription = new Label(
+                "Runs the benchmark workflow in a separate window using a selected SCID file."
+        );
+        benchmarkDescription.setWrapText(true);
+
+        Button benchmarkButton = new Button("Benchmark");
+
         Label warning = new Label(
                 "Drops all FORGE-owned database tables in the configured PostgreSQL database. " +
                         "Imported trades, derived data, and import metadata will be removed."
@@ -80,6 +87,7 @@ public class SettingsView {
         errorLabel.setStyle("-fx-text-fill: #b00020;");
 
         prepareButton.setOnAction(event -> prepareDatabase());
+        benchmarkButton.setOnAction(event -> openBenchmark(owner));
         wipeButton.setOnAction(event -> wipeDatabase(owner));
 
         VBox root = new VBox(12);
@@ -90,6 +98,8 @@ public class SettingsView {
                 databaseHeading,
                 prepareDescription,
                 prepareButton,
+                benchmarkDescription,
+                benchmarkButton,
                 warning,
                 wipeButton,
                 progressBar,
@@ -98,6 +108,18 @@ public class SettingsView {
                 errorLabel
         );
         return root;
+    }
+
+    private void openBenchmark(Window owner) {
+        /*
+         * Intent: Open the benchmark dialog from the Settings screen.
+         * Precondition: Settings view has access to the GUI facade.
+         * Returns: Nothing.
+         * Postcondition: Benchmark workflow controls are displayed in a separate window.
+         */
+        new BenchmarkDialogView(FacadeForgeGui.getTheInstance()
+                .forgeGuiAccess()
+                .createBenchmarkController()).show(owner);
     }
 
     private void prepareDatabase() {

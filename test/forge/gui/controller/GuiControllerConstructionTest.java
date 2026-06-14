@@ -1,6 +1,8 @@
 package forge.gui.controller;
 
 import forge.app.FacadeForgeApplication;
+import forge.benchmark.FacadeForgeBenchmark;
+import forge.gui.viewmodel.BenchmarkViewModel;
 import forge.gui.view.MainWindowView;
 import forge.gui.viewmodel.BacktestViewModel;
 import forge.gui.viewmodel.EventStatisticsViewModel;
@@ -23,6 +25,7 @@ class GuiControllerConstructionTest {
             assertNotNull(new EventStatisticsController().getViewModel());
             assertNotNull(new BacktestController().getViewModel());
             assertNotNull(new SettingsController().getViewModel());
+            assertNotNull(new BenchmarkController().getViewModel());
         }
     }
 
@@ -34,6 +37,7 @@ class GuiControllerConstructionTest {
             EventStatisticsViewModel eventStatisticsViewModel = new EventStatisticsViewModel();
             BacktestViewModel backtestViewModel = new BacktestViewModel();
             SettingsViewModel settingsViewModel = new SettingsViewModel();
+            BenchmarkViewModel benchmarkViewModel = new BenchmarkViewModel();
 
             assertSame(importDataViewModel, new ImportDataController(
                     FacadeForgeApplication.getTheInstance(),
@@ -51,6 +55,10 @@ class GuiControllerConstructionTest {
                     FacadeForgeApplication.getTheInstance(),
                     settingsViewModel
             ).getViewModel());
+            assertSame(benchmarkViewModel, new BenchmarkController(
+                    FacadeForgeBenchmark.getTheInstance(),
+                    benchmarkViewModel
+            ).getViewModel());
         }
 
         @Test
@@ -65,6 +73,11 @@ class GuiControllerConstructionTest {
             assertThrows(IllegalArgumentException.class, () -> new SettingsController(null, new SettingsViewModel()));
             assertThrows(IllegalArgumentException.class, () -> new SettingsController(
                     FacadeForgeApplication.getTheInstance(),
+                    null
+            ));
+            assertThrows(IllegalArgumentException.class, () -> new BenchmarkController(null, new BenchmarkViewModel()));
+            assertThrows(IllegalArgumentException.class, () -> new BenchmarkController(
+                    FacadeForgeBenchmark.getTheInstance(),
                     null
             ));
         }

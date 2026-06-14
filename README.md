@@ -47,10 +47,11 @@ FORGE JavaFX GUI
 │  └─ Save/load the latest backtest report as a project-local .dat file
 └─ Settings
    ├─ Repair/create the configured database and support tables
+   ├─ Open a benchmark window for SCID-based workflow timing
    └─ Drop FORGE-owned database tables after explicit confirmation
 ```
 
-The GUI is the primary user-facing surface for research workflows. It prepares the configured PostgreSQL database in the background on startup. Backtest and event-statistics runs execute as background tasks so the JavaFX window remains responsive. Multi-contract runs display aggregate progress plus per-contract progress while work is active. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
+The GUI is the primary user-facing surface for research workflows. It prepares the configured PostgreSQL database in the background on startup. Backtest, event-statistics, import, and benchmark runs execute as background tasks so the JavaFX window remains responsive. Multi-contract runs display aggregate progress plus per-contract progress while work is active. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
 
 ## Admin CLI
 
@@ -63,7 +64,7 @@ Select Action
 └─ Wipe Database
 ```
 
-The CLI is reserved for admin and maintenance operations. The benchmark workflow runs import, derived-data build, event statistics, and backtest through the normal application facades with compact progress/timing output.
+The CLI is reserved for admin and maintenance operations. Benchmarking is also available from the GUI Settings screen for local timing checks.
 
 ## Object-Oriented Design
 

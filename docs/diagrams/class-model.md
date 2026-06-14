@@ -14,6 +14,7 @@ classDiagram
         Event Statistics
         Backtest
         Settings
+        Benchmark dialog
     }
 
     class AdminCLI {
