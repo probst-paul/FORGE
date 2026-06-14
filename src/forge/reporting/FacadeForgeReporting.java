@@ -59,7 +59,7 @@ public class FacadeForgeReporting {
         }
 
         /*
-         * Intent: Convert a report model into CLI/export-friendly summary text.
+         * Intent: Convert a report model into display/export-friendly summary text.
          * Precondition: report must be non-null.
          * Returns: Multi-line summary of run totals and performance sections.
          * Postcondition: Report state is unchanged.

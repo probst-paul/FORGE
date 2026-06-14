@@ -7,7 +7,7 @@ public class ImportProgress {
 
     public ImportProgress(String contractSymbol, long processedRecords, long totalRecords) {
         /*
-         * Intent: Capture import completion state for CLI and GUI progress displays.
+         * Intent: Capture import completion state for GUI progress displays.
          * Precondition: Contract symbol must be nonblank; processed and total counts must be nonnegative; processed cannot exceed total.
          * Returns: A constructed ImportProgress instance.
          * Postcondition: Progress counts are valid and contract symbol is trimmed.

@@ -39,23 +39,6 @@ Exit `psql`:
 
 The JavaFX GUI automatically prepares the configured PostgreSQL database on startup. If the database is missing, FORGE attempts to create it and ensure the required support tables exist. The Settings screen also provides a `Repair/Create Database` action for manually rerunning the same non-destructive preparation workflow.
 
-The admin CLI can still be used to change database connection settings when needed:
-
-```bash
-mvn exec:java
-```
-
-Then choose `3. Configure Database` and use:
-
-```text
-Host: localhost
-Port: 5432
-Database name: forge
-Maintenance database: postgres
-Username: postgres
-Password: postgres
-```
-
 Launch the JavaFX GUI:
 
 ```bash
@@ -79,12 +62,6 @@ Launch the JavaFX GUI:
 
 ```bash
 mvn javafx:run
-```
-
-Run the admin CLI:
-
-```bash
-mvn exec:java
 ```
 
 Build a runnable jar with dependencies included:

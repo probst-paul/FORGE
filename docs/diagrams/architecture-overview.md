@@ -3,8 +3,7 @@
 ```mermaid
 flowchart LR
     subgraph UI["User Interfaces"]
-        GUI["JavaFX GUI<br/>Import, Event Statistics, Backtest, Settings"]
-        CLI["Admin CLI<br/>Database Config, Import, Derived Builds, Benchmark, Wipe"]
+        GUI["JavaFX GUI<br/>Import, Event Statistics, Backtest, Settings, Benchmark"]
     end
 
     APP["app/<br/>FacadeForgeApplication<br/>workflow requests"]
@@ -28,7 +27,6 @@ flowchart LR
     MODEL["model/<br/>instruments and futures contracts"]
 
     GUI --> APP
-    CLI --> APP
     APP --> DATA
     APP --> ENGINE
     APP --> REPORTING

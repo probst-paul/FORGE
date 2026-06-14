@@ -1,6 +1,6 @@
 # Workflow Sequences
 
-## User Workflows
+## User Workflow
 
 ```mermaid
 flowchart TB
@@ -13,22 +13,8 @@ flowchart TB
         G6["Settings<br/>repair/create database, benchmark, or confirmed wipe"]
     end
 
-    subgraph CLI["Admin CLI"]
-        C1["Configure Database"]
-        C2["Import Data"]
-        C3["Build/Refresh Derived Data"]
-        C4["Run Benchmark Workflow"]
-        C5["Wipe Database"]
-    end
-
     DATA["PostgreSQL<br/>contract tables, metadata, derived rows"]
     ENGINE["Engine Facades<br/>statistics and backtest runs"]
-
-    C1 --> DATA
-    C2 --> DATA
-    C3 --> DATA
-    C4 --> DATA
-    C5 --> DATA
 
     G1 --> DATA
     G2 --> DATA
@@ -39,7 +25,7 @@ flowchart TB
     ENGINE --> G5
 ```
 
-## GUI End-User Workflow
+## GUI Event Statistics Details Workflow
 
 ```mermaid
 sequenceDiagram
@@ -50,12 +36,7 @@ sequenceDiagram
     participant Importer as ScidDataImportService
     participant Builder as DerivedDataBuildService
     participant StatsEngine as EventStatisticsEngine
-    participant BacktestEngine as BacktestEngine
-    participant Jobs as EngineJobRunner
     participant Repo as PostgreSQL Tick Provider
-    participant Strategy as TradingStrategy
-    participant Risk as RiskManager
-    participant Trade as TradeLifecycleEngine
     participant Report as Reporting Models
 
     Trader->>GUI: Launch JavaFX GUI
@@ -64,31 +45,39 @@ sequenceDiagram
     Data->>Repo: CREATE DATABASE / CREATE TABLE IF missing
     Repo-->>GUI: Database ready or failure shown in Settings
 
-    Trader->>GUI: Select Import Data
-    Trader->>GUI: Choose SCID file with system file browser
-    Trader->>GUI: Choose Fill Missing or Overwrite Overlap import mode
-    Trader->>GUI: Select derived data to build after import
-    GUI->>App: planDataImport(DataImportRequest)
-    App->>Data: planScidImport(path)
-    Data->>Importer: Inspect contract name, metadata, file range, and overlap
-    Importer-->>Data: DataImportPlan
-    Data-->>App: DataImportPlan
-    App-->>GUI: DataImportPlan
-    GUI->>App: importData(DataImportRequest)
-    App->>Data: importScidFile(path, importMode, progressListener)
-    opt Overwrite Overlap mode
-        Data->>Importer: Delete only stored rows overlapping selected file range
+    opt Missing or supplemental SCID data is needed
+        Trader->>GUI: Select Import Data
+        Trader->>GUI: Choose SCID file with system file browser
+        GUI->>App: planDataImport(DataImportRequest)
+        App->>Data: planScidImport(path)
+        Data->>Importer: Parse and normalize filename to instrument/contract identity
+        Importer->>Repo: Match normalized contract to stored contract metadata
+        Repo-->>Importer: Existing coverage and overlap details
+        Importer-->>Data: DataImportPlan
+        Data-->>App: DataImportPlan
+        App-->>GUI: DataImportPlan
+        Trader->>GUI: Choose Fill Missing, Overwrite Overlap, or Cancel
+        GUI->>App: importData(DataImportRequest)
+        App->>Data: importScidFile(path, importMode, progressListener)
+        alt Fill Missing mode
+            Data->>Importer: Keep stored rows and stage only non-duplicate trades
+        else Overwrite Overlap mode
+            Data->>Importer: Delete stored rows only inside selected file range
+        end
+        Data->>Importer: Import validated rollover-filtered SCID rows
+        Importer->>Repo: Insert tick rows into normalized contract table
+        Importer->>Repo: Update forge_contract_imports metadata
+        Importer-->>GUI: ImportProgress
+        Data-->>App: DataImportResult
+        App-->>GUI: DataImportResult
     end
-    Data->>Importer: Import rollover-filtered SCID rows
-    Importer->>Repo: Persist tick rows and import metadata
-    Importer-->>GUI: ImportProgress
-    Data-->>App: DataImportResult
-    App-->>GUI: DataImportResult
 
-    opt Build selected derived data after import
+    opt User requests derived data build after import
+        Trader->>GUI: Select session range and event build options
         GUI->>Data: runDatabaseBuild(DatabaseBuildRequest, progressListener)
-        Data->>Builder: Build selected session/event derived data
-        Builder->>Repo: Persist derived rows
+        Data->>Builder: Build session ranges and first-hour breach events
+        Builder->>Repo: Insert/update forge_session_ranges rows
+        Builder->>Repo: Insert/update forge_market_events rows
         Builder-->>GUI: DataBuildProgress
         Data-->>GUI: DatabaseBuildResult
     end
@@ -97,22 +86,55 @@ sequenceDiagram
     Trader->>GUI: Select study, instruments, and rollover-clipped contract windows
     GUI->>App: runEventStatistics(EventStatisticsQueryRequest, progressListener)
     App->>StatsEngine: run(request, progressListener)
-    StatsEngine->>Data: Build missing required derived data
-    Data->>Builder: Build missing session/event rows
-    Builder->>Repo: Persist missing derived rows
-    StatsEngine->>Jobs: Run independent contract statistic jobs
-    Jobs->>Repo: Read stored derived event data by contract window
-    Repo-->>Jobs: Event/statistics rows
-    Jobs-->>StatsEngine: Contract-level statistics results
-    StatsEngine-->>GUI: Aggregate and per-contract progress
+    StatsEngine->>Data: Ensure required derived data exists
+    Data->>Builder: Build and persist missing session/event rows when needed
+    Builder->>Repo: Store missing derived data
+    StatsEngine->>Repo: Aggregate sessions, event counts, ranges, and volume
+    Repo-->>StatsEngine: Contract-level summary statistics
+    StatsEngine->>Repo: Join market events to session ranges by contract/date
+    Repo-->>StatsEngine: Row-level event details with session context
     StatsEngine->>Report: Build event-statistics report
-    Report-->>StatsEngine: EventStatisticsReport
+    Report-->>StatsEngine: Summary and Details report model
     StatsEngine-->>App: EventStatisticsReport
     App-->>GUI: EventStatisticsReport
     GUI-->>Trader: Display summary cards and details table
 
-    Trader->>GUI: Select futures market, instruments, and contract windows
-    Trader->>GUI: Select strategy and risk settings
+    alt Import or statistics failure
+        Importer-->>App: Error
+        StatsEngine-->>App: Error
+        App-->>GUI: Error
+        GUI-->>Trader: Display failure message without freezing application
+    end
+
+    opt Settings repair/create database
+        Trader->>GUI: Select Settings
+        Trader->>GUI: Click Repair/Create Database
+        GUI->>App: prepareDatabase()
+        App->>Data: ensure configured database and support tables
+        Data->>Repo: Create missing database/support tables
+        Repo-->>GUI: Database ready or failure shown in Settings
+    end
+```
+
+## GUI Backtest Workflow
+
+```mermaid
+sequenceDiagram
+    actor Trader
+    participant GUI as JavaFX GUI
+    participant App as FacadeForgeApplication
+    participant Data as FacadeForgeData
+    participant Builder as DerivedDataBuildService
+    participant BacktestEngine as BacktestEngine
+    participant Jobs as EngineJobRunner
+    participant Repo as PostgreSQL Tick Provider
+    participant Strategy as TradingStrategy
+    participant Risk as RiskManager
+    participant Trade as TradeLifecycleEngine
+    participant Report as Reporting Models
+
+    Trader->>GUI: Select Backtest
+    Trader->>GUI: Select instruments, contract windows, strategy, and risk settings
     GUI->>GUI: Validate required selections and numeric risk values
     GUI->>GUI: Create JavaFX background backtest task
     GUI->>App: runBacktest(BacktestRequest, progressListener)
@@ -172,6 +194,17 @@ sequenceDiagram
         GUI->>GUI: Deserialize saved BacktestResult .dat file
         GUI-->>Trader: Display loaded summary cards and simulated trades table
     end
+```
+
+## GUI Settings Workflows
+
+```mermaid
+sequenceDiagram
+    actor Trader
+    participant GUI as JavaFX GUI
+    participant App as FacadeForgeApplication
+    participant Data as FacadeForgeData
+    participant Repo as PostgreSQL Tick Provider
 
     opt Settings repair/create database
         Trader->>GUI: Select Settings
@@ -187,11 +220,6 @@ sequenceDiagram
         Trader->>GUI: Click Benchmark
         GUI-->>Trader: Open benchmark window
         Trader->>GUI: Select SCID file and benchmark options
-        GUI->>GUI: Create JavaFX background benchmark task
-        GUI->>App: importData(...)
-        GUI->>Data: runDatabaseBuild(...)
-        GUI->>App: runEventStatistics(...)
-        GUI->>App: runBacktest(...)
         GUI-->>Trader: Display benchmark counts and timing summary
     end
 
@@ -203,83 +231,5 @@ sequenceDiagram
         App->>Data: wipeDatabase()
         Data->>Repo: Drop FORGE-owned contract and forge_* tables
         Repo-->>GUI: Dropped table count
-    end
-```
-
-## CLI Admin Workflow
-
-```mermaid
-sequenceDiagram
-    actor Admin
-    participant CLI as Admin CLI
-    participant App as FacadeForgeApplication
-    participant Data as FacadeForgeData
-    participant Importer as ScidDataImportService
-    participant Builder as DerivedDataBuildService
-    participant Benchmark as FacadeForgeBenchmark
-    participant Repo as PostgreSQL Repository
-
-    Admin->>CLI: Start CLI
-    CLI-->>Admin: Show Import / Derived Data / Configure DB / Benchmark / Wipe
-
-    alt Configure Database
-        Admin->>CLI: Enter database host, port, database, user, password
-        CLI->>App: configureDatabase(DatabaseConnectionRequest)
-        App->>Data: configurePostgresDatabase(settings)
-        Data->>Repo: Create/reuse database and schema support tables
-        Repo-->>Data: Database ready
-        Data-->>App: Configured
-        App-->>CLI: Accepted database settings
-        CLI-->>Admin: Show configuration result
-    else Import Data
-        Admin->>CLI: Enter SCID file path
-        CLI->>App: planDataImport(DataImportRequest)
-        App->>Data: planScidImport(path)
-        Data->>Importer: Inspect SCID file and contract metadata
-        Importer->>Repo: Check existing contract table/import metadata
-        Repo-->>Importer: Import plan
-        Importer-->>Data: DataImportPlan
-        Data-->>App: DataImportPlan
-        App-->>CLI: DataImportPlan
-        CLI->>CLI: Confirm overlap overwrite or keep existing rows
-        CLI->>App: importData(DataImportRequest)
-        App->>Data: importScidFile(path, importMode, progressListener)
-        Data->>Importer: Import rollover-filtered rows
-        Importer->>Repo: COPY batches and advance checkpoint
-        Importer-->>CLI: ImportProgress
-        Data-->>App: DataImportResult
-        App-->>CLI: DataImportResult
-        CLI-->>Admin: Show import summary
-    else Build/Refresh Derived Data
-        Admin->>CLI: Select contract windows and derived data options
-        CLI->>Data: planDatabaseBuild(DatabaseBuildRequest)
-        Data->>Builder: Build plan
-        Builder-->>Data: DatabaseBuildPlan
-        Data-->>CLI: DatabaseBuildPlan
-        CLI->>Data: runDatabaseBuild(request, progressListener)
-        Data->>Builder: Build selected derived rows
-        Builder->>Repo: Persist derived session/event data
-        Builder-->>CLI: DataBuildProgress
-        Data-->>CLI: DatabaseBuildResult
-        CLI-->>Admin: Show derived-data result
-    else Run Benchmark Workflow
-        Admin->>CLI: Enter SCID file path and import/build choices
-        CLI->>Benchmark: runBenchmark(BenchmarkRunRequest)
-        Benchmark->>App: importData(...)
-        Benchmark->>Data: runDatabaseBuild(...)
-        Benchmark->>App: runEventStatistics(...)
-        Benchmark->>App: runBacktest(...)
-        Benchmark-->>CLI: BenchmarkRunResult with timings
-        CLI-->>Admin: Show compact benchmark summary
-    else Wipe Database
-        Admin->>CLI: Confirm y/n
-        Admin->>CLI: Type WIPE
-        CLI->>App: wipeDatabase()
-        App->>Data: wipeDatabase()
-        Data->>Repo: Drop FORGE-owned contract and forge_* tables
-        Repo-->>Data: Dropped table count
-        Data-->>App: Dropped table count
-        App-->>CLI: Dropped table count
-        CLI-->>Admin: Show wipe result
     end
 ```

@@ -1,10 +1,7 @@
 # FORGE Class Model
 
 ```mermaid
----
-config:
-  layout: elk
----
+
 classDiagram
     direction TB
 
@@ -15,14 +12,6 @@ classDiagram
         Backtest
         Settings
         Benchmark dialog
-    }
-
-    class AdminCLI {
-        Database config
-        Import
-        Derived data
-        Benchmark
-        Wipe
     }
 
     class FacadeForgeApplication {
@@ -101,8 +90,6 @@ classDiagram
     }
 
     GUI --> FacadeForgeApplication
-    AdminCLI --> FacadeForgeApplication
-
     FacadeForgeApplication --> FacadeForgeData
     FacadeForgeApplication --> FacadeForgeEngine
     FacadeForgeApplication --> FacadeForgeReporting

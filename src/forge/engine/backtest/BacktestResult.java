@@ -125,7 +125,7 @@ public class BacktestResult implements Serializable {
     @Override
     public String toString() {
         /*
-         * Intent: Render the backtest result as CLI-friendly text.
+         * Intent: Render the backtest result as display/export-friendly text.
          * Precondition: Result fields must have been initialized by the constructor.
          * Returns: Multi-line summary of run totals and per-scope performance metrics.
          * Postcondition: Report state is unchanged.

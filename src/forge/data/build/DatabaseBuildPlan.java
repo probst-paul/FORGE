@@ -32,7 +32,7 @@ public class DatabaseBuildPlan {
          * Intent: Capture the derived-data build decision before running any work.
          * Precondition: Contract windows/options must be present and total tick count cannot be negative.
          * Returns: A constructed DatabaseBuildPlan instance.
-         * Postcondition: Plan is immutable and can be used by CLI/GUI to preview work.
+         * Postcondition: Plan is immutable and can be used by GUI workflows to preview work.
          */
         if (contractWindows == null || contractWindows.isEmpty()) {
             throw new IllegalArgumentException("at least one contract window is required");

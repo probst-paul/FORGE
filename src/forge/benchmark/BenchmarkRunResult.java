@@ -29,7 +29,7 @@ public class BenchmarkRunResult {
          * Intent: Store the outputs and timing measurements from a completed benchmark workflow.
          * Precondition: All result objects must exist and all durations must be non-null and nonnegative.
          * Returns: A constructed BenchmarkRunResult instance.
-         * Postcondition: Benchmark outputs are available as immutable references for CLI/GUI reporting.
+         * Postcondition: Benchmark outputs are available as immutable references for GUI reporting.
          */
         if (importResult == null) {
             throw new IllegalArgumentException("importResult is required");

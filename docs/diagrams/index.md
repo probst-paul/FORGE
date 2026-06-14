@@ -5,5 +5,4 @@ These diagrams summarize the major FORGE architecture, workflow, data import, ob
 - [Architecture Overview](architecture-overview.md)
 - [Data Import Flow](data-import-flow.md)
 - [Workflow Sequences](workflow-sequences.md)
-- [Object-Oriented Design](object-oriented-design.md)
 - [Class Model](class-model.md)

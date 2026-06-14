@@ -2,7 +2,7 @@
 
 **Futures Order Replay and Generalized Execution Engine**
 
-FORGE is an early-stage Java futures research and backtesting project. It provides a JavaFX GUI for user-facing import, event statistics, backtest, and settings workflows; a CLI for administration tasks such as import, derived-data builds, database configuration, benchmark runs, and database wipes; and a SCID-to-PostgreSQL import flow with contract validation, overlap-aware import modes, checkpointing, progress reporting, and front-month rollover filtering.
+FORGE is an early-stage Java futures research and backtesting project. It provides a JavaFX GUI for import, event statistics, backtest, settings, benchmark, and database maintenance workflows, plus a SCID-to-PostgreSQL import flow with contract validation, overlap-aware import modes, checkpointing, progress reporting, and front-month rollover filtering.
 
 The project is organized around reusable market research layers: raw imported ticks, derived features, market events, studies, statistics, strategies, simulation engines, trade lifecycle handling, risk checks, and reporting models. The goal is to support futures market structure research first, then layer simulated trade execution on top of those reusable study/event results.
 
@@ -11,7 +11,6 @@ FORGE is an early-stage system rather than a complete historical market replay o
 ## Highlights
 
 - JavaFX GUI for user-facing import, event statistics, backtest, and settings workflows
-- Admin CLI for database configuration, import, derived-data refresh, benchmarks, and database wipes
 - Automatic GUI startup database preparation with manual repair/create support in Settings
 - PostgreSQL-backed SCID ingestion with contract validation, fill-missing/overwrite-overlap import modes, checkpointing, rollover filtering, and progress reporting
 - Database-derived instrument catalog based on imported, rollover-clipped contract windows
@@ -53,19 +52,6 @@ FORGE JavaFX GUI
 
 The GUI is the primary user-facing surface for research workflows. It prepares the configured PostgreSQL database in the background on startup. Backtest, event-statistics, import, and benchmark runs execute as background tasks so the JavaFX window remains responsive. Multi-contract runs display aggregate progress plus per-contract progress while work is active. Backtest and event-statistics results persist while the GUI window remains open, and users can save/load report snapshots as `.dat` files under `runtime/reports`.
 
-## Admin CLI
-
-```text
-Select Action
-├─ Import Data
-├─ Build/Refresh Derived Data
-├─ Configure Database
-├─ Run Benchmark Workflow
-└─ Wipe Database
-```
-
-The CLI is reserved for admin and maintenance operations. Benchmarking is also available from the GUI Settings screen for local timing checks.
-
 ## Object-Oriented Design
 
 - **Facade pattern:** Package-level facades such as `FacadeForgeApplication`, `FacadeForgeData`, `FacadeForgeGui`, `FacadeForgeRisk`, `FacadeForgeTrade`, and `FacadeForgeEngine` provide narrow entry points into larger subsystems.
@@ -81,9 +67,8 @@ The CLI is reserved for admin and maintenance operations. Benchmarking is also a
 ## Project Structure
 
 ```text
-src/forge/app        Application facade, workflow requests, progress listeners, console input/output abstractions
+src/forge/app        Application facade, workflow requests, and progress listeners
 src/forge/benchmark  Optional benchmark workflow over import, derived data, statistics, and backtest
-src/forge/cli        Admin CLI controller and selection services
 src/forge/config     Backtest configuration objects
 src/forge/data       Data facade, importing, PostgreSQL, market data, catalog, rollover, and derived build packages
 src/forge/engine     Engine facade, market context, concurrent job runner, backtest engine, and event-statistics engine packages
@@ -107,12 +92,6 @@ Launch the JavaFX GUI:
 
 ```bash
 mvn javafx:run
-```
-
-Run the admin CLI:
-
-```bash
-mvn exec:java
 ```
 
 Build a runnable jar with dependencies included:
@@ -143,7 +122,7 @@ The `YMM6` file is a small importable sample. The `InvalidHeader` and `RuntimeTi
 ## More Documentation
 
 - [Setup](docs/setup.md): PostgreSQL setup, environment variables, build commands, and sample import path
-- [Workflows](docs/workflows.md): GUI and CLI workflow details
+- [Workflows](docs/workflows.md): GUI workflow details
 - [Data Import](docs/data-import.md): SCID mapping, PostgreSQL schema, contract validation, overlap-aware imports, rollover filtering, and progress behavior
 - [Architecture](docs/architecture.md): Package responsibilities, study/statistics/backtest layering, and object-oriented design notes
 - [Diagrams](docs/diagrams/index.md): Architecture, workflow, data import, research/backtest, OO design, and full class model diagrams

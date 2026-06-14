@@ -2,7 +2,7 @@
 
 ```mermaid
 sequenceDiagram
-    participant UI as GUI or Admin CLI
+    participant UI as JavaFX GUI
     participant App as FacadeForgeApplication
     participant Data as FacadeForgeData
     participant Importer as ScidDataImportService

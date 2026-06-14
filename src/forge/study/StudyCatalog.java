@@ -37,7 +37,7 @@ public class StudyCatalog {
 
     public List<String> findAvailableStudyNames() {
         /*
-         * Intent: List study identifiers available to CLI/GUI selectors.
+         * Intent: List study identifiers available to GUI selectors.
          * Precondition: Catalog must have been constructed with valid studies.
          * Returns: Unmodifiable list of study names.
          * Postcondition: Catalog state is unchanged.

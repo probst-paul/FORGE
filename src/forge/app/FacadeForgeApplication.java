@@ -4,7 +4,6 @@ import forge.config.BacktestRequest;
 import forge.data.FacadeForgeData;
 import forge.data.importing.DataImportPlan;
 import forge.data.importing.DataImportResult;
-import forge.data.postgres.PostgresDatabaseSettings;
 import forge.engine.FacadeForgeEngine;
 import forge.engine.eventstatistics.EventStatisticsQueryRequest;
 import forge.reporting.eventstatistics.EventStatisticsReport;
@@ -127,25 +126,6 @@ public class FacadeForgeApplication {
         public DataImportPlan planDataImport(DataImportRequest request) {
             Objects.requireNonNull(request, "request is required");
             return forgeData.forgeDataAccess().planScidImport(request.getScidFilePath());
-        }
-
-        /*
-         * Intent: Configure PostgreSQL database access through the data facade.
-         * Precondition: Database connection request must exist and contain validated connection settings.
-         * Returns: The same request after configuration succeeds.
-         * Postcondition: Data package database settings are updated.
-         */
-        public DatabaseConnectionRequest configureDatabase(DatabaseConnectionRequest request) {
-            Objects.requireNonNull(request, "request is required");
-            forgeData.forgeDataAccess().configurePostgresDatabase(new PostgresDatabaseSettings(
-                    request.getHost(),
-                    request.getPort(),
-                    request.getDatabaseName(),
-                    request.getMaintenanceDatabaseName(),
-                    request.getUsername(),
-                    request.getPassword()
-            ));
-            return request;
         }
 
         /*

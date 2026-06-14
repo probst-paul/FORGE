@@ -48,7 +48,7 @@ public class StrategyCatalog {
 
     public String getDescription(Class<? extends TradingStrategy> strategyClass) {
         /*
-         * Intent: Provide short CLI/GUI help text for a strategy.
+         * Intent: Provide short GUI help text for a strategy.
          * Precondition: strategyClass must be non-null.
          * Returns: Strategy-specific description or a generic fallback.
          * Postcondition: Strategy class is not instantiated.
@@ -66,7 +66,7 @@ public class StrategyCatalog {
         /*
          * Intent: Define which market events a strategy allows.
          * Precondition: strategyClass must be one of the configured strategy classes.
-         * Returns: StrategyConfigurationProfile for CLI/GUI setup.
+         * Returns: StrategyConfigurationProfile for GUI setup.
          * Postcondition: Unsupported strategies are rejected before configuration is shown.
          */
         if (OpeningRangeContinuationStrategy.class.equals(strategyClass)) {

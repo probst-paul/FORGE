@@ -18,7 +18,7 @@ public class FacadeForgeEvent {
 
     public static FacadeForgeEvent getTheInstance() {
         /*
-         * Intent: Provide the shared event facade used by application and CLI wiring.
+         * Intent: Provide the shared event facade used by application and GUI wiring.
          * Precondition: Static facade instance must have initialized successfully.
          * Returns: Singleton FacadeForgeEvent instance.
          * Postcondition: No new facade is created.

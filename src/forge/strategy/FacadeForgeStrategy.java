@@ -57,7 +57,7 @@ public class FacadeForgeStrategy {
         }
 
         /*
-         * Intent: Retrieve CLI/GUI configuration rules for a strategy.
+         * Intent: Retrieve GUI configuration rules for a strategy.
          * Precondition: strategy must have a catalog configuration profile.
          * Returns: StrategyConfigurationProfile.
          * Postcondition: Configuration details stay centralized in the strategy package.

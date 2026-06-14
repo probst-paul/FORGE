@@ -28,7 +28,7 @@ public class FacadeForgeEngine {
 
     public static FacadeForgeEngine getTheInstance() {
         /*
-         * Intent: Provide the shared engine facade used by app, CLI, and GUI layers.
+         * Intent: Provide the shared engine facade used by app and GUI layers.
          * Precondition: Static facade instance must have initialized successfully.
          * Returns: Singleton FacadeForgeEngine instance.
          * Postcondition: No new facade is created.

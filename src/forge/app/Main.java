@@ -1,15 +1,15 @@
 package forge.app;
 
-import forge.cli.FacadeForgeCli;
+import forge.gui.FacadeForgeGui;
 
 public class Main {
     /*
-     * Intent: Start the CLI application through its package facade.
-     * Precondition: CLI facade singleton must be available.
+     * Intent: Start the JavaFX GUI application through its package facade.
+     * Precondition: JavaFX runtime and GUI facade singleton must be available.
      * Returns: Nothing.
-     * Postcondition: CLI workflow runs until completion or user exit.
+     * Postcondition: GUI workflow runs until the application exits.
      */
     public static void main(String[] args) {
-        FacadeForgeCli.getTheInstance().forgeCliAccess().run();
+        FacadeForgeGui.getTheInstance().forgeGuiAccess().launch(args);
     }
 }

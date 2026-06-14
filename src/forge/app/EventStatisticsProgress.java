@@ -6,7 +6,7 @@ public class EventStatisticsProgress {
 
     public EventStatisticsProgress(long processedTicks, long totalTicks) {
         /*
-         * Intent: Capture event-statistics tick-processing state for CLI and GUI progress displays.
+         * Intent: Capture event-statistics tick-processing state for GUI progress displays.
          * Precondition: Processed and total tick counts must be nonnegative; processed cannot exceed total.
          * Returns: A constructed EventStatisticsProgress instance.
          * Postcondition: Progress counts are valid and immutable.

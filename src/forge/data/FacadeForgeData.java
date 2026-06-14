@@ -41,7 +41,7 @@ public class FacadeForgeData {
 
     public static FacadeForgeData getTheInstance() {
         /*
-         * Intent: Provide the shared data facade used by application, engine, and CLI wiring.
+         * Intent: Provide the shared data facade used by application, engine, and GUI wiring.
          * Precondition: Static facade instance must have initialized successfully.
          * Returns: Singleton FacadeForgeData instance.
          * Postcondition: No new facade is created.
@@ -243,25 +243,6 @@ public class FacadeForgeData {
             tradeRepository.ensureDerivedDataTablesExist();
         }
 
-        public void configurePostgresDatabase(PostgresDatabaseSettings databaseSettings) {
-            /*
-             * Intent: Reconfigure all data services to use a new PostgreSQL database target.
-             * Precondition: Database settings must be valid.
-             * Returns: Nothing.
-             * Postcondition: Catalog, importer, tick provider, and derived-data builder are rebuilt around the new settings.
-             */
-            if (databaseSettings == null) {
-                throw new IllegalArgumentException("databaseSettings is required");
-            }
-            PostgresTradeRepository tradeRepository = new PostgresTradeRepository(databaseSettings);
-            instrumentDataCatalog = new InstrumentDataCatalog(tradeRepository);
-            scidDataImportService = new ScidDataImportService(
-                    new ContractNameResolver(),
-                    tradeRepository
-            );
-            tickDataProvider = new PostgresTickDataProvider(databaseSettings);
-            derivedDataBuildService = createDerivedDataBuildService(tickDataProvider, tradeRepository);
-        }
     }
 
     private DerivedDataBuildService createDerivedDataBuildService(

@@ -13,7 +13,7 @@ public class FacadeForgeConfig {
 
     public static FacadeForgeConfig getTheInstance() {
         /*
-         * Intent: Provide the shared config facade used by application and CLI wiring.
+         * Intent: Provide the shared config facade used by application and GUI wiring.
          * Precondition: Static facade instance must have initialized successfully.
          * Returns: Singleton FacadeForgeConfig instance.
          * Postcondition: No new facade is created.
@@ -41,7 +41,7 @@ public class FacadeForgeConfig {
                 RiskSettings riskSettings
         ) {
             /*
-             * Intent: Build a simple backtest request from primitive CLI-style selections.
+             * Intent: Build a simple backtest request from primitive GUI selections.
              * Precondition: Strategy name, symbols, dates, event name, and risk settings must be valid.
              * Returns: BacktestRequest using default order settings.
              * Postcondition: Inputs are wrapped into config value objects.

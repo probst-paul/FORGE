@@ -1,6 +1,6 @@
 # Workflows
 
-FORGE has two user surfaces: the JavaFX GUI for research workflows and the admin CLI for setup, maintenance, and benchmarking.
+FORGE uses the JavaFX GUI as its user-facing surface for research, setup, maintenance, and benchmarking workflows.
 
 ## JavaFX GUI Workflows
 
@@ -60,54 +60,8 @@ Backtest reports can be saved to and loaded from `.dat` files in `runtime/report
 
 The GUI settings screen contains maintenance actions that are useful while developing and testing locally. `Repair/Create Database` reruns the non-destructive startup preparation workflow, creating the configured database if missing and ensuring FORGE support tables are available. `Benchmark` opens a separate window where a SCID file can be selected and run through import, derived-data build, event statistics, and backtest timing. The database wipe action drops FORGE-owned contract tables and `forge_*` tables after explicit confirmation.
 
-## Admin CLI Workflows
-
-```text
-Select Action
-├─ Import Data
-│  └─ Prepare PostgreSQL database/table for the selected SCID file
-├─ Build/Refresh Derived Data
-│  ├─ Select Instrument(s)
-│  │  ├─ Choose an instrument's All Available front-month contracts
-│  │  └─ Or Select Custom Contracts from rollover-clipped contract windows
-│  ├─ Select derived data to build
-│  ├─ Choose whether to rebuild existing derived rows
-│  ├─ Review the build plan
-│  └─ Build selected derived data with a single-line status bar
-├─ Configure Database
-│  └─ Set PostgreSQL host, port, database, maintenance database, username, and password
-├─ Run Benchmark Workflow
-│  └─ Run import, derived data, event statistics, and backtest with compact progress/timing output
-└─ Wipe Database
-   └─ Drop FORGE-owned contract and forge_* tables after two confirmations
-```
-
-At the CLI `Select action` prompt, enter `quit` to exit the program. The CLI is reserved for admin and maintenance operations.
-
-### CLI Import Data
-
-The CLI import workflow prepares the PostgreSQL database/table for a selected SCID file and imports contract rows with a single-line status bar. If existing contract data overlaps the selected file, the CLI asks whether to overwrite the overlapping timestamp range or keep existing rows and fill only missing data.
-
-### CLI Build/Refresh Derived Data
-
-The CLI derived-data workflow runs the reusable database build process without requiring a new SCID file. It uses selected contract windows, derived-data choices such as session ranges and first-hour breach event occurrences, and a rebuild flag to create a `DatabaseBuildRequest`.
-
-FORGE previews the work with a `DatabaseBuildPlan`, runs selected build work with a single-line status bar, and returns a `DatabaseBuildResult`.
-
-### CLI Configure Database
-
-The CLI database configuration workflow sets PostgreSQL host, port, database, maintenance database, username, and password. This remains an admin workflow for changing connection settings; normal GUI startup now prepares the configured database automatically.
-
-### CLI Benchmark Workflow
-
-The benchmark workflow takes a SCID file, runs import, derived-data build, event statistics, and backtest through the normal application facades, and displays only progress bars/timers plus a compact summary. It is intended for refactoring benchmarks and can be removed without affecting core workflows.
-
-### CLI Wipe Database
-
-The wipe workflow drops FORGE-owned contract and `forge_*` tables after two confirmation prompts.
-
 ## Shared Concept: Contract Selection
 
-Both GUI research workflows and CLI derived-data builds use valid front-month contract windows. The GUI shows instruments first, then contract windows beneath each instrument. For example, selecting `ES` exposes imported ES contract windows after rollover clipping, while individual contract rows use compact labels such as `H25: 2024-12-16 to 2025-03-16` and `Z25: 2025-09-15 to 2025-12-14`.
+GUI research workflows use valid front-month contract windows. The GUI shows instruments first, then contract windows beneath each instrument. For example, selecting `ES` exposes imported ES contract windows after rollover clipping, while individual contract rows use compact labels such as `H25: 2024-12-16 to 2025-03-16` and `Z25: 2025-09-15 to 2025-12-14`.
 
 `BacktestRequest` carries selected contract windows so the backtest engine can read each contract table using its own valid rollover-clipped date range.

@@ -79,7 +79,7 @@ For `CL`, FORGE estimates expiration as three business days before the 25th cale
 
 ## Progress Reporting
 
-The CLI renders import progress as a single updating terminal line, while the GUI renders the same progress state with JavaFX progress bars. The underlying progress calculation is exposed through `ImportProgress`.
+The GUI renders import progress with JavaFX progress bars. The underlying progress calculation is exposed through `ImportProgress`.
 
 Backtest and event-statistics runs use the same presentation idea. Before replay begins, FORGE counts strategy-usable ticks for the selected contract windows, then reports progress while batches are processed:
 
